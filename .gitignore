@@ -1,0 +1,31 @@
+# =============================================
+# Git Ignore - HRMS Project
+# =============================================
+
+# Environment files (NEVER commit these!)
+.env
+.env.*
+!.env.example
+
+# Maven build output
+target/
+
+# IDE files
+.classpath
+.project
+.settings/
+.vscode/
+*.iml
+.idea/
+
+# Logs
+*.log
+*.txt
+!README.txt
+
+# Uploaded files
+backend/uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
