@@ -1,0 +1,19 @@
+# Never include secrets in the Docker image
+.env
+.env.*
+
+# Exclude all of target EXCEPT the final JAR
+target/*
+!target/*.jar
+
+# Logs
+*.log
+*.txt
+
+# IDE / OS
+.vscode/
+.settings/
+.classpath
+.project
+.DS_Store
+Thumbs.db

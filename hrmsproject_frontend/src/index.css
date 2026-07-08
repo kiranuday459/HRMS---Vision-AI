@@ -1,0 +1,193 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* ===== VisionAI HRMS — Navy + White + Soft grey, Blue/Teal accents ===== */
+  --color-brand-yellow: #185FA5; /* Blue 600 — primary action button / active highlight */
+  --color-brand-yellow-hover: #124E86; /* Darker blue — primary hover */
+  --color-brand-blue: #042C53; /* Navy 900 — sidebar / dark surfaces */
+  --color-brand-blue-hover: #0C447C; /* Navy hover */
+  --color-brand-blue-dark: #185FA5; /* Blue 600 — strong accent / active states */
+  --color-brand-stone: #378ADD; /* Blue 400 — accent / active border */
+  --color-brand-teal: #1D9E75; /* Teal 400 — success / secondary accent */
+  --color-brand-teal-light: #E1F5EE; /* Teal 50 */
+  --color-bg-slate: #F4F6FA; /* Soft grey page background */
+  --color-card-bg: #FFFFFF; /* White card background */
+  --color-brand-card: #FFFFFF; /* White surface */
+  --color-border: #E3E8EF; /* Light border / divider */
+  --color-text-primary: #1F2A37;
+  --color-text-secondary: #5A6B7B;
+  --color-text-inverse: #FFFFFF;
+  --color-brand-text: #1F2A37; /* Primary text */
+  --color-brand-text-secondary: #5A6B7B; /* Secondary text */
+
+  --font-brand: "Inter", "Segoe UI", "Segoe UI Web", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+
+  /* Decrease global boldness by remapping weights */
+  --font-weight-black: 700;
+  --font-weight-extrabold: 700;
+  --font-weight-bold: 600;
+  --font-weight-semibold: 500;
+
+  --animate-like: like-animation 0.4s ease-in-out;
+}
+
+@keyframes like-animation {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.3);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+:root {
+  font-family: var(--font-brand);
+  background-color: var(--color-bg-slate);
+  color: var(--color-text-primary);
+}
+
+* {
+  font-family: var(--font-brand);
+  scrollbar-width: thin;
+  scrollbar-color: #C7D2DE transparent;
+  /* Firefox */
+  -ms-overflow-style: auto;
+  /* IE and Edge */
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #C7D2DE;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-brand);
+  background-color: var(--color-bg-slate);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+  /* Decreased boldness for headings */
+}
+
+/* Reusable styles for Like Buttons, Hover Effects */
+.btn-primary {
+  @apply bg-brand-yellow text-white font-medium px-4 py-2 rounded-md transition-all duration-200 active:scale-[0.98] shadow-sm hover:bg-brand-yellow-hover;
+}
+
+.btn-sidebar {
+  @apply px-5 py-3 rounded-lg cursor-pointer transition-all duration-200 text-sm font-medium;
+}
+
+.btn-sidebar-active {
+  @apply bg-brand-blue-dark text-white shadow-sm border-l-4 border-brand-stone;
+}
+
+.btn-sidebar-active.btn-sidebar:hover {
+  @apply bg-brand-blue-dark text-white;
+}
+
+.card-hover {
+  @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 hover:border-brand-blue-dark/20;
+}
+
+.btn-hoverable {
+  transition: all 180ms ease-out;
+}
+
+.btn-hoverable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(4, 44, 83, 0.08);
+}
+
+.row-hover {
+  transition: background-color 180ms ease-out, transform 180ms ease-out;
+}
+
+.row-hover:hover {
+  background-color: #F1F5FA;
+}
+
+.status-badge {
+  opacity: 0;
+  animation: fadeInStatus 360ms ease-out both;
+}
+
+.modal-scale {
+  opacity: 0;
+  animation: scaleIn 220ms ease-out both;
+}
+
+.fade-in-up {
+  opacity: 0;
+  animation: fadeInUp 300ms ease-out both;
+}
+
+.input-focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(24, 95, 165, 0.15);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInStatus {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.like-btn:active {
+  animation: var(--animate-like);
+}
