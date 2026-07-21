@@ -217,6 +217,8 @@ public class TimesheetController {
         return ResponseEntity.ok(ApiResponse.success("Weekly timesheet saved successfully", null));
     }
 
+    private static final java.util.concurrent.ConcurrentHashMap<Long, java.time.Instant> lastNotificationMap = new java.util.concurrent.ConcurrentHashMap<>();
+
     @PostMapping("/download-notification")
     @PreAuthorize("hasRole('ADMIN') or hasRole('HR')")
     public ResponseEntity<ApiResponse<Void>> notifyDownload(
@@ -227,6 +229,15 @@ public class TimesheetController {
         }
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         User user = principal.getUser();
+
+        // Ensure click-idempotency: Debounce requests within 5 seconds for the same user
+        java.time.Instant now = java.time.Instant.now();
+        java.time.Instant lastSent = lastNotificationMap.get(user.getId());
+        if (lastSent != null && java.time.Duration.between(lastSent, now).getSeconds() < 5) {
+            System.out.println("[TimesheetController] Ignored duplicate download notification for user: " + user.getUsername());
+            return ResponseEntity.ok(ApiResponse.success("Notification debounced", null));
+        }
+        lastNotificationMap.put(user.getId(), now);
 
         // Get downloading user's name
         String userName = user.getUsername();
@@ -241,12 +252,11 @@ public class TimesheetController {
         String downloadTime = java.time.LocalDateTime.now()
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         
-        emailService.sendTimesheetDownloadConfirmation(
+        emailService.sendBulkTimesheetExportConfirmation(
                 user.getEmail(),
                 userName,
-                request.getTimesheetType(),
-                downloadTime,
                 request.getRecordCount(),
+                downloadTime,
                 request.getFilters()
         );
 

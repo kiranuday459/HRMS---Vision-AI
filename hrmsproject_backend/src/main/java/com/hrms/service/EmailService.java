@@ -216,5 +216,64 @@ public class EmailService {
         sendEmail(new String[] { to }, null, subject, body.toString());
     }
 
+    public void sendTimesheetWeeklyReminder(String to, String userName) {
+        String subject = "Timesheet Weekly Reminder";
+        StringBuilder body = new StringBuilder();
+        body.append("Hi ").append(userName == null || userName.isBlank() ? "there" : userName).append(",\n\n");
+        body.append("Your timesheet isn't filled — please submit by end of day.\n\n");
+        body.append("Best regards,\n");
+        body.append("HRMS Notification System");
+
+        sendEmail(new String[] { to }, null, subject, body.toString());
+    }
+
+    public void sendAdminPendingSummary(String to, String adminName, java.util.List<java.util.Map<String, String>> pendingEmployees, String weekRange) {
+        String subject = "Timesheet Pending Submissions Summary";
+        StringBuilder body = new StringBuilder();
+        body.append("Hi ").append(adminName == null || adminName.isBlank() ? "there" : adminName).append(",\n\n");
+        body.append("The following employees have pending timesheet submissions for the week of ").append(weekRange).append(":\n\n");
+        
+        body.append(String.format("%-25s %-15s %-20s\n", "Name", "Employee ID", "Role"));
+        body.append("------------------------------------------------------------\n");
+        for (java.util.Map<String, String> emp : pendingEmployees) {
+            body.append(String.format("%-25s %-15s %-20s\n", 
+                emp.getOrDefault("name", "N/A"), 
+                emp.getOrDefault("oryfolksId", "N/A"), 
+                emp.getOrDefault("role", "N/A")));
+        }
+        body.append("\nTotal Pending Employees: ").append(pendingEmployees.size()).append("\n\n");
+        body.append("Best regards,\n");
+        body.append("HRMS Notification System");
+
+        sendEmail(new String[] { to }, null, subject, body.toString());
+    }
+
+    public void sendAdminAllClearSummary(String to, String adminName, String weekRange) {
+        String subject = "Timesheet Submissions All-Clear";
+        StringBuilder body = new StringBuilder();
+        body.append("Hi ").append(adminName == null || adminName.isBlank() ? "there" : adminName).append(",\n\n");
+        body.append("All employees submitted — no pending timesheets this week (").append(weekRange).append(").\n\n");
+        body.append("Best regards,\n");
+        body.append("HRMS Notification System");
+
+        sendEmail(new String[] { to }, null, subject, body.toString());
+    }
+
+    public void sendBulkTimesheetExportConfirmation(String to, String hrName, int recordCount, String timestamp, String filtersApplied) {
+        String subject = "Bulk Timesheet Export Completed";
+        StringBuilder body = new StringBuilder();
+        body.append("Hi ").append(hrName == null || hrName.isBlank() ? "there" : hrName).append(",\n\n");
+        body.append("Your bulk timesheet export is ready.\n\n");
+        body.append("Total Records Included: ").append(recordCount).append("\n");
+        body.append("Exported On: ").append(timestamp).append("\n");
+        body.append("Filters Applied: ").append(filtersApplied == null || filtersApplied.isBlank() ? "None" : filtersApplied).append("\n\n");
+        body.append("You can find the exported file in your downloads.\n\n");
+        body.append("If you did not initiate this download, please contact your system administrator immediately.\n\n");
+        body.append("Best regards,\n");
+        body.append("HRMS Notification System");
+
+        sendEmail(new String[] { to }, null, subject, body.toString());
+    }
+
     private double nz(Double v) { return v == null ? 0.0 : v; }
 }
