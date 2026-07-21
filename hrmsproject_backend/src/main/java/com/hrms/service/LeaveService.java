@@ -527,44 +527,19 @@ public class LeaveService {
             String status = leave.getStatus().name();
             String reason = leave.getRejectionReason();
             String reviewerName = "Approver";
-            String approverEmail = null;
 
             if (leave.getApprovedBy() != null) {
-                approverEmail = leave.getApprovedBy().getEmail();
                 var reviewerEmp = employeeRepository.findByUser(leave.getApprovedBy());
                 if (reviewerEmp.isPresent()) {
                     reviewerName = reviewerEmp.get().getFirstName() + " " + reviewerEmp.get().getLastName();
-                    String corporateMail = getCorporateEmail(reviewerEmp.get());
-                    if (corporateMail != null)
-                        approverEmail = corporateMail;
                 }
             }
 
             List<String> to = new ArrayList<>();
             List<String> cc = new ArrayList<>();
 
-            // To: Requester, Approver
+            // To: Requesting Employee only (RM/HR are excluded from approval/rejection outcome emails)
             to.add(employeeEmail);
-            if (approverEmail != null)
-                to.add(approverEmail);
-
-            // CC: Based on hierarchy
-            EmployeeReporting reporting = employeeReportingRepository.findByEmployee(employee).orElse(null);
-            if (reporting != null) {
-                if (reporting.getHr() != null) {
-                    String hrEmail = getCorporateEmail(reporting.getHr());
-                    if (hrEmail != null)
-                        cc.add(hrEmail);
-                }
-                // If HR is the requester, CC Admin? (Hierarchy based)
-                if (employee.getUser() != null && employee.getUser().getRole() == com.hrms.model.Role.HR) {
-                    List<User> admins = userRepository.findByRole(com.hrms.model.Role.ADMIN);
-                    for (User admin : admins) {
-                        if (admin.getEmail() != null)
-                            cc.add(admin.getEmail());
-                    }
-                }
-            }
 
             String[] toArr = to.stream().distinct().toArray(String[]::new);
             String[] ccArr = cc.stream().distinct().toArray(String[]::new);
