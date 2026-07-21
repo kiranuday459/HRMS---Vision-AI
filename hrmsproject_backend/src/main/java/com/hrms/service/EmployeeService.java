@@ -631,6 +631,8 @@ public class EmployeeService {
         dto.setClientProject(employee.getClientProject());
         dto.setClientProjectId(employee.getClientProjectId());
         dto.setClientAssignmentDate(employee.getClientAssignmentDate());
+        dto.setClientAssigned(employee.getClientAssigned());
+        dto.setClientVerified(employee.getClientVerified());
 
         if (employee.getUser() != null) {
             dto.setUserId(employee.getUser().getId());

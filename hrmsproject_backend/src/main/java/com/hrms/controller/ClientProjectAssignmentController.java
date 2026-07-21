@@ -58,7 +58,7 @@ public class ClientProjectAssignmentController {
             Authentication authentication) {
         List<ClientProjectAssignmentDTO> created = assignmentService.create(dto, currentUserId(authentication));
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Assignments created", created));
+                .body(ApiResponse.success(buildAssignMessage(created), created));
     }
 
     @GetMapping
@@ -74,5 +74,32 @@ public class ClientProjectAssignmentController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Employee profile not found"));
         }
         return ResponseEntity.ok(ApiResponse.success(assignmentService.getActiveForEmployee(employeeId)));
+    }
+
+    /**
+     * Success message for the assign action. Names the (single) employee/project when the
+     * batch is one, and notes that a verification OTP has been emailed.
+     */
+    private String buildAssignMessage(List<ClientProjectAssignmentDTO> created) {
+        if (created == null || created.isEmpty()) {
+            return "No employees assigned.";
+        }
+        if (created.size() == 1) {
+            ClientProjectAssignmentDTO a = created.get(0);
+            return a.getEmployeeName() + " assigned to " + a.getProjectName()
+                    + " successfully. A verification OTP has been sent to their registered email.";
+        }
+        return created.size() + " employees assigned to " + created.get(0).getProjectName()
+                + " successfully. A verification OTP has been sent to each of their registered emails.";
+    }
+
+    /**
+     * Soft-ends an assignment (sets active = false). Preserves the row for history.
+     * Used by the admin Assigned Members tab remove action.
+     */
+    @PatchMapping("/{id}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ClientProjectAssignmentDTO>> deactivate(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success("Assignment ended", assignmentService.deactivate(id)));
     }
 }

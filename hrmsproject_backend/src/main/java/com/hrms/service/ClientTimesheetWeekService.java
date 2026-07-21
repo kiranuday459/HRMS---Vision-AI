@@ -105,7 +105,7 @@ public class ClientTimesheetWeekService {
             row.setNonBillableProjectHours(nonBillable);
             row.setTimeOffHolidayHours(timeOff);
             row.setTruTimeHours(null); // N/A
-            row.setStatus(deriveStatus(header, lines).name());
+            row.setStatus(deriveStatus(header, lines));
             out.add(row);
 
             cursor = cursor.minusWeeks(1);
@@ -115,19 +115,25 @@ public class ClientTimesheetWeekService {
     }
 
     /**
-     * Employee-facing status for a week: merge the header's draft/submit intent with the
-     * per-line admin decisions.
+     * Employee-facing status for a week (display-only string). A week with no saved line
+     * entries is NOT_STARTED — never "Pending" — so unfilled weeks don't look submitted.
+     *   no entries                → NOT_STARTED
+     *   entries saved, unsubmitted → DRAFT
+     *   any entry submitted        → PENDING (awaiting admin approval)
+     *   all entries approved       → APPROVED
+     *   any entry rejected         → REJECTED
      */
-    private ClientTimesheetStatus deriveStatus(ClientTimesheetWeek header, List<ClientTimesheet> lines) {
+    private String deriveStatus(ClientTimesheetWeek header, List<ClientTimesheet> lines) {
+        if (lines.isEmpty()) {
+            return "NOT_STARTED"; // week exists in the list but nothing was ever saved
+        }
         boolean anyRejected = lines.stream().anyMatch(l -> l.getStatus() == ClientTimesheetStatus.REJECTED);
-        if (anyRejected) return ClientTimesheetStatus.REJECTED;
+        if (anyRejected) return "REJECTED";
         boolean anyPending = lines.stream().anyMatch(l -> l.getStatus() == ClientTimesheetStatus.PENDING);
-        if (anyPending) return ClientTimesheetStatus.PENDING;
-        boolean hasLines = !lines.isEmpty();
-        boolean allApproved = hasLines && lines.stream().allMatch(l -> l.getStatus() == ClientTimesheetStatus.APPROVED);
-        if (allApproved) return ClientTimesheetStatus.APPROVED;
-        if (header != null && header.getStatus() == ClientTimesheetStatus.PENDING) return ClientTimesheetStatus.PENDING;
-        return ClientTimesheetStatus.DRAFT; // not yet submitted
+        if (anyPending) return "PENDING";
+        boolean allApproved = lines.stream().allMatch(l -> l.getStatus() == ClientTimesheetStatus.APPROVED);
+        if (allApproved) return "APPROVED";
+        return "DRAFT"; // saved but not yet submitted
     }
 
     // =====================================================================
@@ -150,7 +156,7 @@ public class ClientTimesheetWeekService {
         dto.setWeekStartDate(weekStartDate);
         dto.setWeekEndDate(weekEndDate);
         dto.setEarliestAssignmentDate(assignmentService.earliestAssignmentDate(employeeId));
-        dto.setStatus(deriveStatus(header, lines).name());
+        dto.setStatus(deriveStatus(header, lines));
 
         List<LocalDate> weekDays = new ArrayList<>();
         for (int i = 0; i < 7; i++) weekDays.add(weekStartDate.plusDays(i));
@@ -257,7 +263,7 @@ public class ClientTimesheetWeekService {
         row.setTaskDescription(taskDescription);
         row.setOnsiteOffshore(onsiteOffshore != null ? onsiteOffshore : "ONSITE");
         row.setClientBillable(clientBillable != null ? clientBillable : "BILLABLE");
-        row.setBillingLocation(billingLocation != null ? billingLocation : "DFLT");
+        row.setBillingLocation(billingLocation != null ? billingLocation : null);
         row.setAssignmentStartDate(assignmentStartDate);
         String pid = projectId != null ? projectId : "";
         double total = 0;

@@ -1,0 +1,55 @@
+/*
+ * Client Timesheets module theme.
+ *
+ * The app's brand palette is defined as Tailwind v4 @theme CSS variables. Scoping
+ * overrides of those variables to `.ct-scope` retints every brand-* utility used inside
+ * the module WITHOUT editing markup — giving the module its own visual language (a
+ * teal/slate system) that is clearly distinct from the main HRMS navy/blue, while
+ * leaving the rest of the app untouched.
+ */
+.ct-scope {
+    /* Distinct accent family: teal instead of the HRMS navy/blue. */
+    --color-brand-blue: #0f766e;          /* dark surfaces */
+    --color-brand-blue-hover: #115e59;
+    --color-brand-blue-dark: #0d9488;     /* primary / strong accent */
+    --color-brand-stone: #5eead4;         /* active border / accent */
+    --color-brand-yellow: #0d9488;        /* primary action button */
+    --color-brand-yellow-hover: #0f766e;
+
+    /* Slightly cooler page background so the module reads as a separate tool. */
+    --color-bg-slate: #eef2f6;
+
+    background-color: #eef2f6;
+    color: var(--color-text-primary);
+    min-height: 100vh;
+}
+
+/* Module top bar — its own chrome, deliberately unlike the HRMS sidebar/topbar. */
+.ct-topbar {
+    background: #0f172a;                    /* slate-900 */
+    color: #e2e8f0;
+}
+
+.ct-topbar .ct-home,
+.ct-topbar .ct-navbtn {
+    color: #cbd5e1;
+    transition: color .15s ease, background-color .15s ease;
+}
+
+.ct-topbar .ct-home:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, .08);
+}
+
+.ct-navbtn.is-active {
+    color: #ffffff;
+    border-bottom-color: #2dd4bf;          /* teal-300 */
+}
+
+.ct-navbtn {
+    border-bottom: 2px solid transparent;
+}
+
+.ct-navbtn:hover {
+    color: #ffffff;
+}

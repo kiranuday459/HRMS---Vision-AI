@@ -12,6 +12,8 @@ import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
 import { getLeaveActionLabel } from "../../utils/leaveStatus";
 import { getWeekStatus } from "../../utils/timesheetStatus";
+import { useClientAccess } from "../../hooks/useClientAccess";
+import ClientOtpVerifyModal from "../../components/ClientOtpVerifyModal";
 
 const EmployeeDashboard = () => {
 	const navigate = useNavigate();
@@ -31,6 +33,11 @@ const EmployeeDashboard = () => {
 	const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 	const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+	// Client Timesheet access (assignment + OTP verification) — drives the activation banner
+	// and the conditional sidebar button.
+	const { clientAssigned, clientVerified, clientProject, refresh: refreshClientAccess } = useClientAccess();
+	const [otpModalOpen, setOtpModalOpen] = useState(false);
 
 	const headingSection = { dashboard: 'dashboard', timesheet: 'timesheet', leave: 'leave', profile: 'profile' }[activeTab];
 
@@ -54,6 +61,12 @@ const EmployeeDashboard = () => {
 		const userData = JSON.parse(localStorage.getItem("user")) || {};
 		setUser(userData);
 	}, [activeTab]);
+
+	// Refresh Client Timesheet access on landing here (login uses client-side navigation, so
+	// the provider — mounted before login — hasn't fetched with the new token yet).
+	useEffect(() => {
+		refreshClientAccess();
+	}, [refreshClientAccess]);
 
 	// Refresh the header ribbon immediately after a profile save (no re-login/refresh).
 	useEffect(() => {
@@ -337,18 +350,6 @@ const EmployeeDashboard = () => {
 			)
 		},
 		{
-			tab: "client-timesheet",
-			label: "Client Timesheet",
-			to: "/employee/client-timesheet",
-			icon: (
-				<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-					<circle cx="12" cy="12" r="10"></circle>
-					<polyline points="12 6 12 12 16 14"></polyline>
-					<path d="M8 3h8"></path>
-				</svg>
-			)
-		},
-		{
 			tab: "leave",
 			label: "Leave Request",
 			icon: (
@@ -362,6 +363,23 @@ const EmployeeDashboard = () => {
 			)
 		}
 	];
+
+	// Client Timesheet button: visible ONLY when the employee is assigned AND has verified
+	// their activation OTP. Inserted right after Timesheet.
+	if (clientAssigned && clientVerified) {
+		navItems.splice(2, 0, {
+			tab: "client-timesheet",
+			label: "Client Timesheet",
+			to: "/employee/client-timesheet",
+			icon: (
+				<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+					<circle cx="12" cy="12" r="10"></circle>
+					<polyline points="12 6 12 12 16 14"></polyline>
+					<path d="M8 3h8"></path>
+				</svg>
+			)
+		});
+	}
 
 	// Add HR Actions if user is HR
 	if (user.role === 'HR') {
@@ -588,6 +606,37 @@ const EmployeeDashboard = () => {
 				<div className={`flex-1 ${activeTab === 'profile' ? 'p-2 md:p-6' : 'p-3 md:p-8'} flex flex-col ${activeTab === 'profile' ? 'gap-2' : 'gap-6 md:gap-8'}`}>
 					{activeTab === 'dashboard' && (
 						<>
+							{/* Client Timesheet activation banner — assigned but not yet verified. */}
+							{clientAssigned && !clientVerified && (
+								<div
+									className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+									style={{
+										background: "#EFF6FF",
+										borderLeft: "4px solid #185FA5",
+										borderRadius: "8px",
+										padding: "16px 20px",
+									}}
+								>
+									<div className="flex items-start gap-3">
+										<span className="text-xl leading-none mt-0.5">🔔</span>
+										<div style={{ color: "#1e3a5f" }} className="text-[14px] font-normal leading-relaxed">
+											<p className="font-bold">
+												You have been assigned to client project{clientProject ? `: ${clientProject}` : ""}
+											</p>
+											<p>A verification OTP has been sent to your registered email.</p>
+											<p>Verify your access to start logging client hours.</p>
+										</div>
+									</div>
+									<button
+										onClick={() => setOtpModalOpen(true)}
+										className="shrink-0 self-start sm:self-center text-white font-bold text-[13px] tracking-wide transition-all active:scale-[0.98]"
+										style={{ background: "#185FA5", borderRadius: "6px", padding: "10px 18px" }}
+									>
+										VERIFY ACCESS
+									</button>
+								</div>
+							)}
+
 							{error && (
 								<div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium">
 									{error}
@@ -872,6 +921,12 @@ const EmployeeDashboard = () => {
 				isOpen={isDetailsModalOpen}
 				onClose={() => setIsDetailsModalOpen(false)}
 				leave={selectedLeave}
+			/>
+			<ClientOtpVerifyModal
+				isOpen={otpModalOpen}
+				onClose={() => setOtpModalOpen(false)}
+				projectName={clientProject}
+				onVerified={refreshClientAccess}
 			/>
 		</div>
 	);

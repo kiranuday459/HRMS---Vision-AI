@@ -95,6 +95,15 @@ public class Employee {
 	private String clientProjectId;
 	private LocalDate clientAssignmentDate;
 
+	// ---- Client timesheet access / verification ----
+	// True once the employee has been assigned to a client project.
+	private Boolean clientAssigned = false;
+	// True once the employee has verified their client-timesheet activation OTP.
+	private Boolean clientVerified = false;
+	// Hashed activation OTP + its expiry (set by the admin "Resend OTP" action).
+	private String clientOtp;
+	private LocalDateTime clientOtpExpiry;
+
 	private Boolean active = true;
 
 	private LocalDateTime createdAt;

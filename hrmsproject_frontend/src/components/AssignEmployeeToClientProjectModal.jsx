@@ -118,9 +118,21 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
         }),
       });
       if (res.ok) {
-        toast.success(
-          `${checkedIds.size} employee${checkedIds.size > 1 ? "s" : ""} assigned to ${projectName.trim()}`
-        );
+        // Prefer the server's message (it confirms a verification OTP was emailed); fall
+        // back to a local confirmation if absent.
+        const data = await res.json().catch(() => ({}));
+        const count = checkedIds.size;
+        let message = data.message;
+        if (!message) {
+          if (count === 1) {
+            const only = employees.find((e) => checkedIds.has(e.id));
+            const name = only ? fullName(only) : "Employee";
+            message = `${name} assigned to ${projectName.trim()} successfully. A verification OTP has been sent to their registered email.`;
+          } else {
+            message = `${count} employees assigned to ${projectName.trim()} successfully. A verification OTP has been sent to their registered emails.`;
+          }
+        }
+        toast.success(message);
         if (onSaved) onSaved();
         onClose();
       } else {

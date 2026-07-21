@@ -16,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -33,6 +34,9 @@ public class ClientProjectAssignmentService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private ClientVerificationService clientVerificationService;
 
     /**
      * Creates one assignment per employee in the payload (the admin modal assigns one
@@ -72,7 +76,7 @@ public class ClientProjectAssignmentService {
             a.setTaskDescription(dto.getTaskDescription());
             a.setOnsiteOffshore(dto.getOnsiteOffshore() != null ? dto.getOnsiteOffshore() : "ONSITE");
             a.setClientBillable(dto.getClientBillable() != null ? dto.getClientBillable() : "BILLABLE");
-            a.setBillingLocation(dto.getBillingLocation() != null ? dto.getBillingLocation() : "DFLT");
+            a.setBillingLocation(dto.getBillingLocation() != null ? dto.getBillingLocation() : null);
             a.setAssignmentStartDate(dto.getAssignmentStartDate());
             a.setActive(true);
             a.setAssignedBy(assignedBy);
@@ -84,7 +88,15 @@ public class ClientProjectAssignmentService {
             employee.setClientProject(dto.getProjectName());
             employee.setClientProjectId(dto.getProjectId());
             employee.setClientAssignmentDate(dto.getAssignmentStartDate());
+            employee.setClientAssigned(true);
+            // A (re)assignment always requires (re)verification: reset verified and issue a
+            // fresh activation OTP (hashed + 15-min expiry) that is emailed to the employee.
+            employee.setClientVerified(false);
             employeeRepository.save(employee);
+
+            // Generate + email the activation OTP. Best-effort email inside the service —
+            // never fails the assignment if mail delivery is unavailable.
+            clientVerificationService.issueAndSendOtp(employee);
         }
         return created;
     }
@@ -108,6 +120,18 @@ public class ClientProjectAssignmentService {
                 .filter(d -> d != null)
                 .min(LocalDate::compareTo)
                 .orElse(null);
+    }
+
+    /**
+     * Marks an assignment as inactive (Ended). Does not delete the row so history
+     * is preserved. Used by the admin Assigned Members tab remove action.
+     */
+    public ClientProjectAssignmentDTO deactivate(Long id) {
+        ClientProjectAssignment a = assignmentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Assignment not found: " + id));
+        a.setActive(false);
+        return toDTO(assignmentRepository.save(a));
     }
 
     private ClientProjectAssignmentDTO toDTO(ClientProjectAssignment a) {

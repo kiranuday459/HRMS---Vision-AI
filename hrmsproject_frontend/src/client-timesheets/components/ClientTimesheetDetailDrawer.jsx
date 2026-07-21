@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { X, Check, MessageSquare } from "lucide-react";
-import api from "../utils/api";
+import api from "../../utils/api";
 import { toast } from "react-toastify";
+import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
 
 const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -16,11 +17,15 @@ const onsiteLabel = (v) => (v === "OFFSHORE" ? "Offshore" : v === "ONSITE" ? "On
 const hourCell = (h) => (h && Number(h) > 0 ? Number(h) : "");
 
 function StatusPill({ status }) {
-    const s = (status || "").toUpperCase();
-    const cls = s === "APPROVED" ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-        : s === "REJECTED" ? "bg-red-50 text-red-600 border-red-100"
-            : "bg-brand-yellow/10 text-brand-yellow-dark border-brand-yellow/20";
-    return <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${cls}`}>{s || "—"}</span>;
+    const meta = clientTimesheetStatusMeta(status);
+    return (
+        <span
+            className="px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border"
+            style={{ backgroundColor: meta.bgHex, color: meta.textHex, borderColor: meta.borderHex }}
+        >
+            {meta.label}
+        </span>
+    );
 }
 
 export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onActioned }) {

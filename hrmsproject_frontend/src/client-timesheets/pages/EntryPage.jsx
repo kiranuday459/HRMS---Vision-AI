@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MessageSquare, Plus, Minus, ArrowLeft, X } from "lucide-react";
-import Sidebar from "../../components/Sidebar";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
@@ -80,7 +79,7 @@ export default function ClientTimesheetEntry() {
             taskDescription: r.taskDescription || "",
             onsiteOffshore: r.onsiteOffshore || "ONSITE",
             clientBillable: r.clientBillable || "BILLABLE",
-            billingLocation: r.billingLocation || "DFLT",
+            billingLocation: r.billingLocation && r.billingLocation !== "DFLT" ? r.billingLocation : "",
             comment: r.comment || "",
             assignmentStartDate: r.assignmentStartDate ? String(r.assignmentStartDate).split("T")[0] : null,
             days: mapDays(r.days),
@@ -218,10 +217,8 @@ export default function ClientTimesheetEntry() {
     );
 
     return (
-        <div className="flex min-h-screen bg-bg-slate font-brand text-brand-text">
-            <Sidebar activeTab="client-timesheet" setActiveTab={() => {}} handleLogout={handleLogout} navItems={navItems} />
-
-            <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        <div className="flex flex-col h-full overflow-hidden">
+            <main className="flex-1 flex flex-col h-full overflow-hidden">
                 <header className="bg-white py-4 px-4 md:px-8 border-b border-[#E3E8EF] shadow-sm flex items-center gap-3">
                     <button onClick={() => navigate("/employee/client-timesheet")} className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#F1EFE8] text-[#5F5E5A] hover:bg-[#E3E8EF] transition-all" title="Back" aria-label="Back">
                         <ArrowLeft size={18} />

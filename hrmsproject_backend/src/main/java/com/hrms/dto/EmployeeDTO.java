@@ -339,6 +339,25 @@ public class EmployeeDTO {
 	private String clientProject;
 	private String clientProjectId;
 	private java.time.LocalDate clientAssignmentDate;
+	// Client-timesheet access/verification status (OTP secrets are never exposed).
+	private Boolean clientAssigned;
+	private Boolean clientVerified;
+
+	public Boolean getClientAssigned() {
+		return clientAssigned;
+	}
+
+	public void setClientAssigned(Boolean clientAssigned) {
+		this.clientAssigned = clientAssigned;
+	}
+
+	public Boolean getClientVerified() {
+		return clientVerified;
+	}
+
+	public void setClientVerified(Boolean clientVerified) {
+		this.clientVerified = clientVerified;
+	}
 
 	public String getClientProject() {
 		return clientProject;

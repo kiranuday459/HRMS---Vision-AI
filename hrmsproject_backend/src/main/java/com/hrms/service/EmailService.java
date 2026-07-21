@@ -98,6 +98,24 @@ public class EmailService {
         }
     }
 
+    /**
+     * Client Timesheet activation OTP. Sent automatically when an admin assigns an
+     * employee to a client project, and on employee/admin "Resend OTP".
+     */
+    public void sendClientTimesheetOTP(String to, String name, String projectName, String otp) {
+        String subject = "Verify Your Client Timesheet Access — VisionAI HRMS";
+        StringBuilder body = new StringBuilder();
+        body.append("Hi ").append(name == null || name.isBlank() ? "there" : name).append(",\n\n");
+        body.append("You have been assigned to client project: ").append(projectName).append("\n\n");
+        body.append("To activate your Client Timesheet access, use the OTP below:\n\n");
+        body.append("        ").append(otp).append("\n\n");
+        body.append("This OTP expires in 15 minutes.\n");
+        body.append("Do not share this with anyone.\n\n");
+        body.append("If you did not expect this, please contact your admin.\n\n");
+        body.append("— VisionAI HRMS");
+        sendEmail(new String[] { to }, null, subject, body.toString());
+    }
+
     public void sendOtpEmail(String to, String otp) {
         String subject = "Your Password Reset OTP";
         String body = "Dear User,\n\n" +

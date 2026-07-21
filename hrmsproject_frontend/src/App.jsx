@@ -7,8 +7,9 @@ import LoginPage from "./pages/login/LoginPage";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
 import EmployeeOwnProfile from "./pages/employee/EmployeeOwnProfile";
 import EmployeeTimesheet from "./pages/employee/EmployeeTimesheet";
-import ClientTimesheetSummary from "./pages/employee/ClientTimesheetSummary";
-import ClientTimesheetEntry from "./pages/employee/ClientTimesheetEntry";
+import ClientTimesheetsLayout from "./client-timesheets/ClientTimesheetsLayout";
+import ClientTimesheetSummary from "./client-timesheets/pages/SummaryPage";
+import ClientTimesheetEntry from "./client-timesheets/pages/EntryPage";
 import ForgotPassword from "./pages/login/ForgotPassword";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import CandidatesPage from "./pages/admin/CandidatesPage";
@@ -16,7 +17,7 @@ import EmployeeProfile from "./pages/admin/EmployeeProfile";
 import SelectedEmployees from "./pages/admin/SelectedEmployees";
 import ReportingManagers from "./pages/admin/ReportingManagers";
 import AdminTimesheets from "./pages/admin/AdminTimesheets";
-import ClientTimesheets from "./pages/admin/ClientTimesheets";
+import ClientTimesheets from "./client-timesheets/pages/AdminPage";
 import ReportingManagerDashboard from "./pages/reporting/ReportingManagerDashboard";
 import ReportingManagerTeam from "./pages/reporting/ReportingManagerTeam";
 import HrDashboard from "./pages/hr/HrDashboard";
@@ -26,6 +27,8 @@ import HrReportingManagersPage from "./pages/hr/HrReportingManagersPage";
 import HrManagerLeaves from "./pages/hr/HrManagerLeaves";
 import HrManagerTimesheets from "./pages/hr/HrManagerTimesheets";
 import SessionManager from "./components/SessionManager";
+import { ClientAccessProvider } from "./hooks/useClientAccess";
+import ClientTimesheetGuard from "./components/ClientTimesheetGuard";
 // import EmployeeForm from "./components/EmployeeForm";
 // import ForgotPassword from "./components/ForgotPassword";
 // import AdminDashboard from "./components/AdminDashboard";
@@ -70,6 +73,7 @@ function App() {
         draggable
         pauseOnHover
       />
+      <ClientAccessProvider>
       <Routes>
         {/* Login */}
         <Route path="/login" element={<LoginPage setUser={setUser} />} />
@@ -97,14 +101,21 @@ function App() {
               : <Navigate to="/employee?tab=timesheet" />
           }
         />
-        <Route
-          path="/employee/client-timesheet"
-          element={authLoading ? null : (user ? <ClientTimesheetSummary /> : <Navigate to="/login" />)}
-        />
-        <Route
-          path="/employee/client-timesheet/:weekStart"
-          element={authLoading ? null : (user ? <ClientTimesheetEntry /> : <Navigate to="/login" />)}
-        />
+        {/* Client Timesheets module — its own layout (top bar + Home), no HRMS sidebar. */}
+        <Route element={<ClientTimesheetsLayout />}>
+          <Route
+            path="/employee/client-timesheet"
+            element={authLoading ? null : (user ? <ClientTimesheetGuard><ClientTimesheetSummary /></ClientTimesheetGuard> : <Navigate to="/login" />)}
+          />
+          <Route
+            path="/employee/client-timesheet/:weekStart"
+            element={authLoading ? null : (user ? <ClientTimesheetGuard><ClientTimesheetEntry /></ClientTimesheetGuard> : <Navigate to="/login" />)}
+          />
+          <Route
+            path="/admin/client-timesheets"
+            element={authLoading ? null : (user && user.role === "ADMIN" ? <ClientTimesheets /> : <Navigate to="/login" />)}
+          />
+        </Route>
         <Route
           path="/admin"
           element={authLoading ? null : (user && user.role === "ADMIN" ? <AdminDashboard /> : <Navigate to="/login" />)}
@@ -124,10 +135,6 @@ function App() {
         <Route
           path="/admin/timesheets"
           element={authLoading ? null : (user && user.role === "ADMIN" ? <AdminTimesheets /> : <Navigate to="/login" />)}
-        />
-        <Route
-          path="/admin/client-timesheets"
-          element={authLoading ? null : (user && user.role === "ADMIN" ? <ClientTimesheets /> : <Navigate to="/login" />)}
         />
         <Route
           path="/admin/employee/:id"
@@ -191,6 +198,7 @@ function App() {
         ) : <Navigate to="/login" />} />
 
       </Routes>
+      </ClientAccessProvider>
     </>
   );
 }

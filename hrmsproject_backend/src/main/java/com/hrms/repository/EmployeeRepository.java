@@ -23,4 +23,11 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     List<Employee> findEmployeesWithoutCompanyDetails();
 
     List<Employee> findByReportingManager(Employee manager);
+
+    // ---- Client timesheet access / verification ----
+    List<Employee> findByClientAssignedTrue();
+
+    long countByClientAssignedTrue();
+
+    long countByClientAssignedTrueAndClientVerifiedTrue();
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { RotateCw } from "lucide-react";
-import Sidebar from "../../components/Sidebar";
 import api from "../../utils/api";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
 
@@ -83,10 +82,8 @@ export default function ClientTimesheetSummary() {
     }, [weeks, appliedFilter]);
 
     return (
-        <div className="flex min-h-screen bg-bg-slate font-brand text-brand-text">
-            <Sidebar activeTab="client-timesheet" setActiveTab={() => {}} handleLogout={handleLogout} navItems={navItems} />
-
-            <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        <div className="flex flex-col h-full overflow-hidden">
+            <main className="flex-1 flex flex-col h-full overflow-hidden">
                 <header className="bg-white py-4 px-4 md:px-8 border-b border-[#E3E8EF] shadow-sm">
                     <h1 className="text-2xl font-black text-brand-text tracking-tight">Timesheets</h1>
                 </header>

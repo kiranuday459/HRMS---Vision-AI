@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { X, Download, Calendar } from "lucide-react";
-import api from "../utils/api";
+import api from "../../utils/api";
 import { toast } from "react-toastify";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
-import { projectSuffix } from "../utils/employeeName";
+import { projectSuffix } from "../../utils/employeeName";
 
 // ── Local date helpers (treat YYYY-MM-DD as local, avoid timezone shifts) ──
 const toYMD = (d) => {
