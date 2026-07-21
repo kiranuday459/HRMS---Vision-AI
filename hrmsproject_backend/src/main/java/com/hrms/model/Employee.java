@@ -88,6 +88,13 @@ public class Employee {
 	private String employmentType;
 	private String corporateEmail;
 
+	// Current client-project assignment summary (set by the admin "Assign to client
+	// project" flow). Used to append the project name after the employee's name in
+	// lists/directories, and as a convenience mirror of the latest assignment.
+	private String clientProject;
+	private String clientProjectId;
+	private LocalDate clientAssignmentDate;
+
 	private Boolean active = true;
 
 	private LocalDateTime createdAt;

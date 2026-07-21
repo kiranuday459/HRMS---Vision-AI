@@ -7,6 +7,8 @@ import LoginPage from "./pages/login/LoginPage";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
 import EmployeeOwnProfile from "./pages/employee/EmployeeOwnProfile";
 import EmployeeTimesheet from "./pages/employee/EmployeeTimesheet";
+import ClientTimesheetSummary from "./pages/employee/ClientTimesheetSummary";
+import ClientTimesheetEntry from "./pages/employee/ClientTimesheetEntry";
 import ForgotPassword from "./pages/login/ForgotPassword";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import CandidatesPage from "./pages/admin/CandidatesPage";
@@ -14,6 +16,7 @@ import EmployeeProfile from "./pages/admin/EmployeeProfile";
 import SelectedEmployees from "./pages/admin/SelectedEmployees";
 import ReportingManagers from "./pages/admin/ReportingManagers";
 import AdminTimesheets from "./pages/admin/AdminTimesheets";
+import ClientTimesheets from "./pages/admin/ClientTimesheets";
 import ReportingManagerDashboard from "./pages/reporting/ReportingManagerDashboard";
 import ReportingManagerTeam from "./pages/reporting/ReportingManagerTeam";
 import HrDashboard from "./pages/hr/HrDashboard";
@@ -95,6 +98,14 @@ function App() {
           }
         />
         <Route
+          path="/employee/client-timesheet"
+          element={authLoading ? null : (user ? <ClientTimesheetSummary /> : <Navigate to="/login" />)}
+        />
+        <Route
+          path="/employee/client-timesheet/:weekStart"
+          element={authLoading ? null : (user ? <ClientTimesheetEntry /> : <Navigate to="/login" />)}
+        />
+        <Route
           path="/admin"
           element={authLoading ? null : (user && user.role === "ADMIN" ? <AdminDashboard /> : <Navigate to="/login" />)}
         />
@@ -113,6 +124,10 @@ function App() {
         <Route
           path="/admin/timesheets"
           element={authLoading ? null : (user && user.role === "ADMIN" ? <AdminTimesheets /> : <Navigate to="/login" />)}
+        />
+        <Route
+          path="/admin/client-timesheets"
+          element={authLoading ? null : (user && user.role === "ADMIN" ? <ClientTimesheets /> : <Navigate to="/login" />)}
         />
         <Route
           path="/admin/employee/:id"

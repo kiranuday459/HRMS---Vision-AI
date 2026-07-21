@@ -335,6 +335,35 @@ public class EmployeeDTO {
 	private Long userId;
 	private Boolean createAccount;
 
+	// Current client-project assignment (for appending the project name after the name).
+	private String clientProject;
+	private String clientProjectId;
+	private java.time.LocalDate clientAssignmentDate;
+
+	public String getClientProject() {
+		return clientProject;
+	}
+
+	public void setClientProject(String clientProject) {
+		this.clientProject = clientProject;
+	}
+
+	public String getClientProjectId() {
+		return clientProjectId;
+	}
+
+	public void setClientProjectId(String clientProjectId) {
+		this.clientProjectId = clientProjectId;
+	}
+
+	public java.time.LocalDate getClientAssignmentDate() {
+		return clientAssignmentDate;
+	}
+
+	public void setClientAssignmentDate(java.time.LocalDate clientAssignmentDate) {
+		this.clientAssignmentDate = clientAssignmentDate;
+	}
+
 	/* ========= ORG REPORTING (resolved names for profile view) ========= */
 	private String reportingManagerName;
 	private String hrName;

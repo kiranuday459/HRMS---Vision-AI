@@ -628,6 +628,9 @@ public class EmployeeService {
         dto.setEmergencyRelationship(employee.getEmergencyRelationship());
         dto.setEmergencyPhone(employee.getEmergencyPhone());
         dto.setActive(employee.getActive());
+        dto.setClientProject(employee.getClientProject());
+        dto.setClientProjectId(employee.getClientProjectId());
+        dto.setClientAssignmentDate(employee.getClientAssignmentDate());
 
         if (employee.getUser() != null) {
             dto.setUserId(employee.getUser().getId());

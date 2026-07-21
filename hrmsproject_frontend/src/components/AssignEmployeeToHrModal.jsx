@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import api from "../utils/api";
 import DisabledBadge from "./DisabledBadge";
 import { isDisabled } from "../utils/employeeStatus";
+import { ProjectSuffix } from "../utils/employeeName";
 
 /**
  * Admin tool: assign existing employees to an existing HR user.
@@ -251,7 +252,7 @@ export default function AssignEmployeeToHrModal({ open, onClose, onSaved }) {
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className={`text-sm font-bold truncate ${empDisabled ? "text-[#5F5E5A]" : "text-brand-text"}`}>{fullName(e)}</p>
+                              <p className={`text-sm font-bold truncate ${empDisabled ? "text-[#5F5E5A]" : "text-brand-text"}`}>{fullName(e)}<ProjectSuffix project={e.clientProject} /></p>
                               {empDisabled && <DisabledBadge />}
                             </div>
                             <p className="text-[11px] text-brand-text/40 font-medium truncate">

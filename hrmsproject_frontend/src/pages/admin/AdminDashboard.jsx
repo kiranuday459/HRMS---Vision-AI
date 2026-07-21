@@ -7,6 +7,7 @@ import EmployeeSelectorModal from "../../components/EmployeeSelectorModal";
 import AddEmployeeModal from "../../components/AddEmployeeModal";
 import HRSelectorModal from "../../components/HRSelectorModal";
 import AssignEmployeeToHrModal from "../../components/AssignEmployeeToHrModal";
+import AssignEmployeeToClientProjectModal from "../../components/AssignEmployeeToClientProjectModal";
 import MetricCard from "../../components/MetricCard";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, Label } from 'recharts';
 import { Calendar as CalendarIconSVG, Eye, ShieldCheck } from "lucide-react";
@@ -312,6 +313,7 @@ export default function AdminDashboard() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAssignHrModalOpen, setIsAssignHrModalOpen] = useState(false);
+  const [isAssignClientProjectModalOpen, setIsAssignClientProjectModalOpen] = useState(false);
   const handleOpenReportingManagerModal = () => setIsModalOpen(true);
   const handleModalClose = () => setIsModalOpen(false);
   const handleAddEmployeeModalClose = () => setIsAddEmployeeModalOpen(false);
@@ -520,6 +522,15 @@ export default function AdminDashboard() {
                       <div className="text-left">
                         <p className="text-xs font-black text-brand-text uppercase tracking-widest group-hover:text-white leading-none">Assign Employees to HR</p>
                         <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest mt-1.5 group-hover:text-white/40">HR Routing</p>
+                      </div>
+                    </button>
+                    <button onClick={() => setIsAssignClientProjectModalOpen(true)} className="group bg-white/90 hover:bg-brand-blue p-3 rounded-2xl flex items-center gap-3 transition-all duration-300 shadow-sm hover:shadow-xl border border-brand-blue/10 w-full">
+                      <div className="w-12 h-12 rounded-xl bg-brand-blue/5 flex items-center justify-center text-brand-text group-hover:bg-white/10 group-hover:text-white transition-colors">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7h-3V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM9 5h6v2H9V5z" /></svg>
+                      </div>
+                      <div className="text-left">
+                        <p className="text-xs font-black text-brand-text uppercase tracking-widest group-hover:text-white leading-none">Assign Employees to Client Project</p>
+                        <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest mt-1.5 group-hover:text-white/40">Project Staffing</p>
                       </div>
                     </button>
                   </div>
@@ -770,6 +781,7 @@ export default function AdminDashboard() {
       <AddEmployeeModal open={isAddEmployeeModalOpen} onClose={handleAddEmployeeModalClose} onEmployeeCreated={refreshData} />
       <HRSelectorModal open={isHRModalOpen} onClose={handleHRModalClose} onSave={handleCreateHRUser} />
       <AssignEmployeeToHrModal open={isAssignHrModalOpen} onClose={() => setIsAssignHrModalOpen(false)} onSaved={refreshData} />
+      <AssignEmployeeToClientProjectModal open={isAssignClientProjectModalOpen} onClose={() => setIsAssignClientProjectModalOpen(false)} />
 
       {hoveredLeaveData && createPortal(
         <div className="fixed z-[10000] pointer-events-none" style={{ top: hoveredLeaveData.rect.top - 10, left: hoveredLeaveData.rect.left + hoveredLeaveData.rect.width / 2, transform: "translate(-50%, -100%)" }}>

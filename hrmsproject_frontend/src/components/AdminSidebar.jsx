@@ -10,6 +10,7 @@ import {
   Settings2,
   LogOut,
   Clock,
+  Briefcase,
   PanelLeftClose,
   PanelLeftOpen
 } from 'lucide-react';
@@ -31,6 +32,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
     else if (tab === "candidates" || tab === "team") navigate(isManager ? "/reporting-team" : "/admin/candidates");
     else if (tab === "reporting-managers") navigate("/admin/reporting-managers");
     else if (tab === "timesheets") navigate("/admin/timesheets");
+    else if (tab === "client-timesheets") navigate("/admin/client-timesheets");
     setMobileOpen(false);
   };
 
@@ -45,7 +47,8 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
       { id: "reporting-managers", label: "Managers", Icon: UsersRound },
       { id: "hr-team", label: "HR Team", Icon: ShieldCheck },
       { id: "leave-requests", label: "Leaves", Icon: CalendarDays },
-      { id: "timesheets", label: "Timesheets", Icon: Clock }
+      { id: "timesheets", label: "Timesheets", Icon: Clock },
+      { id: "client-timesheets", label: "Client timesheets", Icon: Briefcase }
     ];
 
   // Mobile hamburger (fixed) — hide when drawer open

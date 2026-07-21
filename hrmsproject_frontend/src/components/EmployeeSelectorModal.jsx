@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Users, X, Search, Check } from "lucide-react";
 import useEmployees from "../hooks/useEmployees";
+import { ProjectSuffix, projectSuffix } from "../utils/employeeName";
 import api from "../utils/api";
 import DisabledBadge from "./DisabledBadge";
 import { isDisabled } from "../utils/employeeStatus";
@@ -35,6 +36,7 @@ export default function EmployeeSelectorModal({ open, onClose, onSave }) {
           oryfolksId: e.oryfolksId,
           designation: e.designation,
           active: e.active,
+          clientProject: e.clientProject,
         }));
       setEmployees(list);
     } else {
@@ -226,7 +228,7 @@ export default function EmployeeSelectorModal({ open, onClose, onSave }) {
                 .map((emp) => (
                   // Disabled employees cannot be assigned as a reporting manager.
                   <option key={emp.id} value={emp.id} disabled={isDisabled(emp)}>
-                    {emp.name}{isDisabled(emp) ? " — DISABLED" : ""}{emp.oryfolksId ? ` · ${emp.oryfolksId}` : ""}
+                    {emp.name}{projectSuffix(emp.clientProject)}{isDisabled(emp) ? " — DISABLED" : ""}{emp.oryfolksId ? ` · ${emp.oryfolksId}` : ""}
                   </option>
                 ))}
             </select>
@@ -283,7 +285,7 @@ export default function EmployeeSelectorModal({ open, onClose, onSave }) {
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className={`text-sm font-bold truncate ${empDisabled ? "text-[#5F5E5A]" : "text-brand-text"}`}>{emp.name}</p>
+                          <p className={`text-sm font-bold truncate ${empDisabled ? "text-[#5F5E5A]" : "text-brand-text"}`}>{emp.name}<ProjectSuffix project={emp.clientProject} /></p>
                           {empDisabled && <DisabledBadge />}
                         </div>
                         <p className="text-[11px] text-brand-text/40 font-medium truncate">

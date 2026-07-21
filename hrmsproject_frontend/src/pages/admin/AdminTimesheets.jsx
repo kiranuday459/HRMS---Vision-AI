@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import { Search, Filter, Clock, Download } from "lucide-react";
 import api from "../../utils/api";
 import DownloadTimesheetModal from "../../components/DownloadTimesheetModal";
+import { ProjectSuffix } from "../../utils/employeeName";
 
 export default function AdminTimesheets() {
     const [activeTab, setActiveTab] = useState("timesheets");
@@ -449,7 +450,7 @@ export default function AdminTimesheets() {
 
                                                             <div className="flex-1">
                                                                 <div className="flex items-center gap-2">
-                                                                    <h4 className={`font-black text-sm uppercase tracking-tight ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.employeeName}</h4>
+                                                                    <h4 className={`font-black text-sm uppercase tracking-tight ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.employeeName}<ProjectSuffix project={employees.find(x => String(x.id) === String(emp.employeeId))?.clientProject} /></h4>
                                                                     <span className="text-[10px] font-bold text-brand-text/20 uppercase tracking-widest">ID: {(() => {
                                                                         const profile = employees.find(e => e.id === emp.employeeId);
                                                                         return profile?.oryfolksId || emp.employeeId;

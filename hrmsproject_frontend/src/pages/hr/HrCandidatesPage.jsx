@@ -7,6 +7,7 @@ import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
 import api from "../../utils/api";
 import DisabledBadge from "../../components/DisabledBadge";
+import { ProjectSuffix } from "../../utils/employeeName";
 
 export default function HrCandidatesPage() {
   const { employees, loading, error, refresh } = useEmployees();
@@ -290,7 +291,7 @@ export default function HrCandidatesPage() {
                                 {(emp.firstName?.[0] || emp.lastName?.[0] || 'U')}
                               </div>
                               <span className="text-sm font-bold text-brand-text tracking-tight">
-                                {`${emp.firstName || ""} ${emp.lastName || ""}`}
+                                {`${emp.firstName || ""} ${emp.lastName || ""}`}<ProjectSuffix project={emp.clientProject} />
                               </span>
                               {emp.active === false && (
 <DisabledBadge />

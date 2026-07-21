@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import useEmployees from "../../hooks/useEmployees";
 import api from "../../utils/api";
 import DisabledBadge from "../../components/DisabledBadge";
+import { ProjectSuffix } from "../../utils/employeeName";
 
 export default function CandidatesPage() {
   const { employees, loading, error, refresh } = useEmployees();
@@ -325,7 +326,7 @@ export default function CandidatesPage() {
                                 {(emp.firstName?.[0] || "U")}
                               </div>
                               <span className="text-sm font-bold text-brand-text tracking-tight">
-                                {`${emp.firstName || ""} ${emp.lastName || ""}`}
+                                {`${emp.firstName || ""} ${emp.lastName || ""}`}<ProjectSuffix project={emp.clientProject} />
                               </span>
                               {isInactive && <DisabledBadge />}
                             </div>

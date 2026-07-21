@@ -15,6 +15,7 @@ import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";
 import HrRerouteBanner from "../../components/HrRerouteBanner";
 import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
+import { ProjectSuffix } from "../../utils/employeeName";
 
 
 export default function ReportingManagerTeam() {
@@ -160,7 +161,18 @@ export default function ReportingManagerTeam() {
             if (res.ok) {
                 const data = await res.json();
                 const team = (data.team || []).filter(member => member.id !== managerId);
-                setTeamMembers(team);
+                // Enrich with each member's current client project (for the "· Project"
+                // suffix) from the employees list, which carries clientProject.
+                try {
+                    const empRes = await api("/api/employees");
+                    const empJson = empRes.ok ? await empRes.json() : {};
+                    const empList = Array.isArray(empJson.data) ? empJson.data : [];
+                    const projMap = {};
+                    empList.forEach(e => { if (e.clientProject) projMap[e.id] = e.clientProject; });
+                    setTeamMembers(team.map(m => ({ ...m, clientProject: m.clientProject || projMap[m.id] })));
+                } catch {
+                    setTeamMembers(team);
+                }
             } else {
                 setError("Failed to load team data. Please try again later.");
             }
@@ -494,7 +506,7 @@ export default function ReportingManagerTeam() {
                                                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                                                 </svg>
                                             </div>
-                                            <h2 className="text-sm font-bold text-brand-text leading-tight mb-0.5">{member.name || member.fullName}</h2>
+                                            <h2 className="text-sm font-bold text-brand-text leading-tight mb-0.5">{member.name || member.fullName}<ProjectSuffix project={member.clientProject} /></h2>
                                             {member.active === false && (
                                                 <span className="inline-flex px-2 py-0.5 mb-1 bg-[#D3D1C7] text-[#5F5E5A] text-[10px] font-medium rounded-[4px]">DISABLED</span>
                                             )}
