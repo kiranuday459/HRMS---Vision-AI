@@ -201,5 +201,20 @@ public class EmailService {
         return b.toString();
     }
 
+    public void sendTimesheetDownloadConfirmation(String to, String userName, String timesheetType, String downloadTime, int recordCount, String filtersApplied) {
+        String subject = "Timesheet Download Confirmation";
+        StringBuilder body = new StringBuilder();
+        body.append("Hi ").append(userName == null || userName.isBlank() ? "there" : userName).append(",\n\n");
+        body.append("Your ").append(timesheetType != null && !timesheetType.isBlank() ? timesheetType : "timesheet").append(" download was successful.\n\n");
+        body.append("Downloaded on: ").append(downloadTime).append("\n");
+        body.append("Total Records: ").append(recordCount).append("\n");
+        body.append("Filters Applied: ").append(filtersApplied == null || filtersApplied.isBlank() ? "None" : filtersApplied).append("\n\n");
+        body.append("If you did not initiate this download, please contact your system administrator immediately.\n\n");
+        body.append("Best regards,\n");
+        body.append("HRMS Notification System");
+
+        sendEmail(new String[] { to }, null, subject, body.toString());
+    }
+
     private double nz(Double v) { return v == null ? 0.0 : v; }
 }

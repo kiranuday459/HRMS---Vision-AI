@@ -249,6 +249,22 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
             // Replace finalExportList CSV approach with downloadExcel
             await downloadExcel(dateSequence, selectedIds, dateFilteredEntries, allLeaves, allHolidays);
             toast.success("Excel Generated successfully.");
+
+            // Notify download
+            try {
+                const filterStr = `Date Range: ${fromDate} to ${toDate} | Role Filter: ${memberType} | Selected Employees Count: ${selectedIds.length}`;
+                await api("/api/timesheets/download-notification", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        recordCount: selectedIds.length,
+                        filters: filterStr,
+                        timesheetType: "Internal Timesheet"
+                    })
+                });
+            } catch (err) {
+                console.error("Failed to send download confirmation email:", err);
+            }
+
             if (hasData) onClose();
         } catch (error) {
             console.error(error);

@@ -8,6 +8,8 @@ import com.hrms.model.UserPrincipal;
 import com.hrms.model.Role;
 import com.hrms.service.TimesheetService;
 import com.hrms.service.EmployeeService;
+import com.hrms.service.EmailService;
+import com.hrms.dto.TimesheetDownloadRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -32,6 +34,9 @@ public class TimesheetController {
 
     @Autowired
     private EmployeeService employeeService;
+
+    @Autowired
+    private EmailService emailService;
 
     private Long getEmployeeIdFromAuth(Authentication authentication) {
         if (authentication != null && authentication.isAuthenticated()
@@ -210,5 +215,41 @@ public class TimesheetController {
 
         timesheetService.saveWeeklyTimesheet(employeeId, weekStart, dtos);
         return ResponseEntity.ok(ApiResponse.success("Weekly timesheet saved successfully", null));
+    }
+
+    @PostMapping("/download-notification")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('HR')")
+    public ResponseEntity<ApiResponse<Void>> notifyDownload(
+            @RequestBody TimesheetDownloadRequest request,
+            Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        User user = principal.getUser();
+
+        // Get downloading user's name
+        String userName = user.getUsername();
+        try {
+            EmployeeDTO employee = employeeService.getEmployeeByUserId(user.getId());
+            if (employee != null) {
+                userName = employee.getFirstName() + " " + employee.getLastName();
+            }
+        } catch (Exception ignored) {}
+
+        // Send the confirmation email
+        String downloadTime = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        
+        emailService.sendTimesheetDownloadConfirmation(
+                user.getEmail(),
+                userName,
+                request.getTimesheetType(),
+                downloadTime,
+                request.getRecordCount(),
+                request.getFilters()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("Notification sent successfully", null));
     }
 }
