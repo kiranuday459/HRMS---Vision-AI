@@ -285,13 +285,19 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
         const startStr = sD.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
         const endStr = eD.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
+        // Calculate date difference in days to determine report type title
+        const diffTime = Math.abs(eD - sD);
+        const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const reportType = daysDiff > 30 ? "MONTHLY TIMESHEET" : "WEEKLY TIMESHEET";
+
         // Determine columns
-        const colCount = 6 + dateSequence.length + 6;
+        const summaryHeaders = ["Working Days", "Total Working Hours", "Leave days", "Holidays", "WeekOff days", "LOP", "Att%"];
+        const colCount = 6 + dateSequence.length + summaryHeaders.length;
 
         // ROW 1
         worksheet.mergeCells(1, 1, 1, colCount);
         const row1 = worksheet.getRow(1);
-        row1.getCell(1).value = `VISIONAI PAYROLL SYSTEM — MONTHLY ATTENDANCE RECORD — ${monthYear} (Cycle: ${startStr} → ${endStr})`;
+        row1.getCell(1).value = `VISIONAI HRMS SYSTEM — ${reportType} — ${monthYear} (Cycle: ${startStr} → ${endStr})`;
         row1.height = 30;
         row1.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
         row1.getCell(1).font = { color: { argb: "FF000000" }, bold: true, size: 14 };
@@ -300,7 +306,7 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
         // ROW 2
         worksheet.mergeCells(2, 1, 2, colCount);
         const row2 = worksheet.getRow(2);
-        row2.getCell(1).value = "P = Present   A = Absent   LOP = Loss Of Pay   HD = Half Day   WO = Week Off   PH = Public Holiday   |   Sat&Sun auto-marked WO   |   Source: Manual Upload";
+        row2.getCell(1).value = "Working Hours = Present   A = Absent   LOP = Loss Of Pay   HD/HL = Half Day Leave   WO = Week Off   PH = Public Holiday   |   Sat&Sun auto-marked WO   |   Source: Manual Upload";
         row2.height = 20;
         row2.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF9B8FB0" } };
         row2.getCell(1).font = { color: { argb: "FF000000" }, size: 10 };
@@ -331,7 +337,6 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
         const row5 = worksheet.getRow(5);
 
         const baseHeaders = ["S.No", "Emp ID", "Name", "Department", "Month", "Year"];
-        const summaryHeaders = ["Working Days", "Leave days", "Holidays", "WeekOff days", "LOP", "Att%"];
 
         baseHeaders.forEach((h, i) => {
             row4.getCell(i + 1).value = h;
@@ -387,7 +392,8 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
             worksheet.getColumn(7 + i).width = 4;
         }
         for (let i = 0; i < summaryHeaders.length; i++) {
-            worksheet.getColumn(7 + dateSequence.length + i).width = 12;
+            const colIdx = 7 + dateSequence.length + i;
+            worksheet.getColumn(colIdx).width = summaryHeaders[i] === "Total Working Hours" ? 18 : 12;
         }
 
         // Freeze panes — freeze ONLY the top 3 rows (main heading, legend, section
@@ -422,7 +428,7 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                 }
             }
 
-            let presDays = 0, leaveDays = 0, holidays = 0, weekOffs = 0, lops = 0;
+            let presDays = 0, totalWorkedHours = 0, leaveDays = 0, holidays = 0, weekOffs = 0, lops = 0;
             const leaveReasons = [];
 
             dateSequence.forEach((ds, i) => {
@@ -462,6 +468,7 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                     leaveReason = matchingLeave.reason || "";
                 }
 
+                let dayLoggedHours = 0;
                 dayEntries.forEach(entry => {
                     const cat = String(entry.category || "").toUpperCase();
                     if (cat === 'LEAVE') {
@@ -489,6 +496,9 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                         }
                     } else if (cat === 'PROJECT' || cat === 'TRUTIME' || (entry.totalHours > 0 && cat !== 'LEAVE')) {
                         isWorked = true;
+                        if ((entry.totalHours || 0) > 0) {
+                            dayLoggedHours += Number(entry.totalHours || 0);
+                        }
                     }
                 });
 
@@ -527,6 +537,8 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                     if (isHalfDay) {
                         cellValue = "HL"; 
                         leaveDays += 0.5; 
+                        const halfWorked = dayLoggedHours > 0 ? dayLoggedHours : 4;
+                        totalWorkedHours += halfWorked;
                         leaveReasons.push(`${ds} - Half Day Leave (${leaveReason || "-"})`); 
                     } else if (isSL) { 
                         cellValue = "A"; 
@@ -554,7 +566,9 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                         leaveReasons.push(`${ds} - Loss of Pay (${leaveReason || "-"})`);
                     }
                 } else if (isWorked) { 
-                    cellValue = "P"; 
+                    const workedHrs = dayLoggedHours > 0 ? dayLoggedHours : 8;
+                    cellValue = workedHrs; 
+                    totalWorkedHours += workedHrs;
                     comment = ""; 
                     bgColor = "FFC4D79B"; 
                     presDays++; 
@@ -583,7 +597,7 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
             const attPerc = totalWorkingDays > 0 ? (presDays / totalWorkingDays) * 100 : 0;
             
             const sumStart = 7 + dateSequence.length;
-            const summaries = [presDays, leaveDays, holidays, weekOffs, lops, `${attPerc.toFixed(1)}%`];
+            const summaries = [presDays, totalWorkedHours, leaveDays, holidays, weekOffs, lops, `${attPerc.toFixed(1)}%`];
             
             summaries.forEach((val, i) => {
                 const c = r.getCell(sumStart + i);
@@ -593,8 +607,8 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                 c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0EEF7" } };
                 c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
                 
-                // Add leave summary comment
-                if (i === 1 && leaveReasons.length > 0) { // Leave days
+                // Add leave summary comment (leaveDays is at index 2)
+                if (i === 2 && leaveReasons.length > 0) { 
                     c.note = leaveReasons.join('\n');
                 }
             });
@@ -602,15 +616,15 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
 
         // Add Legend Sheet
         const legendSheet = workbook.addWorksheet("Legend");
-        legendSheet.getColumn(1).width = 20;
-        legendSheet.getColumn(2).width = 15;
+        legendSheet.getColumn(1).width = 25;
+        legendSheet.getColumn(2).width = 22;
         legendSheet.getColumn(3).width = 40;
         
         legendSheet.getRow(1).values = ["Day Type", "Cell Value", "Background Color"];
         legendSheet.getRow(1).font = { bold: true };
         
         const legends = [
-            ["Present / Working Day", "P", "FFC4D79B"],
+            ["Present / Working Day", "Working Hours (e.g. 8)", "FFC4D79B"],
             ["Weekend (Sat & Sun)", "WO", "FFD9D9D9"],
             ["Public / Office Holiday", "PH", "FFFFC000"],
             ["Sick Leave", "A", "FFE26B0A"],
