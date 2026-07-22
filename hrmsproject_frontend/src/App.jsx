@@ -111,6 +111,15 @@ function App() {
             path="/employee/client-timesheet/:weekStart"
             element={authLoading ? null : (user ? <ClientTimesheetGuard><ClientTimesheetEntry /></ClientTimesheetGuard> : <Navigate to="/login" />)}
           />
+          {/* Reporting Manager Client Timesheet — same guarded pages as the employee, under the RM route tree. */}
+          <Route
+            path="/reporting-dashboard/client-timesheet"
+            element={authLoading ? null : (user ? <ClientTimesheetGuard><ClientTimesheetSummary /></ClientTimesheetGuard> : <Navigate to="/login" />)}
+          />
+          <Route
+            path="/reporting-dashboard/client-timesheet/:weekStart"
+            element={authLoading ? null : (user ? <ClientTimesheetGuard><ClientTimesheetEntry /></ClientTimesheetGuard> : <Navigate to="/login" />)}
+          />
           <Route
             path="/admin/client-timesheets"
             element={authLoading ? null : (user && user.role === "ADMIN" ? <ClientTimesheets /> : <Navigate to="/login" />)}

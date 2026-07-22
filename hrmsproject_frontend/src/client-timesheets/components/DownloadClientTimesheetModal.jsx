@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { X, Download, Calendar } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import ExcelJS from "exceljs";
+import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { projectSuffix } from "../../utils/employeeName";
 
@@ -29,19 +30,70 @@ const startOfWeek = (d) => {
  * Reads the filtered client_timesheets data from the API and generates a flat .xlsx
  * (one row per day per entry): Employee | Client | Project | Date | Hours | Billable | Status.
  */
-export default function DownloadClientTimesheetModal({ isOpen, onClose, employees = [], clients = [] }) {
+export default function DownloadClientTimesheetModal({ isOpen, onClose, employees = [] }) {
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
     const [employeeId, setEmployeeId] = useState("");
-    const [client, setClient] = useState("");
+    const [project, setProject] = useState("");
     const [status, setStatus] = useState("");
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState("");
 
-    const employeeOptions = useMemo(
-        () => (employees || []).filter((e) => (e.role || "").toUpperCase() !== "ADMIN"),
-        [employees]
-    );
+    // Client-assigned employees (clientAssigned = true). The Employee and Project
+    // dropdowns are both driven off this list — employees with no client project are
+    // excluded, and the distinct project names come from these assignments.
+    const [assignedEmployees, setAssignedEmployees] = useState([]);
+
+    // Load assigned employees each time the modal opens.
+    useEffect(() => {
+        if (!isOpen) return;
+        (async () => {
+            try {
+                const res = await api("/api/admin/client-timesheet/assigned-employees");
+                if (res.ok) {
+                    const json = await res.json().catch(() => []);
+                    const list = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
+                    setAssignedEmployees(list);
+                }
+            } catch (err) {
+                console.error("Error fetching assigned employees:", err);
+            }
+        })();
+    }, [isOpen]);
+
+    // Distinct projects across all assignments (default "All projects").
+    const projects = useMemo(() => {
+        const seen = new Map();
+        (assignedEmployees || []).forEach((e) => {
+            const name = (e.projectName || "").trim();
+            if (name && !seen.has(name)) seen.set(name, { projectId: e.projectId, projectName: name });
+        });
+        return Array.from(seen.values()).sort((a, b) => a.projectName.localeCompare(b.projectName));
+    }, [assignedEmployees]);
+
+    // Employee options cross-filtered by the selected project (all when "All projects").
+    const employeeOptions = useMemo(() => {
+        const list = assignedEmployees || [];
+        return project ? list.filter((e) => (e.projectName || "").trim() === project) : list;
+    }, [assignedEmployees, project]);
+
+    // Selecting a project narrows the employee list; clear a now-invalid employee choice.
+    const onProjectChange = (value) => {
+        setProject(value);
+        if (value) {
+            const emp = (assignedEmployees || []).find((e) => String(e.employeeId) === String(employeeId));
+            if (emp && (emp.projectName || "").trim() !== value) setEmployeeId("");
+        }
+    };
+
+    // Selecting a specific employee auto-selects that employee's project.
+    const onEmployeeChange = (value) => {
+        setEmployeeId(value);
+        if (value) {
+            const emp = (assignedEmployees || []).find((e) => String(e.employeeId) === String(value));
+            if (emp) setProject((emp.projectName || "").trim());
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -84,7 +136,6 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
 
             const params = new URLSearchParams();
             if (employeeId) params.append("employeeId", employeeId);
-            if (client) params.append("client", client);
             if (status) params.append("status", status);
             if (fromDate) params.append("fromDate", fromDate);
             if (toDate) params.append("toDate", toDate);
@@ -99,6 +150,11 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                 return;
             }
 
+            // Scope to the selected project (server has no project filter — filter client-side).
+            if (project) {
+                rows = rows.filter((r) => (r.projectName || "").trim() === project);
+            }
+
             if (rows.length === 0) {
                 toast.info("No client timesheets found for the selected filters.");
                 return;
@@ -111,7 +167,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             try {
                 const selectedEmployee = employeeId ? employees.find(e => String(e.id) === String(employeeId)) : null;
                 const empName = selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : "All Employees";
-                const filterStr = `Date Range: ${fromDate || "Any"} to ${toDate || "Any"} | Employee: ${empName} | Client: ${client || "All"} | Status: ${status || "All"}`;
+                const filterStr = `Date Range: ${fromDate || "Any"} to ${toDate || "Any"} | Employee: ${empName} | Project: ${project || "All"} | Status: ${status || "All"}`;
 
                 await api("/api/timesheets/download-notification", {
                     method: "POST",
@@ -134,14 +190,20 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
         }
     };
 
-    // Reference-style export (English). One sheet per employee. Header block +
-    // Date | Day | Category | Clock-in | Clock-out | Break | Working hours | Remarks,
-    // one row per calendar date in the range, with a Total working-hours footer.
+    // Reference-style export (English). One workbook per employee; within each workbook
+    // one tab per calendar month spanned by the range (newest month first / leftmost).
+    // Each tab: header block + Date | Day | Category | Clock-in | Clock-out | Break |
+    // Working hours | Remarks, one row per calendar date in that month, with a Total
+    // working-hours footer. A single employee downloads one .xlsx; multiple employees
+    // download a .zip of one .xlsx per employee.
     const generateExcel = async (rows) => {
-        const workbook = new ExcelJS.Workbook();
-
         const border = {
             top: { style: "thin" }, left: { style: "thin" },
+            bottom: { style: "thin" }, right: { style: "thin" },
+        };
+        // Total row: medium top border, thin elsewhere.
+        const totalBorder = {
+            top: { style: "medium" }, left: { style: "thin" },
             bottom: { style: "thin" }, right: { style: "thin" },
         };
         const dayAbbr = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -157,7 +219,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             return `${h}:${String(m).padStart(2, "0")}`;
         };
 
-        // ---- Date range shared across all sheets ----
+        // ---- Date range shared across all workbooks ----
         // Explicit From/To when provided; otherwise the calendar month of the earliest entry.
         let rangeStart;
         let rangeEnd;
@@ -170,13 +232,18 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             rangeStart = new Date(base.getFullYear(), base.getMonth(), 1);
             rangeEnd = new Date(base.getFullYear(), base.getMonth() + 1, 0);
         }
-        const dateSeq = [];
-        for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
-            dateSeq.push(new Date(d));
-        }
 
-        const titleMonth = rangeStart.toLocaleString("en-US", { month: "long" });
-        const titleYear = rangeStart.getFullYear();
+        // ---- Calendar months the range spans, newest first (leftmost tab) ----
+        const months = [];
+        {
+            let cur = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+            const lastMonth = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+            while (cur <= lastMonth) {
+                months.push(new Date(cur));
+                cur.setMonth(cur.getMonth() + 1);
+            }
+        }
+        months.reverse(); // newest month → leftmost tab, oldest → rightmost
 
         // ---- Group rows by employee ----
         const groups = new Map();
@@ -186,30 +253,23 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             groups.get(key).rows.push(r);
         });
 
-        // Excel sheet names: max 31 chars, no []:*?/\, and must be unique.
-        const usedSheetNames = new Set();
-        const sheetNameFor = (name) => {
-            let s = (name || "Employee").replace(/[\\/?*[\]:]/g, " ").trim().slice(0, 31) || "Employee";
-            const base = s;
-            let i = 2;
-            while (usedSheetNames.has(s)) {
-                const suffix = ` (${i++})`;
-                s = base.slice(0, 31 - suffix.length) + suffix;
-            }
-            usedSheetNames.add(s);
-            return s;
-        };
+        // Excel sheet names: max 31 chars, no []:*?/\. "Timesheet_July 2026" = 19 chars.
+        const sheetNameFor = (name) =>
+            (name || "Timesheet").replace(/[\\/?*[\]:]/g, " ").trim().slice(0, 31) || "Timesheet";
 
-        groups.forEach((group) => {
-            const ws = workbook.addWorksheet(sheetNameFor(group.name));
-            ws.getColumn(1).width = 10; // Date
+        // Populate a single worksheet with one calendar month of one employee's data.
+        const populateSheet = (ws, group, monthDate) => {
+            ws.getColumn(1).width = 8;  // Date
             ws.getColumn(2).width = 8;  // Day
             ws.getColumn(3).width = 12; // Category
             ws.getColumn(4).width = 10; // Clock-in
             ws.getColumn(5).width = 10; // Clock-out
             ws.getColumn(6).width = 10; // Break
             ws.getColumn(7).width = 14; // Working hours
-            ws.getColumn(8).width = 18; // Remarks
+            ws.getColumn(8).width = 14; // Remarks
+
+            const titleMonth = monthDate.toLocaleString("en-US", { month: "long" });
+            const titleYear = monthDate.getFullYear();
 
             // Employee meta (from the employees list already loaded — no extra API call).
             const emp = (employees || []).find(
@@ -229,17 +289,17 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             ws.mergeCells(1, 1, 1, 8);
             const title = ws.getCell(1, 1);
             title.value = `Timesheet_${titleMonth} ${titleYear}`;
-            title.font = { bold: true, size: 14 };
+            title.font = { name: "Calibri", bold: true, size: 14 };
             title.alignment = { horizontal: "left", vertical: "middle" };
             ws.getRow(1).height = 22;
 
             const metaPair = (rowIdx, leftLabel, leftValue, rightLabel, rightValue) => {
                 ws.getCell(rowIdx, 1).value = leftLabel;
-                ws.getCell(rowIdx, 1).font = { bold: true };
+                ws.getCell(rowIdx, 1).font = { name: "Calibri", bold: true };
                 ws.mergeCells(rowIdx, 2, rowIdx, 4);
                 ws.getCell(rowIdx, 2).value = leftValue;
                 ws.getCell(rowIdx, 6).value = rightLabel;
-                ws.getCell(rowIdx, 6).font = { bold: true };
+                ws.getCell(rowIdx, 6).font = { name: "Calibri", bold: true };
                 ws.mergeCells(rowIdx, 7, rowIdx, 8);
                 ws.getCell(rowIdx, 7).value = rightValue;
             };
@@ -253,9 +313,9 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             headers.forEach((h, i) => {
                 const c = hr.getCell(i + 1);
                 c.value = h;
-                c.font = { bold: true };
+                c.font = { name: "Calibri", bold: true };
                 c.alignment = { horizontal: "center", vertical: "middle" };
-                c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDDDDD" } };
+                c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F2F2" } };
                 c.border = border;
             });
 
@@ -267,7 +327,17 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                 hoursByDate[key] = (hoursByDate[key] || 0) + h;
             });
 
-            // ---- Body: one row per calendar date ----
+            // ---- Day sequence: this calendar month, clamped to the selected range ----
+            const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+            const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+            const seqStart = monthStart < rangeStart ? rangeStart : monthStart;
+            const seqEnd = monthEnd > rangeEnd ? rangeEnd : monthEnd;
+            const dateSeq = [];
+            for (let d = new Date(seqStart); d <= seqEnd; d.setDate(d.getDate() + 1)) {
+                dateSeq.push(new Date(d));
+            }
+
+            // ---- Body: one row per calendar date (no days skipped) ----
             let totalMinutes = 0;
             dateSeq.forEach((d, idx) => {
                 const row = ws.getRow(headerRowIdx + 1 + idx);
@@ -308,31 +378,97 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                     c.value = v;
                     c.alignment = { horizontal: i === 7 ? "left" : "center", vertical: "middle" };
                     c.border = border;
+                    // Weekend rows: light-yellow highlight to distinguish visually.
+                    if (isWeekend) {
+                        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF9C4" } };
+                    }
                 });
             });
 
-            // ---- Total footer ----
+            // ---- Total footer (this month only) ----
             const totalRowIdx = headerRowIdx + 1 + dateSeq.length;
             const totalRow = ws.getRow(totalRowIdx);
             ws.mergeCells(totalRowIdx, 1, totalRowIdx, 6);
             const label = totalRow.getCell(1);
             label.value = "Total";
-            label.font = { bold: true };
+            label.font = { name: "Calibri", bold: true };
             label.alignment = { horizontal: "center", vertical: "middle" };
-            for (let cc = 1; cc <= 6; cc++) totalRow.getCell(cc).border = border;
+            for (let cc = 1; cc <= 6; cc++) totalRow.getCell(cc).border = totalBorder;
             const totalCell = totalRow.getCell(7);
             totalCell.value = minutesToHMM(totalMinutes);
-            totalCell.font = { bold: true };
+            totalCell.font = { name: "Calibri", bold: true };
             totalCell.alignment = { horizontal: "right", vertical: "middle" };
-            totalCell.border = border;
-            totalRow.getCell(8).border = border;
-        });
+            totalCell.border = totalBorder;
+            totalRow.getCell(8).border = totalBorder;
+        };
 
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        });
-        saveAs(blob, `Client_Timesheets_${titleMonth}_${titleYear}.xlsx`);
+        // Employee name → title-case, no spaces. "ganesh y" → "GaneshY".
+        const formatEmployeeName = (fullName) => {
+            if (!fullName || !fullName.trim()) return "Employee";
+            return fullName.trim().split(/\s+/)
+                .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+                .join("");
+        };
+        // DD.MM.YY — Excel forbids "/" in sheet names, so "." replaces the requested slashes.
+        const ddmmyy = (d) =>
+            `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getFullYear()).slice(-2)}`;
+
+        // Build one workbook for an employee group: a tab per month, newest first.
+        // Tab name: "GaneshY_Aug26_01.08.26-31.08.26" (full calendar-month range, not the
+        // filtered range). Compact month label keeps the full name legible under Excel's
+        // 31-char limit; the trim step below is a safety net for very long names.
+        const buildWorkbook = (group) => {
+            const wb = new ExcelJS.Workbook();
+            const empFormatted = formatEmployeeName(group.name);
+            months.forEach((monthDate) => {
+                const monthLabel = `${monthDate.toLocaleString("en-US", { month: "short" })}${String(monthDate.getFullYear()).slice(-2)}`; // e.g. Aug26
+                const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+                const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+                const dateRange = `${ddmmyy(monthStart)}-${ddmmyy(monthEnd)}`;
+
+                let tabName = `${empFormatted}_${monthLabel}_${dateRange}`;
+                if (tabName.length > 31) {
+                    const excess = tabName.length - 31;
+                    const trimmedName = empFormatted.slice(0, Math.max(1, empFormatted.length - excess));
+                    tabName = `${trimmedName}_${monthLabel}_${dateRange}`;
+                    if (tabName.length > 31) tabName = tabName.slice(0, 31);
+                }
+
+                const ws = wb.addWorksheet(sheetNameFor(tabName));
+                populateSheet(ws, group, monthDate);
+            });
+            return wb;
+        };
+
+        // ---- File-name helpers ----
+        const monthShort = (d) => d.toLocaleString("en-US", { month: "short" }); // e.g. Jun
+        const rangeLabel = months.length === 1
+            ? `${monthShort(rangeStart)}${rangeStart.getFullYear()}`
+            : `${monthShort(rangeStart)}${rangeStart.getFullYear()}-${monthShort(rangeEnd)}${rangeEnd.getFullYear()}`;
+        const fileNameSafe = (name) => ((name || "Employee").replace(/[^A-Za-z0-9]+/g, "") || "Employee");
+
+        const groupList = Array.from(groups.values());
+
+        if (groupList.length <= 1) {
+            // Single employee → one .xlsx.
+            const group = groupList[0];
+            const wb = buildWorkbook(group);
+            const buffer = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            });
+            saveAs(blob, `ClientTimesheet_${fileNameSafe(group.name)}_${rangeLabel}.xlsx`);
+        } else {
+            // Multiple employees → one .xlsx per employee, delivered as a .zip.
+            const zip = new JSZip();
+            for (const group of groupList) {
+                const wb = buildWorkbook(group);
+                const buffer = await wb.xlsx.writeBuffer();
+                zip.file(`ClientTimesheet_${fileNameSafe(group.name)}_${rangeLabel}.xlsx`, buffer);
+            }
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            saveAs(zipBlob, `ClientTimesheets_${rangeLabel}.zip`);
+        }
     };
 
     return (
@@ -398,33 +534,33 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                         ))}
                     </div>
 
-                    {/* Employee + Client */}
+                    {/* Employee + Project */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest ml-1">Employee</label>
                             <select
                                 value={employeeId}
-                                onChange={(e) => setEmployeeId(e.target.value)}
+                                onChange={(e) => onEmployeeChange(e.target.value)}
                                 className="w-full bg-bg-slate/50 border-2 border-transparent focus:border-brand-yellow rounded-2xl p-3.5 text-sm font-bold text-brand-text outline-none transition-all"
                             >
                                 <option value="">All employees</option>
                                 {employeeOptions.map((e) => (
-                                    <option key={e.id} value={e.id}>
-                                        {e.firstName} {e.lastName}{projectSuffix(e.clientProject)}
+                                    <option key={e.employeeId} value={e.employeeId}>
+                                        {e.employeeName}{projectSuffix(e.projectName)}
                                     </option>
                                 ))}
                             </select>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest ml-1">Client</label>
+                            <label className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest ml-1">Project</label>
                             <select
-                                value={client}
-                                onChange={(e) => setClient(e.target.value)}
+                                value={project}
+                                onChange={(e) => onProjectChange(e.target.value)}
                                 className="w-full bg-bg-slate/50 border-2 border-transparent focus:border-brand-yellow rounded-2xl p-3.5 text-sm font-bold text-brand-text outline-none transition-all"
                             >
-                                <option value="">All clients</option>
-                                {clients.map((c) => (
-                                    <option key={c} value={c}>{c}</option>
+                                <option value="">All projects</option>
+                                {projects.map((p) => (
+                                    <option key={p.projectName} value={p.projectName}>{p.projectName}</option>
                                 ))}
                             </select>
                         </div>

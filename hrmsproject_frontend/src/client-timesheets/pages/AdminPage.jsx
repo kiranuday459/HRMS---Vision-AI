@@ -7,31 +7,69 @@ import AssignedMembersTab from "../components/AssignedMembersTab";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { Download, Check, X, Eye } from "lucide-react";
-import { projectSuffix } from "../../utils/employeeName";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
+
+// ── Date helpers (treat YYYY-MM-DD as local, avoid timezone shifts) ──
+const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const toYMD = (dt) => {
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+};
+// "2026-07-13" → "13-JUL-2026"
+const fmtRange = (ymd) => {
+    if (!ymd) return "";
+    const [y, m, d] = String(ymd).split("T")[0].split("-").map(Number);
+    return `${String(d).padStart(2, "0")}-${MON[m - 1]}-${y}`;
+};
+const num = (v) => (v == null ? "0.00" : Number(v).toFixed(2));
+
+// Saturday-start week (matches the backend week definition) → YMD string.
+const weekStartOf = (ymd) => {
+    const [y, m, d] = String(ymd).split("T")[0].split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    const offset = (dt.getDay() - 6 + 7) % 7; // Saturday = 6
+    dt.setDate(dt.getDate() - offset);
+    return toYMD(dt);
+};
+const addDays = (ymd, n) => {
+    const [y, m, d] = ymd.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + n);
+    return toYMD(dt);
+};
+
+// Time-off row categories (everything else is billable/non-billable project work).
+const TIMEOFF = new Set(["SICK", "HOLIDAY", "PTO", "LOP", "EARNED"]);
+
+// One summary metric cell inside a week block (mirrors the employee summary card).
+const SummaryCell = ({ value, label }) => (
+    <div className="flex-1 min-w-[120px] px-4 py-3 border-l border-[#E3E8EF] flex flex-col items-center justify-center text-center">
+        <span className="text-base font-bold text-brand-text">{value}</span>
+        <span className="text-[11px] uppercase tracking-wide text-brand-text/40 mt-0.5">{label}</span>
+    </div>
+);
 
 export default function ClientTimesheets() {
     const location = useLocation();
-    const [activeTab, setActiveTab] = useState("client-timesheets");
     // Page tab: "timesheets" (approval queue) | "assigned" (assigned members) | "access" (access management).
     const [pageTab, setPageTab] = useState(location.state?.tab === "access" ? "access" : location.state?.tab === "assigned" ? "assigned" : "timesheets");
     const [entries, setEntries] = useState([]);
     const [employees, setEmployees] = useState([]);
-    const [allClients, setAllClients] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isDownloadOpen, setIsDownloadOpen] = useState(false);
 
-    // Queue filters
-    const [employeeFilter, setEmployeeFilter] = useState("");
-    const [clientFilter, setClientFilter] = useState("");
+    // Queue filters (applied at the block level)
+    const [projectFilter, setProjectFilter] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
-    const [verificationFilter, setVerificationFilter] = useState("");
 
-    // Reject flow
-    const [rejectingId, setRejectingId] = useState(null);
+    // Reject flow — holds the week block being rejected (all its day IDs).
+    const [rejectingBlock, setRejectingBlock] = useState(null);
     const [rejectReason, setRejectReason] = useState("");
+    const [acting, setActing] = useState(false);
 
-    // Detail drawer
+    // Detail drawer (opened with any day ID from the block — the drawer loads the whole week).
     const [detailId, setDetailId] = useState(null);
 
     const currentUserId = useMemo(() => {
@@ -39,22 +77,12 @@ export default function ClientTimesheets() {
         return u.id || u.userId;
     }, []);
 
-    const handleLogout = () => {
-        if (window.confirm("Are you sure you want to logout?")) {
-            localStorage.removeItem("user");
-            localStorage.removeItem("token");
-            window.location.href = "/login";
-        }
-    };
-
+    // Fetch the full day-level list once; grouping + filtering happen client-side so a
+    // week block always reflects all of its days regardless of the active filters.
     const fetchEntries = useCallback(async () => {
         try {
             setLoading(true);
-            const params = new URLSearchParams();
-            if (employeeFilter) params.append("employeeId", employeeFilter);
-            if (clientFilter) params.append("client", clientFilter);
-            if (statusFilter) params.append("status", statusFilter);
-            const res = await api(`/api/client-timesheets?${params.toString()}`);
+            const res = await api("/api/client-timesheets");
             if (res.ok) {
                 const json = await res.json().catch(() => ({}));
                 const data = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
@@ -65,9 +93,9 @@ export default function ClientTimesheets() {
         } finally {
             setLoading(false);
         }
-    }, [employeeFilter, clientFilter, statusFilter]);
+    }, []);
 
-    // One-time loads: employees (for filter/download dropdown) and the full client list.
+    // One-time load: employees (for the download modal's department lookup).
     useEffect(() => {
         (async () => {
             try {
@@ -77,17 +105,6 @@ export default function ClientTimesheets() {
             } catch (err) {
                 console.error("Error fetching employees:", err);
             }
-            try {
-                const res = await api("/api/client-timesheets");
-                const json = res.ok ? await res.json() : {};
-                const data = Array.isArray(json.data) ? json.data : [];
-                const distinct = Array.from(
-                    new Set(data.map((e) => e.clientName).filter(Boolean))
-                ).sort();
-                setAllClients(distinct);
-            } catch (err) {
-                console.error("Error fetching client list:", err);
-            }
         })();
     }, []);
 
@@ -95,49 +112,126 @@ export default function ClientTimesheets() {
         fetchEntries();
     }, [fetchEntries]);
 
-    const handleApprove = async (id) => {
-        try {
-            const res = await api(`/api/client-timesheets/${id}/approve`, {
-                method: "POST",
-                body: JSON.stringify({ reviewerId: currentUserId }),
-            });
-            if (res.ok) {
-                toast.success("Client timesheet approved.");
-                fetchEntries();
-            } else {
-                toast.error("Could not approve.");
+    // Resolve a week's block status from its day statuses (matches backend deriveStatus:
+    // rejected > pending > all-approved > all-not-started > draft).
+    const resolveWeekStatus = (statuses) => {
+        if (statuses.some((s) => s === "REJECTED")) return "REJECTED";
+        if (statuses.some((s) => s === "PENDING")) return "PENDING";
+        if (statuses.length && statuses.every((s) => s === "APPROVED")) return "APPROVED";
+        if (statuses.length && statuses.every((s) => s === "NOT_STARTED")) return "NOT_STARTED";
+        return "DRAFT";
+    };
+
+    // Group flat day records into weekly blocks (per employee + week).
+    const blocks = useMemo(() => {
+        const map = new Map();
+        entries.forEach((r) => {
+            const ws = r.weekStartDate ? String(r.weekStartDate).split("T")[0] : weekStartOf(r.date);
+            const key = `${r.employeeId}_${ws}`;
+            let b = map.get(key);
+            if (!b) {
+                b = {
+                    key,
+                    employeeId: r.employeeId,
+                    employeeName: r.employeeName,
+                    projectName: r.projectName || "",
+                    weekStart: ws,
+                    weekEnd: r.weekEndDate ? String(r.weekEndDate).split("T")[0] : addDays(ws, 6),
+                    billableHours: 0,
+                    nonBillableHours: 0,
+                    timeOffHours: 0,
+                    totalHours: 0,
+                    timesheetIds: [],
+                    statuses: [],
+                    approvedByName: null,
+                };
+                map.set(key, b);
             }
+            const h = Number(r.hours) || 0;
+            const cat = (r.category || "").toUpperCase();
+            if (TIMEOFF.has(cat)) b.timeOffHours += h;
+            else if (r.billable === true) b.billableHours += h;
+            else b.nonBillableHours += h;
+            b.totalHours += h;
+            b.timesheetIds.push(r.id);
+            b.statuses.push((r.status || "").toUpperCase());
+            if (!b.projectName && r.projectName) b.projectName = r.projectName;
+            if (!b.approvedByName && r.approvedByName) b.approvedByName = r.approvedByName;
+        });
+        return Array.from(map.values())
+            .map((b) => ({ ...b, status: resolveWeekStatus(b.statuses) }))
+            .sort((a, b) =>
+                a.weekStart < b.weekStart ? 1
+                    : a.weekStart > b.weekStart ? -1
+                        : (a.employeeName || "").localeCompare(b.employeeName || "")
+            );
+    }, [entries]);
+
+    // Distinct project names for the filter dropdown.
+    const projectOptions = useMemo(
+        () => Array.from(new Set(entries.map((e) => e.projectName).filter(Boolean))).sort(),
+        [entries]
+    );
+
+    // Block-level filtering by project + resolved status.
+    const displayedBlocks = useMemo(
+        () => blocks.filter((b) =>
+            (!projectFilter || (b.projectName || "") === projectFilter) &&
+            (!statusFilter || b.status === statusFilter)
+        ),
+        [blocks, projectFilter, statusFilter]
+    );
+
+    // Approve every day in the week block, then refresh.
+    const handleApproveBlock = async (block) => {
+        if (acting) return;
+        try {
+            setActing(true);
+            await Promise.all(
+                block.timesheetIds.map((id) =>
+                    api(`/api/client-timesheets/${id}/approve`, {
+                        method: "POST",
+                        body: JSON.stringify({ reviewerId: currentUserId }),
+                    })
+                )
+            );
+            toast.success("Week approved.");
+            fetchEntries();
         } catch (err) {
             console.error(err);
+            toast.error("Could not approve the week.");
+        } finally {
+            setActing(false);
         }
     };
 
+    // Reject every day in the week block with the given reason, then refresh.
     const handleRejectConfirm = async () => {
         if (!rejectReason.trim()) return toast.warning("Please provide a reason.");
+        if (!rejectingBlock) return;
         try {
-            const res = await api(`/api/client-timesheets/${rejectingId}/reject`, {
-                method: "POST",
-                body: JSON.stringify({ reviewerId: currentUserId, reason: rejectReason }),
-            });
-            if (res.ok) {
-                toast.success("Client timesheet rejected.");
-                setRejectingId(null);
-                setRejectReason("");
-                fetchEntries();
-            } else {
-                toast.error("Could not reject.");
-            }
+            setActing(true);
+            await Promise.all(
+                rejectingBlock.timesheetIds.map((id) =>
+                    api(`/api/client-timesheets/${id}/reject`, {
+                        method: "POST",
+                        body: JSON.stringify({ reviewerId: currentUserId, reason: rejectReason }),
+                    })
+                )
+            );
+            toast.success("Week rejected.");
+            setRejectingBlock(null);
+            setRejectReason("");
+            fetchEntries();
         } catch (err) {
             console.error(err);
+            toast.error("Could not reject the week.");
+        } finally {
+            setActing(false);
         }
     };
 
-    const formatDate = (d) => {
-        if (!d) return "";
-        return new Date(String(d).split("T")[0]).toLocaleDateString("en-GB");
-    };
-
-    const statusPill = (status) => {
+    const statusBadge = (status) => {
         const meta = clientTimesheetStatusMeta(status);
         return (
             <span
@@ -148,22 +242,6 @@ export default function ClientTimesheets() {
             </span>
         );
     };
-
-    // Verification status per employee (from /api/employees, which carries clientVerified).
-    const verifiedMap = useMemo(() => {
-        const m = {};
-        employees.forEach((e) => { m[e.id] = !!e.clientVerified; });
-        return m;
-    }, [employees]);
-
-    // Client-side verification filter applied on top of the server-fetched entries.
-    const displayedEntries = useMemo(() => {
-        if (!verificationFilter) return entries;
-        return entries.filter((e) => {
-            const v = verifiedMap[e.employeeId];
-            return verificationFilter === "VERIFIED" ? v : !v;
-        });
-    }, [entries, verificationFilter, verifiedMap]);
 
     return (
         <>
@@ -206,26 +284,14 @@ export default function ClientTimesheets() {
                         <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4">
                             {/* Filters */}
                             <div className="flex flex-wrap gap-3">
-                                {/* <select
-                                value={employeeFilter}
-                                onChange={(e) => setEmployeeFilter(e.target.value)}
-                                className="bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
-                            >
-                                <option value="">All employees</option>
-                                {employees
-                                    .filter((e) => (e.role || "").toUpperCase() !== "ADMIN")
-                                    .map((e) => (
-                                        <option key={e.id} value={e.id}>{e.firstName} {e.lastName}{projectSuffix(e.clientProject)}</option>
-                                    ))}
-                            </select> */}
                                 <select
-                                    value={clientFilter}
-                                    onChange={(e) => setClientFilter(e.target.value)}
+                                    value={projectFilter}
+                                    onChange={(e) => setProjectFilter(e.target.value)}
                                     className="bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
                                 >
-                                    <option value="">All clients</option>
-                                    {allClients.map((c) => (
-                                        <option key={c} value={c}>{c}</option>
+                                    <option value="">All projects</option>
+                                    {projectOptions.map((p) => (
+                                        <option key={p} value={p}>{p}</option>
                                     ))}
                                 </select>
                                 <select
@@ -238,17 +304,8 @@ export default function ClientTimesheets() {
                                     <option value="APPROVED">Approved</option>
                                     <option value="REJECTED">Rejected</option>
                                 </select>
-                                {/* <select
-                                    value={verificationFilter}
-                                    onChange={(e) => setVerificationFilter(e.target.value)}
-                                    className="bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
-                                >
-                                    <option value="">Verification</option>
-                                    <option value="VERIFIED">Verified</option>
-                                    <option value="PENDING">Pending Verification</option>
-                                </select> */}
 
-                                <div className="flex flex-row gap-12 justify-end">
+                                <div className="flex flex-row gap-12 justify-end ml-auto">
                                     <button
                                         onClick={() => setIsDownloadOpen(true)}
                                         className="flex items-center gap-2 px-5 py-2.5 bg-brand-blue-dark text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-brand-blue/20 hover:shadow-xl active:scale-95 transition-all"
@@ -259,80 +316,90 @@ export default function ClientTimesheets() {
                                 </div>
                             </div>
 
-                            {/* Download row */}
+                            {/* Approval queue — one card per week block */}
+                            <div className="flex-1 flex flex-col min-h-0">
+                                {loading ? (
+                                    <div className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Loading client timesheets...</div>
+                                ) : displayedBlocks.length === 0 ? (
+                                    <div className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs">No client timesheets found</div>
+                                ) : (
+                                    <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1">
+                                        {displayedBlocks.map((block) => {
+                                            const meta = clientTimesheetStatusMeta(block.status);
+                                            const isPending = block.status === "PENDING";
+                                            return (
+                                                <div
+                                                    key={block.key}
+                                                    className="bg-white rounded-xl border border-[#E3E8EF] border-l-4 shadow-sm flex flex-col lg:flex-row lg:items-stretch overflow-hidden"
+                                                    style={{ borderLeftColor: meta.borderHex }}
+                                                >
+                                                    {/* Left: employee, project, week range, status */}
+                                                    <div className="flex-1 px-5 py-4 flex flex-col justify-center min-w-[240px] gap-1.5">
+                                                        <div className="flex items-baseline gap-2 flex-wrap">
+                                                            <span className="text-[14px] font-black text-brand-text tracking-tight">{block.employeeName}</span>
+                                                            {block.projectName && (
+                                                                <span className="text-[13px] font-normal text-brand-text/40">· {block.projectName}</span>
+                                                            )}
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setDetailId(block.timesheetIds[0])}
+                                                            className="text-left text-[15px] font-bold text-blue-600 hover:underline w-fit"
+                                                        >
+                                                            {fmtRange(block.weekStart)} To {fmtRange(block.weekEnd)}
+                                                        </button>
+                                                        <div>{statusBadge(block.status)}</div>
+                                                    </div>
 
+                                                    {/* Middle: hours summary */}
+                                                    <div className="flex flex-wrap lg:flex-nowrap items-stretch">
+                                                        <SummaryCell value={num(block.billableHours)} label="Billable Hrs" />
+                                                        <SummaryCell value={num(block.nonBillableHours)} label="Non-Billable Hrs" />
+                                                        <SummaryCell value={num(block.timeOffHours)} label="Time Off/Holiday" />
+                                                        <SummaryCell value={num(block.totalHours)} label="Total" />
+                                                    </div>
 
-                            {/* Approval queue */}
-                            <div className="bg-white rounded-[24px] shadow-2xl shadow-brand-blue/5 border border-brand-blue/5 overflow-hidden flex-1 flex flex-col min-h-0">
-                                <div className="overflow-x-auto flex-1 overflow-y-auto custom-scrollbar">
-                                    <table className="w-full text-left border-collapse min-w-[720px]">
-                                        <thead className="sticky top-0 z-10 bg-white">
-                                            <tr className="bg-brand-blue/[0.02]">
-                                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Employee</th>
-                                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Project</th>
-                                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Date</th>
-                                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-center">Status</th>
-                                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-brand-blue/5">
-                                            {loading ? (
-                                                <tr><td colSpan={5} className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Loading client timesheets...</td></tr>
-                                            ) : displayedEntries.length === 0 ? (
-                                                <tr><td colSpan={5} className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs">No client timesheets found</td></tr>
-                                            ) : (
-                                                displayedEntries.map((e) => (
-                                                    <tr
-                                                        key={e.id}
-                                                        onClick={() => setDetailId(e.id)}
-                                                        className="group hover:bg-bg-slate/40 transition-all cursor-pointer"
-                                                    >
-                                                        <td className="py-3 px-6"><span className="text-sm font-black text-brand-text tracking-tight">{e.employeeName}</span></td>
-                                                        <td className="py-3 px-6"><span className="text-sm font-bold text-brand-text">{e.projectName || "—"}</span></td>
-                                                        <td className="py-3 px-6"><span className="text-[12px] font-bold text-brand-text/70">{formatDate(e.date)}</span></td>
-                                                        <td className="py-3 px-6 text-center">{statusPill(e.status)}</td>
-                                                        <td className="py-3 px-6 text-right">
-                                                            <div className="flex justify-end items-center gap-2">
+                                                    {/* Right: actions */}
+                                                    <div className="flex items-center justify-end gap-2 px-5 py-4 border-t lg:border-t-0 lg:border-l border-[#E3E8EF] min-w-[140px]">
+                                                        <button
+                                                            onClick={() => setDetailId(block.timesheetIds[0])}
+                                                            className="p-2 bg-brand-blue/5 text-brand-blue-dark rounded-lg hover:bg-brand-blue-dark hover:text-white transition-all"
+                                                            title="View details"
+                                                            aria-label="View details"
+                                                        >
+                                                            <Eye size={16} />
+                                                        </button>
+                                                        {isPending ? (
+                                                            <>
                                                                 <button
-                                                                    onClick={(ev) => { ev.stopPropagation(); setDetailId(e.id); }}
-                                                                    className="p-2 bg-brand-blue/5 text-brand-blue-dark rounded-lg hover:bg-brand-blue-dark hover:text-white transition-all"
-                                                                    title="View details"
-                                                                    aria-label="View details"
+                                                                    onClick={() => handleApproveBlock(block)}
+                                                                    disabled={acting}
+                                                                    className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-500 hover:text-white transition-all disabled:opacity-50"
+                                                                    title="Approve week"
+                                                                    aria-label="Approve week"
                                                                 >
-                                                                    <Eye size={16} />
+                                                                    <Check size={16} />
                                                                 </button>
-                                                                {(e.status || "").toUpperCase() === "PENDING" ? (
-                                                                    <>
-                                                                        <button
-                                                                            onClick={(ev) => { ev.stopPropagation(); handleApprove(e.id); }}
-                                                                            className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"
-                                                                            title="Approve"
-                                                                            aria-label="Approve"
-                                                                        >
-                                                                            <Check size={16} />
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={(ev) => { ev.stopPropagation(); setRejectingId(e.id); setRejectReason(""); }}
-                                                                            className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"
-                                                                            title="Reject"
-                                                                            aria-label="Reject"
-                                                                        >
-                                                                            <X size={16} />
-                                                                        </button>
-                                                                    </>
-                                                                ) : (
-                                                                    <span className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest">
-                                                                        {e.approvedByName ? e.approvedByName : "—"}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                                <button
+                                                                    onClick={() => { setRejectingBlock(block); setRejectReason(""); }}
+                                                                    disabled={acting}
+                                                                    className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all disabled:opacity-50"
+                                                                    title="Reject week"
+                                                                    aria-label="Reject week"
+                                                                >
+                                                                    <X size={16} />
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest text-right">
+                                                                {block.approvedByName ? block.approvedByName : "—"}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -340,10 +407,13 @@ export default function ClientTimesheets() {
             </div>
 
             {/* Reject reason modal */}
-            {rejectingId != null && (
+            {rejectingBlock != null && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]">
                     <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
-                        <h3 className="text-lg font-bold mb-4 text-brand-text uppercase tracking-tight">Reject Client Timesheet</h3>
+                        <h3 className="text-lg font-bold mb-1 text-brand-text uppercase tracking-tight">Reject Client Timesheet Week</h3>
+                        <p className="text-[12px] text-brand-text/50 mb-4">
+                            {rejectingBlock.employeeName} · {fmtRange(rejectingBlock.weekStart)} To {fmtRange(rejectingBlock.weekEnd)}
+                        </p>
                         <textarea
                             value={rejectReason}
                             onChange={(e) => setRejectReason(e.target.value)}
@@ -353,8 +423,8 @@ export default function ClientTimesheets() {
                             rows="4"
                         />
                         <div className="flex gap-3">
-                            <button onClick={() => { setRejectingId(null); setRejectReason(""); }} className="flex-1 bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition">Cancel</button>
-                            <button onClick={handleRejectConfirm} className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-600 transition shadow-lg">Reject</button>
+                            <button onClick={() => { setRejectingBlock(null); setRejectReason(""); }} className="flex-1 bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition">Cancel</button>
+                            <button onClick={handleRejectConfirm} disabled={acting} className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-600 transition shadow-lg disabled:opacity-50">Reject</button>
                         </div>
                     </div>
                 </div>
@@ -364,7 +434,6 @@ export default function ClientTimesheets() {
                 isOpen={isDownloadOpen}
                 onClose={() => setIsDownloadOpen(false)}
                 employees={employees}
-                clients={allClients}
             />
 
             {detailId != null && (

@@ -191,6 +191,8 @@ public class ClientVerificationService {
         AssignedEmployeeDTO dto = new AssignedEmployeeDTO();
         dto.setEmployeeId(e.getId());
         dto.setEmployeeName((e.getFirstName() + " " + (e.getLastName() == null ? "" : e.getLastName())).trim());
+        dto.setRole(e.getUser() != null && e.getUser().getRole() != null
+                ? e.getUser().getRole().name() : "EMPLOYEE");
         dto.setProjectName(e.getClientProject());
         dto.setProjectId(e.getClientProjectId());
         dto.setAssignmentDate(e.getClientAssignmentDate());

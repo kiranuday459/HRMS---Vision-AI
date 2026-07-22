@@ -9,6 +9,15 @@ const fmtDate = (d) => {
     return isNaN(dt) ? "—" : dt.toLocaleDateString("en-GB");
 };
 
+// Human-readable role label for the Role column.
+const roleLabel = (role) => {
+    const r = (role || "").toUpperCase();
+    if (r === "REPORTING_MANAGER") return "Reporting Manager";
+    if (r === "HR") return "HR";
+    if (r === "EMPLOYEE") return "Employee";
+    return role || "Employee";
+};
+
 function VerificationBadge({ verified }) {
     return verified ? (
         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
@@ -27,6 +36,7 @@ export default function AccessManagementTab() {
     const [search, setSearch] = useState("");
     const [projectFilter, setProjectFilter] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
+    const [roleFilter, setRoleFilter] = useState("");
     const [resendingId, setResendingId] = useState(null);
     const firstLoad = useRef(true);
 
@@ -62,6 +72,7 @@ export default function AccessManagementTab() {
         const q = search.trim().toLowerCase();
         return rows.filter((r) => {
             if (projectFilter && r.projectName !== projectFilter) return false;
+            if (roleFilter && (r.role || "").toUpperCase() !== roleFilter) return false;
             if (statusFilter === "VERIFIED" && !r.clientVerified) return false;
             if (statusFilter === "PENDING" && r.clientVerified) return false;
             if (q) {
@@ -72,7 +83,7 @@ export default function AccessManagementTab() {
             }
             return true;
         });
-    }, [rows, search, projectFilter, statusFilter]);
+    }, [rows, search, projectFilter, statusFilter, roleFilter]);
 
     const handleResend = async (row) => {
         setResendingId(row.employeeId);
@@ -105,6 +116,15 @@ export default function AccessManagementTab() {
                     {projects.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
                 <select
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    className="bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
+                >
+                    <option value="">All Roles</option>
+                    <option value="EMPLOYEE">Employee</option>
+                    <option value="REPORTING_MANAGER">Reporting Manager</option>
+                </select>
+                <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                     className="bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
@@ -132,7 +152,8 @@ export default function AccessManagementTab() {
                         <thead className="bg-white">
                             <tr className="bg-brand-blue/[0.02]">
                                 <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 w-12">#</th>
-                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Employee</th>
+                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Name</th>
+                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Role</th>
                                 <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Project</th>
                                 <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Project ID</th>
                                 <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Assigned Date</th>
@@ -142,10 +163,10 @@ export default function AccessManagementTab() {
                         </thead>
                         <tbody className="divide-y divide-brand-blue/5">
                             {loading ? (
-                                <tr><td colSpan={7} className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Loading...</td></tr>
+                                <tr><td colSpan={8} className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Loading...</td></tr>
                             ) : filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="py-16 text-center">
+                                    <td colSpan={8} className="py-16 text-center">
                                         <Users className="mx-auto mb-3 text-brand-text/20" size={40} />
                                         <p className="text-base font-bold text-brand-text">No employees assigned to client projects yet.</p>
                                         <p className="text-sm text-brand-text/40 mt-1">Use “Assign Employees to Client Project” to get started.</p>
@@ -156,6 +177,7 @@ export default function AccessManagementTab() {
                                     <tr key={r.employeeId} className="hover:bg-bg-slate/40 transition-all">
                                         <td className="py-3 px-6 text-sm font-bold text-brand-text/40">{idx + 1}</td>
                                         <td className="py-3 px-6 text-sm font-black text-brand-text tracking-tight">{r.employeeName}</td>
+                                        <td className="py-3 px-6 text-[12px] font-bold text-brand-text/70">{roleLabel(r.role)}</td>
                                         <td className="py-3 px-6 text-sm font-bold text-brand-text">{r.projectName || "—"}</td>
                                         <td className="py-3 px-6 text-[12px] font-bold text-brand-text/60">{r.projectId || "—"}</td>
                                         <td className="py-3 px-6 text-[12px] font-bold text-brand-text/70">{fmtDate(r.assignmentDate)}</td>

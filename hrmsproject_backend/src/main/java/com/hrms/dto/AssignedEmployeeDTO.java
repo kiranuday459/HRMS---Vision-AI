@@ -7,6 +7,7 @@ public class AssignedEmployeeDTO {
 
     private Long employeeId;
     private String employeeName;
+    private String role;
     private String projectName;
     private String projectId;
     private LocalDate assignmentDate;
@@ -16,6 +17,8 @@ public class AssignedEmployeeDTO {
     public void setEmployeeId(Long employeeId) { this.employeeId = employeeId; }
     public String getEmployeeName() { return employeeName; }
     public void setEmployeeName(String employeeName) { this.employeeName = employeeName; }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
     public String getProjectName() { return projectName; }
     public void setProjectName(String projectName) { this.projectName = projectName; }
     public String getProjectId() { return projectId; }

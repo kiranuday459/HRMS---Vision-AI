@@ -13,7 +13,8 @@ export default function ClientTimesheetsLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const user = JSON.parse(localStorage.getItem("user")) || {};
-    const isAdmin = (user.role || "").toUpperCase() === "ADMIN";
+    const role = (user.role || "").toUpperCase();
+    const isAdmin = role === "ADMIN";
 
     const logout = () => {
         if (window.confirm("Are you sure you want to logout?")) {
@@ -25,7 +26,9 @@ export default function ClientTimesheetsLayout() {
 
     const navItems = isAdmin
         ? [{ label: "Approvals", to: "/admin/client-timesheets" }]
-        : [{ label: "Timesheet Summary", to: "/employee/client-timesheet" }];
+        : role === "REPORTING_MANAGER"
+            ? [{ label: "Timesheet Summary", to: "/reporting-dashboard/client-timesheet" }]
+            : [{ label: "Timesheet Summary", to: "/employee/client-timesheet" }];
 
     return (
         <div className="ct-scope flex flex-col h-screen w-screen overflow-hidden">

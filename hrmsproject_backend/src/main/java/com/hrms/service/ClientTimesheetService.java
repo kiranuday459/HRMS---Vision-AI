@@ -122,6 +122,9 @@ public class ClientTimesheetService {
         dto.setTask(entry.getTask());
         dto.setHours(entry.getHours());
         dto.setBillable(entry.getBillable());
+        dto.setCategory(entry.getCategory());
+        dto.setWeekStartDate(entry.getWeekStartDate());
+        dto.setWeekEndDate(entry.getWeekEndDate());
         dto.setNotes(entry.getNotes());
         dto.setStatus(entry.getStatus() != null ? entry.getStatus().name() : null);
         dto.setRejectionReason(entry.getRejectionReason());

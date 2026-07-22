@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { RotateCw } from "lucide-react";
 import api from "../../utils/api";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
+import { clientTimesheetBase } from "../../utils/clientTimesheetNav";
 
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const fmtRange = (ymd) => {
@@ -146,7 +147,7 @@ export default function ClientTimesheetSummary() {
                                         {/* Left: date + status */}
                                         <div className="flex-1 px-5 py-4 flex flex-col justify-center min-w-[240px]">
                                             <button
-                                                onClick={() => navigate(`/employee/client-timesheet/${String(w.weekStartDate).split("T")[0]}`)}
+                                                onClick={() => navigate(`${clientTimesheetBase()}/${String(w.weekStartDate).split("T")[0]}`)}
                                                 className="text-left text-[15px] font-bold text-blue-600 hover:underline"
                                             >
                                                 {fmtRange(w.weekStartDate)} To {fmtRange(w.weekEndDate)}

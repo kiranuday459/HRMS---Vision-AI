@@ -16,6 +16,9 @@ public class ClientTimesheetDTO {
     private String task;
     private Double hours;
     private Boolean billable;
+    private String category;
+    private LocalDate weekStartDate;
+    private LocalDate weekEndDate;
     private String notes;
     private String status;
     private String rejectionReason;
@@ -93,6 +96,30 @@ public class ClientTimesheetDTO {
 
     public void setBillable(Boolean billable) {
         this.billable = billable;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public LocalDate getWeekStartDate() {
+        return weekStartDate;
+    }
+
+    public void setWeekStartDate(LocalDate weekStartDate) {
+        this.weekStartDate = weekStartDate;
+    }
+
+    public LocalDate getWeekEndDate() {
+        return weekEndDate;
+    }
+
+    public void setWeekEndDate(LocalDate weekEndDate) {
+        this.weekEndDate = weekEndDate;
     }
 
     public String getNotes() {
