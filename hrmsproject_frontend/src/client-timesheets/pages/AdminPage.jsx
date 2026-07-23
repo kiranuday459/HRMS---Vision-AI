@@ -4,9 +4,10 @@ import DownloadClientTimesheetModal from "../components/DownloadClientTimesheetM
 import ClientTimesheetDetailDrawer from "../components/ClientTimesheetDetailDrawer";
 import AccessManagementTab from "../components/AccessManagementTab";
 import AssignedMembersTab from "../components/AssignedMembersTab";
+import AssignEmployeeToClientProjectModal from "../../components/AssignEmployeeToClientProjectModal";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
-import { Download, Check, X, Eye } from "lucide-react";
+import { Download, Check, X, Eye, Briefcase } from "lucide-react";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
 
 // ── Date helpers (treat YYYY-MM-DD as local, avoid timezone shifts) ──
@@ -59,9 +60,9 @@ export default function ClientTimesheets() {
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
     // Queue filters (applied at the block level)
-    const [projectFilter, setProjectFilter] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
 
     // Reject flow — holds the week block being rejected (all its day IDs).
@@ -167,19 +168,12 @@ export default function ClientTimesheets() {
             );
     }, [entries]);
 
-    // Distinct project names for the filter dropdown.
-    const projectOptions = useMemo(
-        () => Array.from(new Set(entries.map((e) => e.projectName).filter(Boolean))).sort(),
-        [entries]
-    );
-
-    // Block-level filtering by project + resolved status.
+    // Block-level filtering by resolved status.
     const displayedBlocks = useMemo(
         () => blocks.filter((b) =>
-            (!projectFilter || (b.projectName || "") === projectFilter) &&
             (!statusFilter || b.status === statusFilter)
         ),
-        [blocks, projectFilter, statusFilter]
+        [blocks, statusFilter]
     );
 
     // Approve every day in the week block, then refresh.
@@ -247,28 +241,45 @@ export default function ClientTimesheets() {
         <>
             <div className="flex flex-col h-full min-h-0 overflow-hidden">
                 <main className="flex-1 flex flex-col h-full overflow-hidden">
-                    <header className="bg-white pt-4 px-4 md:px-6 shadow-sm z-10 border-b border-[#E3E8EF] w-full">
+                    <header className="bg-white pt-4 px-4 md:px-6 shadow-sm z-10 border-b border-[#E3E8EF] w-full flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                         <div>
-                            <h1 className="text-xl font-black text-brand-text tracking-tight">Client timesheets</h1>
-                            <p className="text-[9px] font-black text-brand-text/40 uppercase tracking-[0.2em] mt-0.5">Approvals and Export</p>
+
+                            {/* Tabs */}
+                            <div className="flex gap-1 mt-2">
+                                {[
+                                    { id: "timesheets", label: "Timesheets" },
+                                    { id: "assigned", label: "Assigned Members" },
+                                    { id: "access", label: "Access Management" },
+                                ].map((t) => (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => setPageTab(t.id)}
+                                        className={`px-5 py-2.5 text-[12px] font-black uppercase tracking-widest border-b-2 transition-all ${pageTab === t.id
+                                            ? "border-brand-blue-dark text-brand-blue-dark"
+                                            : "border-transparent text-brand-text/40 hover:text-brand-text"}`}
+                                    >
+                                        {t.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        {/* Tabs */}
-                        <div className="flex gap-1 mt-4">
-                            {[
-                                { id: "timesheets", label: "Timesheets" },
-                                { id: "assigned", label: "Assigned Members" },
-                                { id: "access", label: "Access Management" },
-                            ].map((t) => (
-                                <button
-                                    key={t.id}
-                                    onClick={() => setPageTab(t.id)}
-                                    className={`px-5 py-2.5 text-[12px] font-black uppercase tracking-widest border-b-2 transition-all ${pageTab === t.id
-                                        ? "border-brand-blue-dark text-brand-blue-dark"
-                                        : "border-transparent text-brand-text/40 hover:text-brand-text"}`}
-                                >
-                                    {t.label}
-                                </button>
-                            ))}
+                        <div className="mb-3 shrink-0">
+                            <button
+                                onClick={() => setIsAssignModalOpen(true)}
+                                className="group bg-[#0B2545] hover:bg-[#071A32] text-white px-4 py-2.5 rounded-2xl flex items-center gap-3 shadow-md hover:shadow-xl transition-all duration-300 active:scale-[0.98] border border-white/10"
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white shrink-0 group-hover:bg-white/20 transition-colors">
+                                    <Briefcase className="w-5 h-5" />
+                                </div>
+                                <div className="text-left leading-tight">
+                                    <p className="text-[12px] font-black tracking-wider uppercase text-white">
+                                        ASSIGN PROJECTS
+                                    </p>
+                                    <p className="text-[10px] font-bold tracking-widest uppercase text-white/50 mt-0.5">
+                                        PROJECT STAFFING
+                                    </p>
+                                </div>
+                            </button>
                         </div>
                     </header>
 
@@ -283,35 +294,25 @@ export default function ClientTimesheets() {
                     ) : (
                         <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4">
                             {/* Filters */}
-                            <div className="flex flex-wrap gap-3">
-                                <select
-                                    value={projectFilter}
-                                    onChange={(e) => setProjectFilter(e.target.value)}
-                                    className="bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
-                                >
-                                    <option value="">All projects</option>
-                                    {projectOptions.map((p) => (
-                                        <option key={p} value={p}>{p}</option>
-                                    ))}
-                                </select>
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
-                                >
-                                    <option value="">All statuses</option>
-                                    <option value="PENDING">Pending</option>
-                                    <option value="APPROVED">Approved</option>
-                                    <option value="REJECTED">Rejected</option>
-                                </select>
-
-                                <div className="flex flex-row gap-12 justify-end ml-auto">
+                            <div className="flex flex-wrap gap-3 items-center justify-end w-full">
+                                <div className="flex items-center gap-3 ml-auto">
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                        className="bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
+                                    >
+                                        <option value="">All statuses</option>
+                                        <option value="PENDING">Pending</option>
+                                        <option value="APPROVED">Approved</option>
+                                        <option value="REJECTED">Rejected</option>
+                                    </select>
                                     <button
                                         onClick={() => setIsDownloadOpen(true)}
-                                        className="flex items-center gap-2 px-5 py-2.5 bg-brand-blue-dark text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-brand-blue/20 hover:shadow-xl active:scale-95 transition-all"
+                                        className="flex items-center justify-center w-[38px] h-[38px] bg-brand-blue-dark text-white rounded-xl shadow-lg shadow-brand-blue/20 hover:shadow-xl active:scale-95 transition-all shrink-0"
+                                        title="Download"
+                                        aria-label="Download"
                                     >
                                         <Download size={16} />
-                                        Download
                                     </button>
                                 </div>
                             </div>
@@ -434,6 +435,14 @@ export default function ClientTimesheets() {
                 isOpen={isDownloadOpen}
                 onClose={() => setIsDownloadOpen(false)}
                 employees={employees}
+            />
+
+            <AssignEmployeeToClientProjectModal
+                open={isAssignModalOpen}
+                onClose={() => setIsAssignModalOpen(false)}
+                onSaved={() => {
+                    fetchEntries();
+                }}
             />
 
             {detailId != null && (

@@ -25,7 +25,7 @@ export default function ClientTimesheetsLayout() {
     };
 
     const navItems = isAdmin
-        ? [{ label: "Approvals", to: "/admin/client-timesheets" }]
+        ? []
         : role === "REPORTING_MANAGER"
             ? [{ label: "Timesheet Summary", to: "/reporting-dashboard/client-timesheet" }]
             : [{ label: "Timesheet Summary", to: "/employee/client-timesheet" }];

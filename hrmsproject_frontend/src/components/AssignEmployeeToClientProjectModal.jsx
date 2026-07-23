@@ -19,7 +19,8 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
   const [saving, setSaving] = useState(false);
 
   const [employees, setEmployees] = useState([]);
-
+  const [clientName, setClientName] = useState("");
+  const [clientOptions, setClientOptions] = useState([]);
   const [projectId, setProjectId] = useState("");
   const [projectName, setProjectName] = useState("");
   const [assignmentStartDate, setAssignmentStartDate] = useState("");
@@ -30,6 +31,7 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
 
   useEffect(() => {
     if (!open) return;
+    setClientName("");
     setProjectId("");
     setProjectName("");
     setAssignmentStartDate("");
@@ -46,9 +48,15 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
       const empJson = await empRes.json();
       const empList = empJson.data || empJson || [];
       setEmployees(Array.isArray(empList) ? empList : []);
+
+      const assignRes = await api("/api/client-project-assignments");
+      const assignJson = await assignRes.json();
+      const assignList = Array.isArray(assignJson.data) ? assignJson.data : (Array.isArray(assignJson) ? assignJson : []);
+      const distinctClients = Array.from(new Set(assignList.map(a => a.clientName).filter(Boolean))).sort();
+      setClientOptions(distinctClients);
     } catch (err) {
-      console.error("Failed to load employees", err);
-      toast.error("Failed to load employees");
+      console.error("Failed to load data", err);
+      toast.error("Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -93,6 +101,10 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
   };
 
   const handleSave = async () => {
+    if (!clientName.trim()) {
+      toast.error("Please enter or select a client name");
+      return;
+    }
     if (!projectName.trim()) {
       toast.error("Please enter a project name");
       return;
@@ -111,6 +123,7 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
       const res = await api("/api/admin/assign-client-project", {
         method: "POST",
         body: JSON.stringify({
+          clientName: clientName.trim(),
           projectName: projectName.trim(),
           projectId: projectId.trim() || null,
           assignmentStartDate,
@@ -177,6 +190,22 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
           {/* Client + Project */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
+              <label className={sectionHeader}>Client</label>
+              <input
+                type="text"
+                list="modal-clients-datalist"
+                placeholder="e.g. Acme Corp"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                className="w-full px-4 py-3 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-sm font-bold text-brand-text outline-none focus:border-brand-blue-dark/30 transition-all placeholder:text-brand-text/20 placeholder:font-medium"
+              />
+              <datalist id="modal-clients-datalist">
+                {clientOptions.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
+            <div className="space-y-2">
               <label className={sectionHeader}>Project</label>
               <input
                 type="text"
@@ -204,9 +233,9 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
                 onChange={(e) => setAssignmentStartDate(e.target.value)}
                 className="w-full px-4 py-3 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-sm font-bold text-brand-text outline-none focus:border-brand-blue-dark/30 transition-all"
               />
-              <p className="text-[10px] text-brand-text/40 font-medium">Employees can only log client hours on or after this date.</p>
             </div>
           </div>
+          <p className="text-[10px] text-brand-text/40 font-medium -mt-2">Employees can only log client hours on or after this date.</p>
 
           {/* Employees */}
           <div className="space-y-2">

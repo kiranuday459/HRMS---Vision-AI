@@ -483,7 +483,7 @@ export default function AdminDashboard() {
             {activeTab === "dashboard" && (
               <div className="flex flex-col gap-4 h-full overflow-visible md:overflow-hidden">
                 {/* ROW 1 - Metric Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 shrink-0">
                   <MetricCard
                     label="Total Employees"
                     value={stats.totalEmployees}
@@ -503,33 +503,6 @@ export default function AdminDashboard() {
                     deltaType="up"
                     loading={metricsLoading}
                   />
-                  {/* Client Project Access summary */}
-                  <div className="bg-bg-slate rounded-lg p-5 flex flex-col">
-                    <div className="flex items-center gap-2 mb-3">
-                      <svg className="w-4 h-4 text-brand-text/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                      <p className="text-[12px] text-brand-text-secondary font-medium leading-none">Client Project Access</p>
-                    </div>
-                    <div className="space-y-1.5 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-brand-text/50 font-medium">Assigned</span>
-                        <span className="text-[15px] font-semibold text-brand-text">{clientAccess.totalAssigned}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-brand-text/50 font-medium">Verified</span>
-                        <span className="text-[15px] font-semibold text-emerald-600">✅ {clientAccess.totalVerified}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-brand-text/50 font-medium">Pending</span>
-                        <span className="text-[15px] font-semibold text-amber-500">⏳ {clientAccess.totalPendingVerification}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => navigate("/admin/client-timesheets", { state: { tab: "access" } })}
-                      className="mt-3 text-[12px] font-semibold text-blue-600 hover:underline text-left"
-                    >
-                      View Details →
-                    </button>
-                  </div>
                 </div>
                 {/* ROW 2 - Quick Actions | Workforce Pulse | Absence Monitor (3 equal columns) */}
                 <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-4 pb-2">
@@ -574,15 +547,6 @@ export default function AdminDashboard() {
                       <div className="text-left">
                         <p className="text-xs font-black text-brand-text uppercase tracking-widest group-hover:text-white leading-none">Assign Employees to HR</p>
                         <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest mt-1.5 group-hover:text-white/40">HR Routing</p>
-                      </div>
-                    </button>
-                    <button onClick={() => setIsAssignClientProjectModalOpen(true)} className="group bg-white/90 hover:bg-brand-blue p-3 rounded-2xl flex items-center gap-3 transition-all duration-300 shadow-sm hover:shadow-xl border border-brand-blue/10 w-full">
-                      <div className="w-12 h-12 rounded-xl bg-brand-blue/5 flex items-center justify-center text-brand-text group-hover:bg-white/10 group-hover:text-white transition-colors">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7h-3V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM9 5h6v2H9V5z" /></svg>
-                      </div>
-                      <div className="text-left">
-                        <p className="text-xs font-black text-brand-text uppercase tracking-widest group-hover:text-white leading-none">Assign Employees to Client Project</p>
-                        <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest mt-1.5 group-hover:text-white/40">Project Staffing</p>
                       </div>
                     </button>
                   </div>
