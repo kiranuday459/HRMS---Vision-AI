@@ -48,7 +48,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
       { id: "hr-team", label: "HR Team", Icon: ShieldCheck },
       { id: "leave-requests", label: "Leaves", Icon: CalendarDays },
       { id: "timesheets", label: "Timesheets", Icon: Clock },
-      { id: "client-timesheets", label: "Client timesheets", Icon: Briefcase }
+      { id: "client-timesheets", label: "Client timesheets", Icon: Briefcase, hasSeparator: true, isBold: true }
     ];
 
   // Mobile hamburger (fixed) — hide when drawer open
@@ -85,18 +85,22 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
             </div>
 
             <nav className="flex flex-col gap-1">
-              {navLinks.map(({ id, label, Icon }) => (
-                <div
-                  key={id}
-                  onClick={() => handleTabClick(id)}
-                  className={`btn-sidebar flex items-center gap-3 transition-all duration-200 ${activeTab === id
-                    ? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone rounded-lg px-5 py-3'
-                    : 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8] hover:-translate-y-0.5'
-                    }`}
-                >
-                  <Icon size={18} className={activeTab === id ? 'text-[#2C2C2A]' : 'inherit'} />
-                  <span className="font-semibold">{label}</span>
-                </div>
+              {navLinks.map(({ id, label, Icon, hasSeparator, isBold }) => (
+                <React.Fragment key={id}>
+                  {hasSeparator && <div className="my-2 border-t border-[#E3E8EF]" />}
+                  <div
+                    onClick={() => handleTabClick(id)}
+                    className={`btn-sidebar flex items-center gap-3 transition-all duration-200 cursor-pointer ${activeTab === id
+                      ? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone rounded-lg px-5 py-3 font-bold'
+                      : isBold
+                        ? 'text-[#185FA5] font-extrabold hover:text-[#13507f] hover:bg-[#F1EFE8] rounded-lg px-5 py-3'
+                        : 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8] hover:-translate-y-0.5'
+                      }`}
+                  >
+                    <Icon size={18} className={activeTab === id ? 'text-[#2C2C2A]' : isBold ? 'text-[#185FA5]' : 'inherit'} />
+                    <span className={isBold ? "font-extrabold" : "font-semibold"}>{label}</span>
+                  </div>
+                </React.Fragment>
               ))}
             </nav>
 
@@ -142,20 +146,24 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
         </div>
 
         <nav className={`flex-1 py-4 space-y-1 overflow-y-auto overflow-x-hidden ${collapsed ? 'px-2' : 'px-4'}`}>
-          {navLinks.map(({ id, label, Icon }) => (
-            <div
-              key={id}
-              onClick={() => handleTabClick(id)}
-              title={collapsed ? label : undefined}
-              aria-label={label}
-              className={`btn-sidebar flex items-center transition-colors ${collapsed ? 'justify-center px-0!' : 'gap-3'} ${activeTab === id
-                ? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone rounded-lg px-5 py-3'
-                : 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8]'
-                }`}
-            >
-              <Icon size={collapsed ? 24 : 18} className={activeTab === id ? 'text-[#2C2C2A]' : 'inherit'} />
-              {!collapsed && <span className="font-semibold tracking-tight whitespace-nowrap">{label}</span>}
-            </div>
+          {navLinks.map(({ id, label, Icon, hasSeparator, isBold }) => (
+            <React.Fragment key={id}>
+              {hasSeparator && <div className="my-2 border-t border-[#E3E8EF]" />}
+              <div
+                onClick={() => handleTabClick(id)}
+                title={collapsed ? label : undefined}
+                aria-label={label}
+                className={`btn-sidebar flex items-center transition-colors cursor-pointer ${collapsed ? 'justify-center px-0!' : 'gap-3'} ${activeTab === id
+                  ? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone rounded-lg px-5 py-3 font-bold'
+                  : isBold
+                    ? 'text-[#185FA5] font-extrabold hover:text-[#13507f] hover:bg-[#F1EFE8] rounded-lg px-5 py-3'
+                    : 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8]'
+                  }`}
+              >
+                <Icon size={collapsed ? 24 : 18} className={activeTab === id ? 'text-[#2C2C2A]' : isBold ? 'text-[#185FA5]' : 'inherit'} />
+                {!collapsed && <span className={`tracking-tight whitespace-nowrap ${isBold ? 'font-extrabold text-[14px]' : 'font-semibold'}`}>{label}</span>}
+              </div>
+            </React.Fragment>
           ))}
         </nav>
 

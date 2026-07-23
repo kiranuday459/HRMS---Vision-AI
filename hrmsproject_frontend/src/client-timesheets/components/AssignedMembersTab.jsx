@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Eye, Trash2, Users, X, Briefcase } from "lucide-react";
+import { Eye, Trash2, Users, X, Briefcase, Search } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 
@@ -98,8 +98,7 @@ function AssignmentDetailDrawer({ assignment, onClose }) {
 export default function AssignedMembersTab() {
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [clientFilter, setClientFilter] = useState("");
-    const [employeeFilter, setEmployeeFilter] = useState("");
+    const [search, setSearch] = useState("");
     const [detailRow, setDetailRow] = useState(null);
     const [removingId, setRemovingId] = useState(null);
     const firstLoad = useRef(true);
@@ -123,23 +122,19 @@ export default function AssignedMembersTab() {
 
     useEffect(() => { fetchRows(); }, [fetchRows]);
 
-    /* derived filter option lists */
-    const clients = useMemo(
-        () => Array.from(new Set(rows.map((r) => r.clientName).filter(Boolean))).sort(),
-        [rows]
-    );
-    const employees = useMemo(
-        () => Array.from(new Set(rows.map((r) => r.employeeName).filter(Boolean))).sort(),
-        [rows]
-    );
-
     const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
         return rows.filter((r) => {
-            if (clientFilter && r.clientName !== clientFilter) return false;
-            if (employeeFilter && r.employeeName !== employeeFilter) return false;
+            if (q) {
+                return (
+                    (r.employeeName || "").toLowerCase().includes(q) ||
+                    (r.projectName || "").toLowerCase().includes(q) ||
+                    (r.clientName || "").toLowerCase().includes(q)
+                );
+            }
             return true;
         });
-    }, [rows, clientFilter, employeeFilter]);
+    }, [rows, search]);
 
     /* Remove / deactivate */
     const handleRemove = async (row) => {
@@ -169,26 +164,17 @@ export default function AssignedMembersTab() {
     return (
         <div className="flex flex-col gap-4">
             {/* Filter row */}
-            <div className="flex flex-wrap items-center gap-3">
-                <select
-                    id="am-client-filter"
-                    value={clientFilter}
-                    onChange={(e) => setClientFilter(e.target.value)}
-                    className={selectCls}
-                >
-                    <option value="">All Clients</option>
-                    {clients.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-
-                <select
-                    id="am-employee-filter"
-                    value={employeeFilter}
-                    onChange={(e) => setEmployeeFilter(e.target.value)}
-                    className={selectCls}
-                >
-                    <option value="">All Employees</option>
-                    {employees.map((e) => <option key={e} value={e}>{e}</option>)}
-                </select>
+            <div className="flex flex-wrap items-center justify-end w-full">
+                <div className="relative w-64 ml-auto">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/30" size={15} />
+                    <input
+                        type="text"
+                        placeholder="Search by name, project or client..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl pl-9 pr-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
+                    />
+                </div>
             </div>
 
             {/* Table */}

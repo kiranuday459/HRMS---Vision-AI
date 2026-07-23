@@ -364,22 +364,16 @@ const EmployeeDashboard = () => {
 		}
 	];
 
-	// Client Timesheet button: visible ONLY when the employee is assigned AND has verified
-	// their activation OTP. Inserted right after Timesheet.
-	if (clientAssigned && clientVerified) {
-		navItems.splice(2, 0, {
-			tab: "client-timesheet",
-			label: "Client Timesheet",
-			to: "/employee/client-timesheet",
-			icon: (
-				<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-					<circle cx="12" cy="12" r="10"></circle>
-					<polyline points="12 6 12 12 16 14"></polyline>
-					<path d="M8 3h8"></path>
-				</svg>
-			)
-		});
-	}
+	const formatAssignmentDate = (dateStr) => {
+		if (!dateStr) return "21-Jul-2026";
+		const d = new Date(dateStr);
+		if (isNaN(d.getTime())) return String(dateStr);
+		const day = String(d.getDate()).padStart(2, '0');
+		const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+		const month = monthNames[d.getMonth()];
+		const year = d.getFullYear();
+		return `${day}-${month}-${year}`;
+	};
 
 	// Add HR Actions if user is HR
 	if (user.role === 'HR') {
@@ -606,34 +600,63 @@ const EmployeeDashboard = () => {
 				<div className={`flex-1 ${activeTab === 'profile' ? 'p-2 md:p-6' : 'p-3 md:p-8'} flex flex-col ${activeTab === 'profile' ? 'gap-2' : 'gap-6 md:gap-8'}`}>
 					{activeTab === 'dashboard' && (
 						<>
-							{/* Client Timesheet activation banner — assigned but not yet verified. */}
-							{clientAssigned && !clientVerified && (
+							{/* Dedicated Client Timesheet card */}
+							{clientAssigned && (
 								<div
-									className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-									style={{
-										background: "#EFF6FF",
-										borderLeft: "4px solid #185FA5",
-										borderRadius: "8px",
-										padding: "16px 20px",
-									}}
+									className="bg-white border border-[#E5E7EB] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all"
+									style={{ borderRadius: "12px", padding: "20px 24px" }}
 								>
 									<div className="flex items-start gap-3">
-										<span className="text-xl leading-none mt-0.5">🔔</span>
-										<div style={{ color: "#1e3a5f" }} className="text-[14px] font-normal leading-relaxed">
-											<p className="font-bold">
-												You have been assigned to client project{clientProject ? `: ${clientProject}` : ""}
-											</p>
-											<p>A verification OTP has been sent to your registered email.</p>
-											<p>Verify your access to start logging client hours.</p>
+										<div className="w-10 h-10 rounded-lg bg-[#185FA5]/10 flex items-center justify-center shrink-0">
+											<svg className="w-5 h-5 text-[#185FA5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+												<rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+												<path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+											</svg>
+										</div>
+										<div>
+											<h3 className="text-base font-bold text-[#2C2C2A] flex items-center gap-2">
+												Client Timesheet
+											</h3>
+											{!clientVerified ? (
+												<div className="mt-1 text-sm text-[#5F5E5A] space-y-0.5">
+													<p className="font-semibold text-[#185FA5]">
+														You have been assigned to project: {clientProject || "p3"}
+													</p>
+													<p className="text-xs">Verify your access to start logging hours</p>
+												</div>
+											) : (
+												<div className="mt-1 text-sm text-[#5F5E5A] space-y-0.5">
+													<p className="font-semibold text-[#2C2C2A]">
+														Project: {clientProject || "p3"}
+													</p>
+													<p className="text-xs text-[#888780]">
+														Assigned: {formatAssignmentDate(clientAssignmentDate)}
+													</p>
+												</div>
+											)}
 										</div>
 									</div>
-									<button
-										onClick={() => setOtpModalOpen(true)}
-										className="shrink-0 self-start sm:self-center text-white font-bold text-[13px] tracking-wide transition-all active:scale-[0.98]"
-										style={{ background: "#185FA5", borderRadius: "6px", padding: "10px 18px" }}
-									>
-										VERIFY ACCESS
-									</button>
+									<div className="self-end sm:self-center shrink-0">
+										{!clientVerified ? (
+											<button
+												type="button"
+												onClick={() => setOtpModalOpen(true)}
+												className="px-5 py-2.5 bg-[#185FA5] hover:bg-[#13507f] text-white font-bold text-xs tracking-wide transition-all shadow-sm active:scale-95 uppercase"
+												style={{ borderRadius: "8px" }}
+											>
+												VERIFY ACCESS
+											</button>
+										) : (
+											<button
+												type="button"
+												onClick={() => navigate("/employee/client-timesheet")}
+												className="px-5 py-2.5 bg-[#185FA5] hover:bg-[#13507f] text-white font-bold text-xs tracking-wide transition-all shadow-sm active:scale-95"
+												style={{ borderRadius: "8px" }}
+											>
+												Open Client Timesheet
+											</button>
+										)}
+									</div>
 								</div>
 							)}
 
