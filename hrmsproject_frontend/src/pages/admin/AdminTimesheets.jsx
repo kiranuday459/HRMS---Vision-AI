@@ -8,6 +8,7 @@ import { Search, Filter, Clock, Download } from "lucide-react";
 import api from "../../utils/api";
 import DownloadTimesheetModal from "../../components/DownloadTimesheetModal";
 import { ProjectSuffix } from "../../utils/employeeName";
+import RejectRequestModal from "../../components/RejectRequestModal";
 
 export default function AdminTimesheets() {
     const [activeTab, setActiveTab] = useState("timesheets");
@@ -237,15 +238,9 @@ export default function AdminTimesheets() {
     };
 
     // Confirm rejection from the modal — reason is required.
-    const confirmRejectWeek = async () => {
+    const confirmRejectWeek = async (reason) => {
         const week = rejectModal;
         if (!week) return;
-
-        const reason = rejectReason.trim();
-        if (!reason) {
-            toast.error("Please enter a reason for rejection.");
-            return;
-        }
 
         // Admin can reject ANY pending timesheet, regardless of its current stage
         // (RM / HR / Admin). Admin-only override; RM/HR flows unchanged.
@@ -529,52 +524,12 @@ export default function AdminTimesheets() {
                 employees={employees}
             />
 
-            {/* Rejection reason modal — admin rejecting an HR timesheet */}
-            {rejectModal && (
-                <div
-                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] p-4"
-                    onClick={() => !rejectSubmitting && setRejectModal(null)}
-                >
-                    <div
-                        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <h3 className="text-lg font-black text-brand-text uppercase tracking-tight mb-1">
-                            Reject Timesheet
-                        </h3>
-                        <p className="text-xs font-bold text-brand-text/50 mb-4">
-                            {rejectModal.employeeName} — Week of {rejectModal.startDate}
-                        </p>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-brand-text/50 mb-2">
-                            Reason for rejection <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                            value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
-                            placeholder="Enter reason for rejection..."
-                            rows={4}
-                            autoFocus
-                            className="w-full bg-bg-slate/50 border border-brand-blue/10 rounded-xl px-4 py-3 text-sm font-semibold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 resize-none"
-                        />
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={() => setRejectModal(null)}
-                                disabled={rejectSubmitting}
-                                className="flex-1 bg-slate-100 text-slate-600 px-4 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition disabled:opacity-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmRejectWeek}
-                                disabled={rejectSubmitting}
-                                className="flex-1 bg-red-600 text-white px-4 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-red-500 transition shadow-lg shadow-red-600/20 disabled:opacity-50"
-                            >
-                                {rejectSubmitting ? "Rejecting..." : "Confirm Reject"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <RejectRequestModal
+                isOpen={!!rejectModal}
+                onClose={() => setRejectModal(null)}
+                onConfirm={confirmRejectWeek}
+                submitting={rejectSubmitting}
+            />
         </div>
     );
 }

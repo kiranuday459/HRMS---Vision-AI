@@ -12,6 +12,7 @@ import { Search, Filter, Clock, Download } from "lucide-react";
 import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
 import DownloadTimesheetModal from "../../components/DownloadTimesheetModal";
+import RejectRequestModal from "../../components/RejectRequestModal";
 import DisabledBadge from "../../components/DisabledBadge";
 
 export default function HrManagerTimesheets() {
@@ -32,6 +33,9 @@ export default function HrManagerTimesheets() {
     const [groupedWeeks, setGroupedWeeks] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+    const [rejectModalOpen, setRejectModalOpen] = useState(false);
+    const [rejectTarget, setRejectTarget] = useState(null);
+    const [submittingReject, setSubmittingReject] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -127,23 +131,9 @@ export default function HrManagerTimesheets() {
         }
     };
 
-    const handleReject = async (id) => {
-        const reason = window.prompt("Enter rejection reason:");
-        if (reason === null) return;
-        try {
-            const res = await api(`/api/timesheets/${id}/reject`, {
-                method: 'POST',
-                body: JSON.stringify({ reviewerId: user.id, reason })
-            });
-            if (res.ok) {
-                fetchData();
-            } else {
-                alert("Failed to reject timesheet");
-            }
-        } catch (e) {
-            console.error(e);
-            alert("Error rejecting timesheet");
-        }
+    const handleReject = (id) => {
+        setRejectTarget({ type: 'single', id });
+        setRejectModalOpen(true);
     };
 
     const groupIntoWeeks = (data) => {
@@ -278,26 +268,47 @@ export default function HrManagerTimesheets() {
         }
     };
 
-    const handleRejectWeek = async (week) => {
-        const reason = window.prompt("Enter rejection reason:");
-        if (reason === null) return;
+    const handleRejectWeek = (week) => {
+        setRejectTarget({ type: 'week', week });
+        setRejectModalOpen(true);
+    };
 
+    const handleConfirmReject = async (reason) => {
+        if (!rejectTarget) return;
+        setSubmittingReject(true);
         try {
-            const pendingEntries = week.entries.filter(e => e.status === APPROVAL_STATUS.PENDING_HR_APPROVAL);
-            setLoading(true);
-            for (const entry of pendingEntries) {
-                await api(`/api/timesheets/${entry.id}/reject`, {
+            if (rejectTarget.type === 'single') {
+                const res = await api(`/api/timesheets/${rejectTarget.id}/reject`, {
                     method: 'POST',
                     body: JSON.stringify({ reviewerId: user.id, reason })
                 });
+                if (res.ok) {
+                    toast.success("Timesheet rejected");
+                    fetchData();
+                } else {
+                    const json = await res.json().catch(() => ({}));
+                    toast.error(json.message || "Failed to reject timesheet");
+                }
+            } else if (rejectTarget.type === 'week') {
+                const week = rejectTarget.week;
+                const pendingEntries = week.entries.filter(e => e.status === APPROVAL_STATUS.PENDING_HR_APPROVAL);
+                for (const entry of pendingEntries) {
+                    await api(`/api/timesheets/${entry.id}/reject`, {
+                        method: 'POST',
+                        body: JSON.stringify({ reviewerId: user.id, reason })
+                    });
+                }
+                toast.success(`Week rejected for ${week.employeeName}`);
+                await fetchData();
+                setTsSubView('summary');
             }
-            toast.success(`Week rejected for ${week.employeeName}`);
-            await fetchData();
-            setTsSubView('summary');
+            setRejectModalOpen(false);
+            setRejectTarget(null);
         } catch (err) {
-            toast.error("Error rejecting week");
+            console.error(err);
+            toast.error("Error rejecting timesheet");
         } finally {
-            setLoading(false);
+            setSubmittingReject(false);
         }
     };
 
@@ -609,6 +620,13 @@ export default function HrManagerTimesheets() {
                 isOpen={isDownloadModalOpen}
                 onClose={() => setIsDownloadModalOpen(false)}
                 employees={employees}
+            />
+
+            <RejectRequestModal
+                isOpen={rejectModalOpen}
+                onClose={() => { setRejectModalOpen(false); setRejectTarget(null); }}
+                onConfirm={handleConfirmReject}
+                submitting={submittingReject}
             />
         </div>
     );

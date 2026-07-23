@@ -480,6 +480,10 @@ public class LeaveService {
     }
 
     public LeaveDTO rejectLeave(Long id, Long approverId, String reason) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rejection reason is required.");
+        }
+
         Leave leave = leaveRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Leave not found"));
 

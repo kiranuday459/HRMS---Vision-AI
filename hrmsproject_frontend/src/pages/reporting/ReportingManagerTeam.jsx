@@ -11,6 +11,7 @@ import { getWeekStatus, APPROVAL_STATUS } from "../../utils/timesheetStatus";
 import { getLeaveStatusLabel, isHrDisabledReroute } from "../../utils/leaveStatus";
 import LeaveDetailsModal from "../../components/LeaveDetailsModal";
 import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";
+import RejectRequestModal from "../../components/RejectRequestModal";
 import HrRerouteBanner from "../../components/HrRerouteBanner";
 import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
@@ -49,6 +50,9 @@ export default function ReportingManagerTeam() {
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+    const [rejectModalOpen, setRejectModalOpen] = useState(false);
+    const [rejectTarget, setRejectTarget] = useState(null);
+    const [submittingReject, setSubmittingReject] = useState(false);
 
 
     useEffect(() => {
@@ -200,20 +204,14 @@ export default function ReportingManagerTeam() {
         }
     };
 
-    const handleRejectTimesheet = async (id) => {
-        const reason = window.prompt("Enter reason for rejection:", "Rejected by manager");
-        if (reason === null) return;
-        try {
-            const response = await api(`/api/timesheets/${id}/reject`, {
-                method: 'POST',
-                body: JSON.stringify({ reviewerId: managerId, reason: reason })
-            });
-            if (response.ok) {
-                if (managerId) fetchTeamTimesheets(managerId);
-            }
-        } catch (err) {
-            console.error("Error rejecting timesheet:", err);
-        }
+    const handleRejectLeave = (leaveId) => {
+        setRejectTarget({ type: 'leave', leaveId });
+        setRejectModalOpen(true);
+    };
+
+    const handleRejectTimesheet = (id) => {
+        setRejectTarget({ type: 'timesheet', id });
+        setRejectModalOpen(true);
     };
 
     const handleLogout = () => {
@@ -363,25 +361,59 @@ export default function ReportingManagerTeam() {
         }
     };
 
-    const handleRejectWeek = async (week) => {
-        const reason = window.prompt("Enter reason for rejection:", "Rejected by manager");
-        if (reason === null) return;
+    const handleRejectWeek = (week) => {
+        setRejectTarget({ type: 'week', week });
+        setRejectModalOpen(true);
+    };
+
+    const handleConfirmReject = async (reason) => {
+        if (!rejectTarget) return;
+        setSubmittingReject(true);
         try {
-            const pendingEntries = week.entries.filter(e => e.status === APPROVAL_STATUS.PENDING_RM_APPROVAL || e.status === APPROVAL_STATUS.PENDING_RM_AS_HR_APPROVAL);
-            setTsLoading(true);
-            for (const entry of pendingEntries) {
-                await api(`/api/timesheets/${entry.id}/reject`, {
+            if (rejectTarget.type === 'leave') {
+                const res = await api(`/api/leaves/${rejectTarget.leaveId}/reject`, {
                     method: 'POST',
-                    body: JSON.stringify({ reviewerId: managerId, reason: reason })
+                    body: JSON.stringify({ approverId: managerId, reason })
                 });
+                if (res.ok) {
+                    toast.success("Leave rejected successfully");
+                    if (managerId) fetchLeaves(managerId);
+                } else {
+                    const json = await res.json().catch(() => ({}));
+                    toast.error(json.message || "Failed to reject leave");
+                }
+            } else if (rejectTarget.type === 'timesheet') {
+                const res = await api(`/api/timesheets/${rejectTarget.id}/reject`, {
+                    method: 'POST',
+                    body: JSON.stringify({ reviewerId: managerId, reason })
+                });
+                if (res.ok) {
+                    toast.success("Timesheet rejected successfully");
+                    if (managerId) fetchTeamTimesheets(managerId);
+                } else {
+                    const json = await res.json().catch(() => ({}));
+                    toast.error(json.message || "Failed to reject timesheet");
+                }
+            } else if (rejectTarget.type === 'week') {
+                const week = rejectTarget.week;
+                const pendingEntries = week.entries.filter(e => e.status === APPROVAL_STATUS.PENDING_RM_APPROVAL || e.status === APPROVAL_STATUS.PENDING_RM_AS_HR_APPROVAL);
+                for (const entry of pendingEntries) {
+                    await api(`/api/timesheets/${entry.id}/reject`, {
+                        method: 'POST',
+                        body: JSON.stringify({ reviewerId: managerId, reason })
+                    });
+                }
+                toast.success(`Week rejected for ${week.employeeName}`);
+                if (managerId) await fetchTeamTimesheets(managerId);
+                setTsSubView('summary');
             }
-            toast.success(`Week rejected for ${week.employeeName}`);
-            await fetchTeamTimesheets(managerId);
-            setTsSubView('summary');
+            setRejectModalOpen(false);
+            setRejectTarget(null);
         } catch (err) {
-            toast.error("Error rejecting week");
+            console.error(err);
+            toast.error("Error performing rejection");
         } finally {
-            setTsLoading(false);
+            setSubmittingReject(false);
         }
     };
 
@@ -716,7 +748,7 @@ export default function ReportingManagerTeam() {
                                                                 {leave.status === 'PENDING' && !isDisabled && (
                                                                     <LeaveDecisionButtons
                                                                         onApprove={async () => { await api(`/api/leaves/${leave.id}/approve`, { method: 'POST', body: JSON.stringify({ approverId: managerId }) }); fetchLeaves(managerId); }}
-                                                                        onReject={async () => { await api(`/api/leaves/${leave.id}/reject`, { method: 'POST', body: JSON.stringify({ approverId: managerId, reason: "Rejected by manager" }) }); fetchLeaves(managerId); }}
+                                                                        onReject={() => handleRejectLeave(leave.id)}
                                                                     />
                                                                 )}
                                                             </div>
@@ -738,10 +770,18 @@ export default function ReportingManagerTeam() {
                 onClose={() => setIsDetailsModalOpen(false)}
                 leave={selectedLeave}
             />
+
             <DownloadTimesheetModal
                 isOpen={isDownloadModalOpen}
                 onClose={() => setIsDownloadModalOpen(false)}
                 employees={teamMembers}
+            />
+
+            <RejectRequestModal
+                isOpen={rejectModalOpen}
+                onClose={() => { setRejectModalOpen(false); setRejectTarget(null); }}
+                onConfirm={handleConfirmReject}
+                submitting={submittingReject}
             />
         </div>
     );

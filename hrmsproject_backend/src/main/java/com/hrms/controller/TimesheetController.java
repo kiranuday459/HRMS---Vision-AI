@@ -175,8 +175,13 @@ public class TimesheetController {
     public ResponseEntity<ApiResponse<TimesheetDTO>> rejectTimesheet(
             @PathVariable Long id,
             @RequestBody Map<String, Object> request) {
+        Object reasonObj = request != null ? request.get("reason") : null;
+        if (reasonObj == null || reasonObj.toString().trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Rejection reason is required."));
+        }
         Long reviewerId = Long.valueOf(request.get("reviewerId").toString());
-        String reason = request.get("reason").toString();
+        String reason = reasonObj.toString().trim();
         TimesheetDTO rejected = timesheetService.rejectTimesheet(id, reviewerId, reason);
         return ResponseEntity.ok(ApiResponse.success("Timesheet rejected", rejected));
     }
