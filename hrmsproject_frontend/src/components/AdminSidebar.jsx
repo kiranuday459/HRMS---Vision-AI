@@ -27,7 +27,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
   const handleTabClick = (tab) => {
     if (setActiveTab) setActiveTab(tab);
     if (tab === "dashboard" || tab === "hr-team" || tab === "leave-requests") {
-      navigate(isManager ? "/reporting-dashboard" : "/admin", { state: { tab } });
+      navigate(isManager ? "/manager" : "/admin", { state: { tab } });
     }
     else if (tab === "candidates" || tab === "team") navigate(isManager ? "/reporting-team" : "/admin/candidates");
     else if (tab === "reporting-managers") navigate("/admin/reporting-managers");

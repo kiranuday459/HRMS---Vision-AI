@@ -87,7 +87,7 @@ function App() {
           path="/employee/profile"
           element={
             user?.role === "REPORTING_MANAGER"
-              ? <Navigate to="/reporting-dashboard?tab=profile" />
+              ? <Navigate to="/manager?tab=profile" />
               : user?.role === "HR"
                 ? <Navigate to="/hr?tab=profile" />
                 : <Navigate to="/employee?tab=profile" />
@@ -97,7 +97,7 @@ function App() {
           path="/employee/timesheet"
           element={
             user?.role === "REPORTING_MANAGER"
-              ? <Navigate to="/reporting-dashboard?tab=timesheet" />
+              ? <Navigate to="/manager?tab=timesheet" />
               : <Navigate to="/employee?tab=timesheet" />
           }
         />
@@ -178,6 +178,10 @@ function App() {
 
         {/* Reporting Manager Routes */}
         <Route
+          path="/manager"
+          element={authLoading ? null : (user && user.role === "REPORTING_MANAGER" ? <ReportingManagerDashboard /> : <Navigate to="/login" />)}
+        />
+        <Route
           path="/reporting-dashboard"
           element={authLoading ? null : (user && user.role === "REPORTING_MANAGER" ? <ReportingManagerDashboard /> : <Navigate to="/login" />)}
         />
@@ -194,7 +198,7 @@ function App() {
           <Navigate to={
             user.role === 'ADMIN' ? "/admin" :
             user.role === 'HR' ? "/hr" :
-            user.role === 'REPORTING_MANAGER' ? "/reporting-dashboard" : "/employee"
+            user.role === 'REPORTING_MANAGER' ? "/manager" : "/employee"
           } />
         ) : <Navigate to="/login" />} />
         
@@ -202,7 +206,7 @@ function App() {
           <Navigate to={
             user.role === 'ADMIN' ? "/admin" :
             user.role === 'HR' ? "/hr" :
-            user.role === 'REPORTING_MANAGER' ? "/reporting-dashboard" : "/employee"
+            user.role === 'REPORTING_MANAGER' ? "/manager" : "/employee"
           } />
         ) : <Navigate to="/login" />} />
 
