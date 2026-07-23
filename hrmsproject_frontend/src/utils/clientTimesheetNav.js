@@ -20,5 +20,5 @@ export function clientTimesheetBase() {
 
 /** Dashboard to fall back to when Client Timesheet access is denied. */
 export function roleDashboardPath() {
-    return readRole() === "REPORTING_MANAGER" ? "/reporting-dashboard" : "/employee";
+    return readRole() === "REPORTING_MANAGER" ? "/manager" : "/employee";
 }

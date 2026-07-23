@@ -104,7 +104,7 @@ const LoginPage = ({ setUser }) => {
           navigate("/hr");
           break;
         case "REPORTING_MANAGER":
-          navigate("/reporting-dashboard");
+          navigate("/manager");
           break;
         case "EMPLOYEE":
           navigate("/employee");

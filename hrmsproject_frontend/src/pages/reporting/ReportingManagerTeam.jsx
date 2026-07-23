@@ -480,7 +480,7 @@ export default function ReportingManagerTeam() {
                             <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-brand-blue/5 py-2 z-[100] animate-in fade-in zoom-in duration-200 origin-top-right">
                                 <button
                                     onClick={() => {
-                                        navigate("/reporting-dashboard?tab=profile");
+                                        navigate("/manager?tab=profile");
                                         setIsProfileDropdownOpen(false);
                                     }}
                                     className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-brand-text hover:bg-bg-slate transition-colors"

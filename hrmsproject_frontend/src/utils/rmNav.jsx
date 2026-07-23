@@ -16,19 +16,19 @@ export const getRmNavItems = (activeTab) => [
     {
         tab: "dashboard",
         label: "Dashboard",
-        to: "/reporting-dashboard?tab=dashboard",
+        to: "/manager?tab=dashboard",
         icon: <LayoutDashboard className="w-5 h-5" />
     },
     {
         tab: "timesheet",
         label: "My Timesheet",
-        to: "/reporting-dashboard?tab=timesheet",
+        to: "/manager?tab=timesheet",
         icon: <Clock className="w-5 h-5" />
     },
     {
         tab: "leave",
         label: "Leave Request",
-        to: "/reporting-dashboard?tab=leave",
+        to: "/manager?tab=leave",
         icon: <CalendarDays className="w-5 h-5" />
     },
     {

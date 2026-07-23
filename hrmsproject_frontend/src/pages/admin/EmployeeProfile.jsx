@@ -730,7 +730,7 @@ export default function EmployeeProfile() {
                     <button
                       onClick={() => {
                         if (user.role === "REPORTING_MANAGER") {
-                          navigate("/reporting-dashboard?tab=profile");
+                          navigate("/manager?tab=profile");
                         } else if (user.role === "HR") {
                           navigate("/hr?tab=profile");
                         } else if (user.role === "ADMIN") {
