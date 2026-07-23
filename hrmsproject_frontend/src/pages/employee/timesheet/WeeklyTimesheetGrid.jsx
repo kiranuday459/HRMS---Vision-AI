@@ -482,6 +482,26 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                 </div>
             )}
 
+            {/* Rejection reason banner if week/entries are rejected */}
+            {(() => {
+                const rejectedEntry = (weekData?.entries || []).find(e => e.status === 'REJECTED' && (e.rejectionReason || e.managerComments));
+                const reason = rejectedEntry?.rejectionReason || rejectedEntry?.managerComments || weekData?.rejectionReason;
+                if (weekData?.status === 'REJECTED' || (weekData?.entries || []).some(e => e.status === 'REJECTED')) {
+                    return (
+                        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 flex items-start gap-3">
+                            <span className="text-red-500 font-bold text-base mt-0.5">⚠</span>
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-wider text-red-800">Rejection Reason</p>
+                                <p className="text-xs font-bold text-red-700 mt-1 italic">
+                                    "{reason || 'No reason provided.'}"
+                                </p>
+                            </div>
+                        </div>
+                    );
+                }
+                return null;
+            })()}
+
             <div className="bg-white rounded-xl shadow-xl border border-[#D3D1C7] overflow-hidden flex flex-col flex-1 min-h-0 w-full animate-in fade-in zoom-in duration-300">
                 {/* Header — white background, blue accents only */}
                 <div className="bg-white border-b border-[#D3D1C7] px-4 md:px-8 py-3 shrink-0">

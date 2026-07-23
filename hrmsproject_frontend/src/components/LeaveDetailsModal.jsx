@@ -137,7 +137,7 @@ const LeaveDetailsModal = ({ isOpen, onClose, leave }) => {
                             </div>
                             {leave.status === 'REJECTED' && leave.rejectionReason && (
                                 <div className="mt-4 pt-4 border-t border-indigo-100/50">
-                                    <label className="text-[9px] font-black text-red-500/50 uppercase tracking-[0.2em] mb-1 block">Rejection Note</label>
+                                    <label className="text-[9px] font-black text-red-500/50 uppercase tracking-[0.2em] mb-1 block">Rejection Reason</label>
                                     <p className="text-[10px] font-bold text-red-600 italic">"{leave.rejectionReason}"</p>
                                 </div>
                             )}

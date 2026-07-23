@@ -109,8 +109,13 @@ public class LeaveController {
     public ResponseEntity<ApiResponse<LeaveDTO>> rejectLeave(
             @PathVariable Long id,
             @RequestBody Map<String, Object> request) {
+        Object reasonObj = request != null ? request.get("reason") : null;
+        if (reasonObj == null || reasonObj.toString().trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Rejection reason is required."));
+        }
         Long approverId = Long.valueOf(request.get("approverId").toString());
-        String reason = request.get("reason").toString();
+        String reason = reasonObj.toString().trim();
         LeaveDTO rejected = leaveService.rejectLeave(id, approverId, reason);
         return ResponseEntity.ok(ApiResponse.success("Leave rejected", rejected));
     }

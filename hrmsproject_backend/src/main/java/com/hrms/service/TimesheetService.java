@@ -236,8 +236,11 @@ public class TimesheetService {
         LocalDate weekStart = date.minusDays(daysToSubtract);
         LocalDate weekEnd = weekStart.plusDays(6);
 
+        String reasonPart = (entry.getRejectionReason() != null && !entry.getRejectionReason().isBlank())
+                ? ". Reason: " + entry.getRejectionReason()
+                : ".";
         String message = "Your timesheet for the week starting " + weekStart + " has been " + status.toLowerCase()
-                + ".";
+                + reasonPart;
 
         notificationService.createNotification(
                 entry.getEmployee().getUser().getId(),
@@ -248,6 +251,10 @@ public class TimesheetService {
     }
 
     public TimesheetDTO rejectTimesheet(Long id, Long reviewerId, String reason) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rejection reason is required.");
+        }
+
         Timesheet timesheet = timesheetRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Timesheet not found"));
 

@@ -14,6 +14,7 @@ import { Calendar as CalendarIconSVG, Eye, ShieldCheck } from "lucide-react";
 import YearlyHolidayCalendar from "../common/YearlyHolidayCalendar";
 import LeaveDetailsModal from "../../components/LeaveDetailsModal";
 import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";
+import RejectRequestModal from "../../components/RejectRequestModal";
 import NotificationComponent from "../../components/NotificationComponent";
 import { toast } from 'react-toastify';
 
@@ -398,17 +399,20 @@ export default function AdminDashboard() {
     setShowRejectModal(true);
   };
 
-  const handleRejectConfirm = async () => {
-    if (!rejectReason.trim()) return toast.warning('Please provide a reason');
+  const handleRejectConfirm = async (reason) => {
     try {
       const response = await api(`/api/leaves/${rejectingLeaveId}/reject`, {
         method: 'POST',
-        body: JSON.stringify({ approverId: currentUserId, reason: rejectReason })
+        body: JSON.stringify({ approverId: currentUserId, reason })
       });
       if (response.ok) {
         toast.success('Leave rejected successfully!');
         setShowRejectModal(false);
+        setRejectingLeaveId(null);
         fetchLeaveRequests();
+      } else {
+        const json = await response.json().catch(() => ({}));
+        toast.error(json.message || 'Failed to reject leave');
       }
     } catch (error) { console.error(error); }
   };
@@ -812,18 +816,11 @@ export default function AdminDashboard() {
 
       <YearlyHolidayCalendar isOpen={isYearlyCalendarOpen} onClose={() => setIsYearlyCalendarOpen(false)} />
 
-      {showRejectModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
-            <h3 className="text-lg font-bold mb-4 text-brand-text uppercase tracking-tight">Reject Leave Request</h3>
-            <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} maxLength={255} placeholder="Enter reason for rejection" className="w-full p-3 border border-slate-200 rounded-lg mb-4 focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm" rows="4" />
-            <div className="flex gap-3">
-              <button onClick={() => { setShowRejectModal(false); setRejectingLeaveId(null); }} className="flex-1 bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition">Cancel</button>
-              <button onClick={handleRejectConfirm} className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-600 transition shadow-lg">Reject</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RejectRequestModal
+        isOpen={showRejectModal}
+        onClose={() => { setShowRejectModal(false); setRejectingLeaveId(null); }}
+        onConfirm={handleRejectConfirm}
+      />
 
       <EmployeeSelectorModal open={isModalOpen} onClose={handleModalClose} onSave={handleAddReportingManagers} />
       <AddEmployeeModal open={isAddEmployeeModalOpen} onClose={handleAddEmployeeModalClose} onEmployeeCreated={refreshData} />

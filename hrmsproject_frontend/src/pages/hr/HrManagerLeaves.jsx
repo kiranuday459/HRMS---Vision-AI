@@ -4,6 +4,7 @@ import Sidebar from "../../components/Sidebar";
 import { getHrNavItems } from "../../utils/hrNav";
 import LeaveDetailsModal from "../../components/LeaveDetailsModal";
 import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";
+import RejectRequestModal from "../../components/RejectRequestModal";
 import { Eye } from "lucide-react";
 import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
@@ -25,6 +26,9 @@ export default function HrManagerLeaves() {
     const [leaveStatusFilter, setLeaveStatusFilter] = useState("All");
     const [selectedLeave, setSelectedLeave] = useState(null);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+    const [rejectModalOpen, setRejectModalOpen] = useState(false);
+    const [rejectLeaveId, setRejectLeaveId] = useState(null);
+    const [submittingReject, setSubmittingReject] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -118,22 +122,32 @@ export default function HrManagerLeaves() {
         }
     };
 
-    const handleReject = async (leaveId) => {
-        const reason = window.prompt("Enter rejection reason:");
-        if (reason === null) return;
+    const handleReject = (leaveId) => {
+        setRejectLeaveId(leaveId);
+        setRejectModalOpen(true);
+    };
+
+    const handleConfirmReject = async (reason) => {
+        if (!rejectLeaveId) return;
+        setSubmittingReject(true);
         try {
-            const res = await api(`/api/leaves/${leaveId}/reject`, {
+            const res = await api(`/api/leaves/${rejectLeaveId}/reject`, {
                 method: 'POST',
                 body: JSON.stringify({ approverId: user.id, reason })
             });
             if (res.ok) {
+                setRejectModalOpen(false);
+                setRejectLeaveId(null);
                 fetchData();
             } else {
-                alert("Failed to reject leave");
+                const json = await res.json().catch(() => ({}));
+                alert(json.message || "Failed to reject leave");
             }
         } catch (e) {
             console.error(e);
             alert("Error rejecting leave");
+        } finally {
+            setSubmittingReject(false);
         }
     };
 
@@ -405,6 +419,13 @@ export default function HrManagerLeaves() {
                 isOpen={isDetailsModalOpen}
                 onClose={() => setIsDetailsModalOpen(false)}
                 leave={selectedLeave}
+            />
+
+            <RejectRequestModal
+                isOpen={rejectModalOpen}
+                onClose={() => setRejectModalOpen(false)}
+                onConfirm={handleConfirmReject}
+                submitting={submittingReject}
             />
         </div>
     );
