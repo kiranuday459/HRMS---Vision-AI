@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import LoginBG from "../../assets/Color-blur-abstract-background-vector.jpg";
 import Logo from "../../assets/visionai-logo.png";
 import api from "../../utils/api";
+import { validatePassword } from "../../utils/passwordValidator";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -70,6 +71,14 @@ const ForgotPassword = () => {
     setError("");
     setMessage("");
 
+    // 1. Enforce password validation rules
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
+
+    // 2. Check password confirmation match
     if (newPassword !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -77,21 +86,22 @@ const ForgotPassword = () => {
 
     try {
       const res = await api(
-        `/api/auth/reset-password?email=${email}&otp=${otp}&newPassword=${newPassword}`,
+        `/api/auth/reset-password?email=${email}&otp=${otp}&newPassword=${encodeURIComponent(newPassword)}`,
         {
           method: "POST",
         }
       );
 
       if (!res.ok) {
-        throw new Error();
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Reset failed. Please try again.");
       }
 
       alert("Password reset successful");
       navigate("/login");
 
-    } catch {
-      setError("Reset failed. Please try again.");
+    } catch (err) {
+      setError(err.message || "Reset failed. Please try again.");
     }
   };
 
@@ -105,6 +115,16 @@ const ForgotPassword = () => {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
     </svg>
   );
+
+  // Requirements checklist helper for real-time feedback
+  const requirements = [
+    { label: "8+ characters", met: newPassword.length >= 8 },
+    { label: "Uppercase letter (A-Z)", met: /[A-Z]/.test(newPassword) },
+    { label: "Lowercase letter (a-z)", met: /[a-z]/.test(newPassword) },
+    { label: "Number (0-9)", met: /[0-9]/.test(newPassword) },
+    { label: "Special character (!@#$...)", met: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(newPassword) },
+    { label: "No sequential (1234/abcd) or repeated (aaaa/1111) chars", met: newPassword ? !validatePassword(newPassword)?.includes("sequential") && !validatePassword(newPassword)?.includes("repeated") : false }
+  ];
 
   return (
     <div
@@ -196,10 +216,30 @@ const ForgotPassword = () => {
                   type="password"
                   placeholder="Enter new password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    if (error) setError("");
+                  }}
                   required
                   className={inputClass}
                 />
+
+                {/* Password requirement indicators */}
+                {newPassword && (
+                  <div className="p-3 mt-2 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
+                    <p className="font-semibold text-slate-600 mb-1">Password Requirements:</p>
+                    {requirements.map((req, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className={req.met ? "text-emerald-600 font-bold" : "text-slate-400"}>
+                          {req.met ? "✓" : "○"}
+                        </span>
+                        <span className={req.met ? "text-emerald-700 font-medium" : "text-slate-500"}>
+                          {req.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -208,10 +248,16 @@ const ForgotPassword = () => {
                   type="password"
                   placeholder="Confirm new password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    if (error) setError("");
+                  }}
                   required
                   className={inputClass}
                 />
+                {confirmPassword && confirmPassword !== newPassword && (
+                  <p className="text-xs text-red-500 font-medium mt-1">Passwords do not match</p>
+                )}
               </div>
 
               <button onClick={resetPassword} className={primaryBtn}>

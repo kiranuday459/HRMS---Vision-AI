@@ -9,6 +9,7 @@ const LoginPage = ({ setUser }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [sessionMsg, setSessionMsg] = useState('');
+  const [lockoutTimer, setLockoutTimer] = useState(0);
   const navigate = useNavigate();
 
   // Show an expiry notice when redirected here by a session timeout — either via
@@ -20,6 +21,23 @@ const LoginPage = ({ setUser }) => {
       sessionStorage.removeItem('sessionExpired');
     }
   }, []);
+
+  // Dynamic live countdown timer effect (ticks down every second)
+  useEffect(() => {
+    if (lockoutTimer <= 0) return;
+
+    const interval = setInterval(() => {
+      setLockoutTimer((prev) => {
+        if (prev <= 1) {
+          setError(''); // Lockout timer finished
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lockoutTimer]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -36,8 +54,11 @@ const LoginPage = ({ setUser }) => {
       console.log("🟢 Login response:", loginRes.status);
 
       if (!loginRes.ok) {
-        // Surface backend message (e.g. disabled-account notice) when available
+        // Surface backend message (e.g. disabled-account notice or lockout) when available
         const data = await loginRes.json().catch(() => ({}));
+        if (data.lockoutSeconds) {
+          setLockoutTimer(data.lockoutSeconds);
+        }
         setError(data.message || "Invalid username or password");
         return;
       }
@@ -141,8 +162,10 @@ const LoginPage = ({ setUser }) => {
         )}
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-lg text-center mb-4 text-sm font-medium border border-red-100">
-            {error}
+          <div className="bg-red-50 text-red-600 p-3 rounded-lg text-center mb-4 text-sm font-medium border border-red-100 whitespace-pre-line leading-relaxed">
+            {lockoutTimer > 0
+              ? `Too Many Attempts.\nPlease try again in ${String(Math.floor(lockoutTimer / 60)).padStart(2, '0')}:${String(lockoutTimer % 60).padStart(2, '0')}.`
+              : error}
           </div>
         )}
 

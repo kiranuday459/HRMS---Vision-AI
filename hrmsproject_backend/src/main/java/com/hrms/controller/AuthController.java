@@ -23,6 +23,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import com.hrms.service.AccountLockoutService;
 import com.hrms.security.JwtUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -45,6 +46,9 @@ public class AuthController {
     @Autowired
     private JwtUtils jwtUtils;
 
+    @Autowired
+    private AccountLockoutService accountLockoutService;
+
     @PostMapping("/login")
     public ResponseEntity<?> login(
             @RequestBody Map<String, String> body,
@@ -58,9 +62,27 @@ public class AuthController {
                     .body(Map.of("message", "Username and password are required"));
         }
 
+        String accountKey = username.trim().toLowerCase();
+
+        // 1. Lockout Check MUST occur BEFORE password validation on subsequent attempts
+        if (accountLockoutService.isLocked(accountKey)) {
+            long remainingSecs = accountLockoutService.getRemainingLockoutSeconds(accountKey);
+            long minutes = remainingSecs / 60;
+            long seconds = remainingSecs % 60;
+            String timeFormatted = String.format("%02d:%02d", minutes, seconds);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of(
+                            "message", "Too Many Attempts.\nPlease try again in " + timeFormatted + ".",
+                            "lockoutSeconds", remainingSecs
+                    ));
+        }
+
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(username, password));
+
+            // Reset failed attempts counter on successful login post-cooldown
+            accountLockoutService.resetAttempts(accountKey);
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             String jwt = jwtUtils.generateJwtToken(authentication);
@@ -71,13 +93,23 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message",
                             "Your account has been disabled. Please contact your administrator."));
-        } catch (BadCredentialsException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Invalid username or password"));
         } catch (AuthenticationException e) {
-            // Any other authentication failure (user not found, locked, etc.) → 401, never 500
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Invalid username or password"));
+            int attempts = accountLockoutService.recordFailedAttempt(accountKey);
+            if (attempts >= AccountLockoutService.MAX_ATTEMPTS) {
+                long remainingSecs = accountLockoutService.getRemainingLockoutSeconds(accountKey);
+                long minutes = remainingSecs / 60;
+                long seconds = remainingSecs % 60;
+                String timeFormatted = String.format("%02d:%02d", minutes, seconds);
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(Map.of(
+                                "message", "Too Many Attempts.\nPlease try again in " + timeFormatted + ".",
+                                "lockoutSeconds", remainingSecs
+                        ));
+            } else {
+                int remainingAttempts = AccountLockoutService.MAX_ATTEMPTS - attempts;
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("message", "Invalid username or password.\nRemaining Attempts: " + remainingAttempts));
+            }
         } catch (Exception e) {
             // Unexpected server/DB error — log server-side only, do not leak internals
             System.err.println("Login error: " + e.getMessage());
@@ -131,6 +163,11 @@ public class AuthController {
     @PostMapping("/auth/reset-password")
     public ResponseEntity<?> resetPassword(@RequestParam String email, @RequestParam String otp,
             @RequestParam String newPassword) {
+        String validationError = validatePassword(newPassword);
+        if (validationError != null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", validationError));
+        }
+
         Optional<User> userOptional = userRepository.findByEmail(email);
         if (userOptional.isPresent()) {
             User user = userOptional.get();
@@ -147,5 +184,66 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Invalid or expired OTP"));
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Email not found"));
+    }
+
+    public static String validatePassword(String password) {
+        if (password == null || password.trim().isEmpty()) {
+            return "Password is required";
+        }
+        if (password.length() < 8) {
+            return "Password must be at least 8 characters long";
+        }
+        if (!password.matches(".*[A-Z].*")) {
+            return "Password must contain at least one uppercase letter";
+        }
+        if (!password.matches(".*[a-z].*")) {
+            return "Password must contain at least one lowercase letter";
+        }
+        if (!password.matches(".*[0-9].*")) {
+            return "Password must contain at least one number";
+        }
+        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?~`].*")) {
+            return "Password must contain at least one special character";
+        }
+        if (password.matches(".*(.)\\1{2,}.*")) {
+            return "Password must not contain repeated characters (e.g. aaaa, 1111)";
+        }
+
+        String lower = password.toLowerCase();
+        for (int i = 0; i < lower.length() - 2; i++) {
+            char c1 = lower.charAt(i);
+            char c2 = lower.charAt(i + 1);
+            char c3 = lower.charAt(i + 2);
+
+            if (c2 == c1 + 1 && c3 == c2 + 1) {
+                if ((c1 >= '0' && c3 <= '9') || (c1 >= 'a' && c3 <= 'z')) {
+                    return "Password must not contain sequential characters (e.g. 1234 or abcd)";
+                }
+            }
+            if (c2 == c1 - 1 && c3 == c2 - 1) {
+                if ((c3 >= '0' && c1 <= '9') || (c3 >= 'a' && c1 <= 'z')) {
+                    return "Password must not contain sequential characters (e.g. 1234 or abcd)";
+                }
+            }
+        }
+
+        String[] keyboardPatterns = {"qwerty", "wertyu", "ertyui", "rtyuio", "tyuiop", "asdfgh", "sdfghj", "dfghjk", "fghjkl", "zxcvbn", "xcvbnm"};
+        for (String pat : keyboardPatterns) {
+            for (int i = 0; i <= pat.length() - 3; i++) {
+                String sub = pat.substring(i, i + 3);
+                if (lower.contains(sub)) {
+                    return "Password must not contain sequential keyboard patterns (e.g. qwerty)";
+                }
+            }
+        }
+
+        String[] commonWeak = {"password", "pass1234", "qwerty", "admin", "admin123", "welcome", "12345678", "123456789", "letmein", "hrms1234", "p@ssword"};
+        for (String weak : commonWeak) {
+            if (lower.contains(weak)) {
+                return "Password is too common or easily guessable";
+            }
+        }
+
+        return null;
     }
 }
