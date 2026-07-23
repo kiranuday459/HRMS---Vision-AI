@@ -552,6 +552,23 @@ public class TimesheetService {
                 .collect(Collectors.toList());
     }
 
+    public List<TimesheetDTO> filterForRm(List<TimesheetDTO> all, Long rmEmployeeId) {
+        if (all == null || rmEmployeeId == null)
+            return all;
+
+        java.util.Set<Long> teamEmployeeIds = new java.util.HashSet<>();
+        teamEmployeeIds.add(rmEmployeeId);
+        for (EmployeeReporting er : employeeReportingRepository.findAllByReportingManager_Id(rmEmployeeId)) {
+            if (er.getEmployee() != null) {
+                teamEmployeeIds.add(er.getEmployee().getId());
+            }
+        }
+
+        return all.stream()
+                .filter(t -> t.getEmployeeId() != null && teamEmployeeIds.contains(t.getEmployeeId()))
+                .collect(Collectors.toList());
+    }
+
     /**
      * Whether the employee currently has a Reporting Manager assigned (via the most
      * recent EmployeeReporting row). Used to fall the approval routing forward to the

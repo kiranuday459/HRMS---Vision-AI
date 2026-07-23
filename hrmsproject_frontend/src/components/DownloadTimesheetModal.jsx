@@ -83,11 +83,12 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
 
     if (!isOpen) return null;
 
-    const filteredEmployees = roleEligible.filter(emp =>
-        emp.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.oryfolksId?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredEmployees = roleEligible.filter(emp => {
+        const empName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.name || emp.fullName || "";
+        const empCode = emp.oryfolksId || `EMP${emp.id}` || "";
+        return empName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            empCode.toLowerCase().includes(searchTerm.toLowerCase());
+    });
 
     const handleToggleSelectAll = () => {
         const list = roleEligible || [];
@@ -410,7 +411,7 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
             
             r.getCell(1).value = empIdx + 1;
             r.getCell(2).value = emp?.oryfolksId || `EMP${empId}`;
-            r.getCell(3).value = `${emp?.firstName || ""} ${emp?.lastName || ""}`.trim();
+            r.getCell(3).value = `${emp?.firstName || ""} ${emp?.lastName || ""}`.trim() || emp?.name || emp?.fullName || "Unknown";
             r.getCell(4).value = emp?.department || "Engineering";
             r.getCell(5).value = sD.toLocaleDateString("en-US", { month: "short" });
             r.getCell(6).value = sD.getFullYear();
@@ -758,8 +759,8 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                                         <Square className="w-4 h-4 text-brand-text/20" />
                                     )}
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-black text-brand-text tracking-tight">{emp.firstName} {emp.lastName}<ProjectSuffix project={emp.clientProject} /></span>
-                                        <span className="text-[9px] font-bold text-brand-text/30 uppercase tracking-widest">{emp.oryfolksId}</span>
+                                        <span className="text-xs font-black text-brand-text tracking-tight">{`${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.name || emp.fullName || "Unknown"}<ProjectSuffix project={emp.clientProject} /></span>
+                                        <span className="text-[9px] font-bold text-brand-text/30 uppercase tracking-widest">{emp.oryfolksId || `EMP${emp.id}`}</span>
                                     </div>
                                 </div>
                             ))}

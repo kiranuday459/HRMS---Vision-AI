@@ -38,6 +38,9 @@ public class TimesheetController {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private com.hrms.repository.EmployeeReportingRepository employeeReportingRepository;
+
     private Long getEmployeeIdFromAuth(Authentication authentication) {
         if (authentication != null && authentication.isAuthenticated()
                 && authentication.getPrincipal() instanceof UserPrincipal) {
@@ -67,25 +70,40 @@ public class TimesheetController {
         Long effectiveEmployeeId = employeeId;
         boolean filterForHr = false;
         Long hrEmployeeId = null;
+        boolean filterForRm = false;
+        Long rmEmployeeId = null;
 
         if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal) {
             UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
             User user = principal.getUser();
 
-            // If user is just an EMPLOYEE or REPORTING_MANAGER, force them to only see their own timesheets.
-            // ADMIN sees everyone. HR sees only their assigned employees (with unassigned fallback).
-            if (user.getRole() == Role.EMPLOYEE || user.getRole() == Role.REPORTING_MANAGER) {
+            // EMPLOYEE: force to see only their own timesheets
+            if (user.getRole() == Role.EMPLOYEE) {
                 Long authEmployeeId = getEmployeeIdFromAuth(authentication);
                 if (authEmployeeId != null) {
                     effectiveEmployeeId = authEmployeeId;
                 }
+            } else if (user.getRole() == Role.REPORTING_MANAGER) {
+                rmEmployeeId = getEmployeeIdFromAuth(authentication);
+                if (rmEmployeeId != null) {
+                    if (employeeId != null) {
+                        // RM requesting specific employee's timesheets -> enforce team membership / self scope
+                        final Long targetEmpId = employeeId;
+                        boolean isSelfOrTeam = rmEmployeeId.equals(targetEmpId) ||
+                                employeeReportingRepository.findAllByReportingManager_Id(rmEmployeeId)
+                                        .stream().anyMatch(er -> er.getEmployee() != null && er.getEmployee().getId().equals(targetEmpId));
+                        if (!isSelfOrTeam) {
+                            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                    .body(ApiResponse.error("Access denied: Employee does not report to you"));
+                        }
+                        effectiveEmployeeId = employeeId;
+                    } else {
+                        // Bulk query: filter results to RM's team members + self
+                        filterForRm = true;
+                    }
+                }
             } else if (user.getRole() == Role.HR) {
                 hrEmployeeId = getEmployeeIdFromAuth(authentication);
-                // Apply the HR team-queue filter ONLY when the HR is not requesting their
-                // own timesheets. The "My Timesheet" page fetches with employeeId = the HR's
-                // own id; filterForHr excludes the HR's own records, so applying it there
-                // would wrongly hide their own timesheets (showing every week as Not Filled).
-                // When employeeId is null (the team queue), keep filtering as before.
                 filterForHr = hrEmployeeId != null && !hrEmployeeId.equals(employeeId);
             }
         }
@@ -93,9 +111,11 @@ public class TimesheetController {
         List<TimesheetDTO> timesheets = timesheetService.getAllTimesheets(
                 effectiveEmployeeId, excludeUserId, fromDate, toDate, status, page, size);
 
-        // HR routing: restrict the HR queue to employees assigned to this HR.
+        // Scope filters
         if (filterForHr) {
             timesheets = timesheetService.filterForHr(timesheets, hrEmployeeId);
+        } else if (filterForRm) {
+            timesheets = timesheetService.filterForRm(timesheets, rmEmployeeId);
         }
         return ResponseEntity.ok(ApiResponse.success(timesheets));
     }
@@ -220,7 +240,7 @@ public class TimesheetController {
     private static final java.util.concurrent.ConcurrentHashMap<Long, java.time.Instant> lastNotificationMap = new java.util.concurrent.ConcurrentHashMap<>();
 
     @PostMapping("/download-notification")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('HR')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('HR') or hasRole('REPORTING_MANAGER')")
     public ResponseEntity<ApiResponse<Void>> notifyDownload(
             @RequestBody TimesheetDownloadRequest request,
             Authentication authentication) {

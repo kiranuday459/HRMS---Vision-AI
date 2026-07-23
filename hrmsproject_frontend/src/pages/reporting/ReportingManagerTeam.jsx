@@ -9,13 +9,14 @@ import Sidebar from "../../components/Sidebar";
 import { getRmNavItems } from "../../utils/rmNav";
 import { getWeekStatus, APPROVAL_STATUS } from "../../utils/timesheetStatus";
 import { getLeaveStatusLabel, isHrDisabledReroute } from "../../utils/leaveStatus";
-import { Eye } from "lucide-react";
 import LeaveDetailsModal from "../../components/LeaveDetailsModal";
 import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";
 import HrRerouteBanner from "../../components/HrRerouteBanner";
 import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
 import { ProjectSuffix } from "../../utils/employeeName";
+import DownloadTimesheetModal from "../../components/DownloadTimesheetModal";
+import { Eye, Download } from "lucide-react";
 
 
 export default function ReportingManagerTeam() {
@@ -47,6 +48,7 @@ export default function ReportingManagerTeam() {
     const [selectedLeave, setSelectedLeave] = useState(null);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+    const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
 
 
     useEffect(() => {
@@ -547,6 +549,13 @@ export default function ReportingManagerTeam() {
                                             <option>Rejected</option>
                                         </select>
                                     </div>
+                                    <button
+                                        onClick={() => setIsDownloadModalOpen(true)}
+                                        className="bg-brand-blue-dark text-white px-3 py-3 rounded-2xl shadow-xl shadow-brand-blue/10 active:scale-95 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:brightness-110"
+                                    >
+                                        <Download size={14} />
+                                        Download Timesheet
+                                    </button>
                                 </div>
                                 <div className="space-y-8">
                                         {tsLoading ? (
@@ -728,6 +737,11 @@ export default function ReportingManagerTeam() {
                 isOpen={isDetailsModalOpen}
                 onClose={() => setIsDetailsModalOpen(false)}
                 leave={selectedLeave}
+            />
+            <DownloadTimesheetModal
+                isOpen={isDownloadModalOpen}
+                onClose={() => setIsDownloadModalOpen(false)}
+                employees={teamMembers}
             />
         </div>
     );
