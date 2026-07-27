@@ -38,7 +38,6 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
     setSearch("");
     setCheckedIds(new Set());
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const fetchData = async () => {

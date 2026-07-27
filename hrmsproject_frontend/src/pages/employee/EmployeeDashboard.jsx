@@ -36,7 +36,7 @@ const EmployeeDashboard = () => {
 
 	// Client Timesheet access (assignment + OTP verification) — drives the activation banner
 	// and the conditional sidebar button.
-	const { clientAssigned, clientVerified, clientProject, refresh: refreshClientAccess } = useClientAccess();
+	const { clientAssigned, clientVerified, clientProject, clientAssignmentDate, refresh: refreshClientAccess } = useClientAccess();
 	const [otpModalOpen, setOtpModalOpen] = useState(false);
 
 	const headingSection = { dashboard: 'dashboard', timesheet: 'timesheet', leave: 'leave', profile: 'profile' }[activeTab];

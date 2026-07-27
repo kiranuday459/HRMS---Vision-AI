@@ -25,7 +25,7 @@ export function validatePassword(password) {
   if (!/[0-9]/.test(password)) {
     return "Password must contain at least one number";
   }
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password)) {
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/.test(password)) {
     return "Password must contain at least one special character";
   }
   if (/(.)\1{2,}/i.test(password)) {

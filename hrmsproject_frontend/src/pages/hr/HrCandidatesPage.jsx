@@ -42,7 +42,6 @@ export default function HrCandidatesPage() {
   // changes are reflected immediately for HR — no manual refresh required.
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

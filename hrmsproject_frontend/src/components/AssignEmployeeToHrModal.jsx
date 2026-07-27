@@ -34,7 +34,6 @@ export default function AssignEmployeeToHrModal({ open, onClose, onSaved }) {
     setSearch("");
     setCheckedIds(new Set());
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const fetchData = async () => {

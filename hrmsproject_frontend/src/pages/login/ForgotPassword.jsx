@@ -122,7 +122,7 @@ const ForgotPassword = () => {
     { label: "Uppercase letter (A-Z)", met: /[A-Z]/.test(newPassword) },
     { label: "Lowercase letter (a-z)", met: /[a-z]/.test(newPassword) },
     { label: "Number (0-9)", met: /[0-9]/.test(newPassword) },
-    { label: "Special character (!@#$...)", met: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(newPassword) },
+    { label: "Special character (!@#$...)", met: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/.test(newPassword) },
     { label: "No sequential (1234/abcd) or repeated (aaaa/1111) chars", met: newPassword ? !validatePassword(newPassword)?.includes("sequential") && !validatePassword(newPassword)?.includes("repeated") : false }
   ];
 

@@ -106,7 +106,6 @@ export default function ClientTimesheetEntry() {
         } finally {
             setLoading(false);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [weekStart]);
 
     useEffect(() => { fetchDetail(); }, [fetchDetail]);
