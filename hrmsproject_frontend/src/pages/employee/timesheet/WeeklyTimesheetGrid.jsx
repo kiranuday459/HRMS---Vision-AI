@@ -1,12 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import HrRerouteBanner from '../../../components/HrRerouteBanner';
+import api from '../../../utils/api';
 
 const EMPTY_ARRAY = [];
 
-const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLeaves = EMPTY_ARRAY, holidays = EMPTY_ARRAY, readOnly = false, onApprove, onReject, canApprove = false, canReject = false, onProbation = false, disabledAccount = false, hrDisabledReroute = false, hrRerouteEmployeeName = '' }) => {
+const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate: initialJoiningDate = null, approvedLeaves = EMPTY_ARRAY, holidays = EMPTY_ARRAY, readOnly = false, onApprove, onReject, canApprove = false, canReject = false, onProbation = false, disabledAccount = false, hrDisabledReroute = false, hrRerouteEmployeeName = '' }) => {
     // Dates for the week (7 days)
     const [dates, setDates] = useState([]);
+    const [joiningDate, setJoiningDate] = useState(initialJoiningDate);
+
+    useEffect(() => {
+        if (initialJoiningDate) {
+            setJoiningDate(initialJoiningDate);
+        } else if (employeeId) {
+            api(`/api/employees/${employeeId}`)
+                .then(res => res.json())
+                .then(json => {
+                    if (json && json.data) {
+                        setJoiningDate(json.data.joiningDate || json.data.hireDate || null);
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [initialJoiningDate, employeeId]);
 
     // Project rows
     const [projectRows, setProjectRows] = useState([
@@ -240,6 +257,15 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
         return d > today;
     };
 
+    const isBeforeJoiningDate = (date) => {
+        if (!date || !joiningDate) return false;
+        const d = parseDateLocal(date);
+        d.setHours(0, 0, 0, 0);
+        const jDate = parseDateLocal(joiningDate);
+        jDate.setHours(0, 0, 0, 0);
+        return d < jDate;
+    };
+
 
 
     // Numeric-only sanitizer for timesheet hour fields:
@@ -434,8 +460,14 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
             });
         });
 
-        // Safety: never submit hours for a future date (e.g. an auto-filled future holiday).
-        payload.entries = payload.entries.filter(e => !isFutureDay(parseDateLocal(e.date)));
+        // Check if any entries are before joining date
+        if (joiningDate && payload.entries.some(e => isBeforeJoiningDate(e.date))) {
+            toast.error("Timesheet entries are not allowed for dates before your joining date.");
+            return;
+        }
+
+        // Safety: never submit hours for a future date or pre-joining date.
+        payload.entries = payload.entries.filter(e => !isFutureDay(parseDateLocal(e.date)) && !isBeforeJoiningDate(e.date));
 
         onSave(payload);
     };
@@ -449,8 +481,10 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
         };
     };
 
-    // A fully-future week (every day after today) locks all columns and disables Submit.
+    // A fully-future or pre-joining week (every day either after today or before joining date) locks all columns.
     const allFutureWeek = dates.length === 7 && dates.every(isFutureDay);
+    const allPreJoiningWeek = dates.length === 7 && dates.every(isBeforeJoiningDate);
+    const allDisabledWeek = dates.length === 7 && dates.every(d => isFutureDay(d) || isBeforeJoiningDate(d));
 
     return (
         <div className="flex flex-col max-w-6xl mx-auto w-full flex-1 min-h-0">
@@ -531,7 +565,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto">
                             {!readOnly ? (
-                                <button onClick={handleSave} disabled={allFutureWeek} className={`flex-1 sm:flex-none px-4 md:px-5 py-2 rounded-lg text-[9px] md:text-[10px] font-bold transition-all shadow-sm tracking-widest uppercase ${allFutureWeek ? 'bg-[#D3D1C7] text-[#8A8880] cursor-not-allowed' : 'bg-[#185FA5] text-white hover:bg-[#0C447C] active:scale-95'}`}>
+                                <button onClick={handleSave} disabled={allDisabledWeek} className={`flex-1 sm:flex-none px-4 md:px-5 py-2 rounded-lg text-[9px] md:text-[10px] font-bold transition-all shadow-sm tracking-widest uppercase ${allDisabledWeek ? 'bg-[#D3D1C7] text-[#8A8880] cursor-not-allowed' : 'bg-[#185FA5] text-white hover:bg-[#0C447C] active:scale-95'}`}>
                                     SUBMIT SHEET
                                 </button>
                             ) : (canApprove && canReject && onApprove && onReject && !disabledAccount && String(employeeId) !== String(JSON.parse(localStorage.getItem("user"))?.employeeId)) && (
@@ -564,10 +598,11 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                                 {dates.map((d, i) => {
                                     const header = formatDateHeader(d);
                                     const future = isFutureDay(d);
+                                    const preJoining = isBeforeJoiningDate(d);
                                     return (
-                                        <th key={i} className="p-2 border-r border-b border-[#F1EFE8] text-center min-w-[45px]">
-                                            <div className={`text-[13px] font-medium ${future ? 'text-[#B4B2A9]' : 'text-[#185FA5]'}`}>{header.day}</div>
-                                            <div className={`text-[11px] font-normal ${future ? 'text-[#D3D1C7]' : 'text-[#0C447C]'}`}>{header.name}</div>
+                                        <th key={i} title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined} className="p-2 border-r border-b border-[#F1EFE8] text-center min-w-[45px]">
+                                            <div className={`text-[13px] font-medium ${future || preJoining ? 'text-[#B4B2A9]' : 'text-[#185FA5]'}`}>{header.day}</div>
+                                            <div className={`text-[11px] font-normal ${future || preJoining ? 'text-[#D3D1C7]' : 'text-[#0C447C]'}`}>{header.name}</div>
                                         </th>
                                     );
                                 })}
@@ -615,17 +650,19 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                                     {row.hours.map((h, i) => {
                                         const weekend = isWeekend(dates[i]);
                                         const future = isFutureDay(dates[i]);
+                                        const preJoining = isBeforeJoiningDate(dates[i]);
+                                        const isDisabled = weekend || readOnly || isHolidayDay(i) || future || preJoining;
                                         return (
-                                            <td key={i} className={`p-0.5 border-r border-[#F1EFE8] ${future ? 'bg-[#F1EFE8]' : ''}`}>
+                                            <td key={i} title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined} className={`p-0.5 border-r border-[#F1EFE8] ${future || preJoining ? 'bg-[#F1EFE8]' : ''}`}>
                                                 <input
                                                     type="text"
                                                     inputMode="decimal"
                                                     maxLength={2}
                                                     value={h.value}
-                                                    disabled={weekend || readOnly || isHolidayDay(i) || future}
+                                                    disabled={isDisabled}
                                                     onKeyDown={handleHoursKeyDown}
                                                     onChange={(e) => handleHourChange(index, i, e.target.value)}
-                                                    className={`w-full p-2 text-[11px] text-center rounded outline-none font-bold ${future ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed' : `border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 bg-transparent focus:bg-white ${weekend || isHolidayDay(i) ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700'}`}`}
+                                                    className={`w-full p-2 text-[11px] text-center rounded outline-none font-bold ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed' : `border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 bg-transparent focus:bg-white ${weekend || isHolidayDay(i) ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700'}`}`}
                                                 />
                                             </td>
                                         );
@@ -668,14 +705,16 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                                 {truTimeRows.swipe.map((h, i) => {
                                     const weekend = isWeekend(dates[i]);
                                     const future = isFutureDay(dates[i]);
+                                    const preJoining = isBeforeJoiningDate(dates[i]);
+                                    const isDisabled = weekend || readOnly || isHolidayDay(i) || future || preJoining;
                                     return (
-                                        <td key={i} className={`p-0 border-r border-[#F1EFE8] h-8 ${future ? 'bg-[#F1EFE8]' : 'bg-white'}`}>
+                                        <td key={i} title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined} className={`p-0 border-r border-[#F1EFE8] h-8 ${future || preJoining ? 'bg-[#F1EFE8]' : 'bg-white'}`}>
                                             <input
                                                 type="text"
                                                 inputMode="decimal"
                                                 maxLength={2}
                                                 value={h.value}
-                                                disabled={weekend || readOnly || isHolidayDay(i) || future}
+                                                disabled={isDisabled}
                                                 onKeyDown={handleHoursKeyDown}
                                                 onChange={(e) => {
                                                     const val = sanitizeHours(e.target.value);
@@ -683,7 +722,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                                                     updated.swipe[i] = { ...updated.swipe[i], value: val };
                                                     setTruTimeRows(updated);
                                                 }}
-                                                className={`w-full h-full text-center outline-none font-bold ${future ? 'bg-[#F1EFE8] text-[#B4B2A9] cursor-not-allowed' : `bg-transparent ${weekend || isHolidayDay(i) ? 'text-slate-400 cursor-not-allowed' : 'text-slate-400'}`}`}
+                                                className={`w-full h-full text-center outline-none font-bold ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9] cursor-not-allowed' : `bg-transparent ${weekend || isHolidayDay(i) ? 'text-slate-400 cursor-not-allowed' : 'text-slate-400'}`}`}
                                             />
                                         </td>
                                     );
@@ -740,17 +779,19 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                                         </td>
                                         {leaveRows[key].map((h, i) => {
                                             const future = isFutureDay(dates[i]);
+                                            const preJoining = isBeforeJoiningDate(dates[i]);
+                                            const isDisabled = readOnly || lockedByProbation || future || preJoining;
                                             return (
-                                                <td key={i} className={`p-0 border-r border-[#F1EFE8] ${future ? 'bg-[#F1EFE8]' : cellTone}`}>
+                                                <td key={i} title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined} className={`p-0 border-r border-[#F1EFE8] ${future || preJoining ? 'bg-[#F1EFE8]' : cellTone}`}>
                                                     <input
                                                         type="text"
                                                         inputMode="decimal"
                                                         maxLength={2}
                                                         value={h.value}
-                                                        disabled={readOnly || lockedByProbation || future}
+                                                        disabled={isDisabled}
                                                         onKeyDown={handleHoursKeyDown}
                                                         onChange={(e) => handleLeaveHourChange(key, i, e.target.value)}
-                                                        className={`w-full text-center h-full outline-none font-bold transition-colors disabled:cursor-not-allowed ${future ? 'bg-[#F1EFE8] text-[#B4B2A9]' : 'bg-transparent text-slate-500 hover:bg-white focus:bg-white'}`}
+                                                        className={`w-full text-center h-full outline-none font-bold transition-colors disabled:cursor-not-allowed ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9]' : 'bg-transparent text-slate-500 hover:bg-white focus:bg-white'}`}
                                                     />
                                                 </td>
                                             );
@@ -803,9 +844,11 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                                     <div className="grid grid-cols-7 gap-1">
                                         {row.hours.map((h, i) => {
                                             const future = isFutureDay(dates[i]);
+                                            const preJoining = isBeforeJoiningDate(dates[i]);
+                                            const isDisabled = isWeekend(dates[i]) || readOnly || isHolidayDay(i) || future || preJoining;
                                             return (
-                                            <div key={i} className="flex flex-col items-center">
-                                                <span className={`text-[7px] font-bold mb-1 ${future ? 'text-[#D3D1C7]' : 'text-slate-400'}`}>
+                                            <div key={i} className="flex flex-col items-center" title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined}>
+                                                <span className={`text-[7px] font-bold mb-1 ${future || preJoining ? 'text-[#D3D1C7]' : 'text-slate-400'}`}>
                                                     {formatDateHeader(dates[i])?.name?.charAt(0) || ''}
                                                 </span>
                                                 <input
@@ -813,10 +856,10 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                                                     inputMode="decimal"
                                                     maxLength={2}
                                                     value={h.value}
-                                                    disabled={isWeekend(dates[i]) || readOnly || isHolidayDay(i) || future}
+                                                    disabled={isDisabled}
                                                     onKeyDown={handleHoursKeyDown}
                                                     onChange={(e) => handleHourChange(index, i, e.target.value)}
-                                                    className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded outline-none ${future ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed' : isWeekend(dates[i]) || isHolidayDay(i) ? 'bg-white text-slate-300' : 'bg-white text-slate-700 border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20'}`}
+                                                    className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded outline-none ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed' : isWeekend(dates[i]) || isHolidayDay(i) ? 'bg-white text-slate-300' : 'bg-white text-slate-700 border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20'}`}
                                                 />
                                             </div>
                                             );
@@ -866,6 +909,8 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                                             <div className="grid grid-cols-7 gap-1">
                                                 {data.map((h, i) => {
                                                     const future = isFutureDay(dates[i]);
+                                                    const preJoining = isBeforeJoiningDate(dates[i]);
+                                                    const isDisabled = key === 'holiday' || readOnly || isWeekend(dates[i]) || lockedByProbation || future || preJoining;
                                                     return (
                                                     <input
                                                         key={i}
@@ -873,10 +918,11 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                                                         inputMode="decimal"
                                                         maxLength={2}
                                                         value={h.value}
-                                                        disabled={key === 'holiday' || readOnly || isWeekend(dates[i]) || lockedByProbation || future}
+                                                        disabled={isDisabled}
+                                                        title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined}
                                                         onKeyDown={handleHoursKeyDown}
                                                         onChange={(e) => key === 'swipe' ? setTruTimeRows({ ...truTimeRows, swipe: truTimeRows.swipe.map((sh, idx) => idx === i ? { ...sh, value: sanitizeHours(e.target.value) } : sh) }) : handleLeaveHourChange(key, i, e.target.value)}
-                                                        className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded border-transparent border outline-none disabled:cursor-not-allowed ${future ? 'bg-[#F1EFE8] text-[#B4B2A9]' : key === 'holiday' ? 'bg-amber-100/50 text-amber-700' : key.startsWith('leave') ? 'bg-white text-slate-500' : 'bg-white text-slate-400'}`}
+                                                        className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded border-transparent border outline-none disabled:cursor-not-allowed ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9]' : key === 'holiday' ? 'bg-amber-100/50 text-amber-700' : key.startsWith('leave') ? 'bg-white text-slate-500' : 'bg-white text-slate-400'}`}
                                                     />
                                                     );
                                                 })}
@@ -890,11 +936,15 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, approvedLea
                 </div>
             </div>
 
-            {/* Info banner — shown when the whole week is in the future (all columns locked). */}
-            {!readOnly && allFutureWeek && (
+            {/* Info banner — shown when columns are locked due to future dates or pre-joining dates. */}
+            {!readOnly && (allFutureWeek || allPreJoiningWeek || allDisabledWeek) && (
                 <div className="mx-4 md:mx-8 mb-2 flex items-start gap-2 bg-[#E6F1FB] text-[#0C447C] text-[13px] rounded-lg px-4 py-2.5 shrink-0">
                     <span className="mt-px">ℹ</span>
-                    <span>Timesheet entries can only be filled for today and past days. Future dates are locked.</span>
+                    <span>
+                        {allPreJoiningWeek
+                            ? "Timesheet entries are not allowed for dates before your joining date."
+                            : "Timesheet entries can only be filled for dates from your joining date up to today."}
+                    </span>
                 </div>
             )}
 
