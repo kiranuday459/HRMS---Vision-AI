@@ -299,6 +299,7 @@ const PersonalTimesheetContent = ({ employeeId, user, profileResolved = true }) 
                 <WeeklyTimesheetGrid
                     weekData={selectedWeek}
                     employeeId={employeeId}
+                    joiningDate={joiningDate}
                     approvedLeaves={approvedLeaves}
                     holidays={holidays}
                     readOnly={selectedWeek.status === 'Approved'}

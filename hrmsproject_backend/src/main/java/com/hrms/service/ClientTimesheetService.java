@@ -6,6 +6,7 @@ import com.hrms.model.ClientTimesheetStatus;
 import com.hrms.model.Employee;
 import com.hrms.model.User;
 import com.hrms.repository.ClientTimesheetRepository;
+import com.hrms.repository.CompanyDetailRepository;
 import com.hrms.repository.EmployeeRepository;
 import com.hrms.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,9 @@ public class ClientTimesheetService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private CompanyDetailRepository companyDetailRepository;
+
     public List<ClientTimesheetDTO> getAll(Long employeeId, String clientName, String status,
             LocalDate fromDate, LocalDate toDate) {
         ClientTimesheetStatus statusEnum = (status != null && !status.isBlank())
@@ -63,6 +67,15 @@ public class ClientTimesheetService {
         }
         Employee employee = employeeRepository.findById(dto.getEmployeeId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
+
+        if (dto.getDate() != null) {
+            companyDetailRepository.findByEmployee_Id(dto.getEmployeeId()).ifPresent(detail -> {
+                if (detail.getJoiningDate() != null && dto.getDate().isBefore(detail.getJoiningDate())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Timesheet entries cannot be created for dates before the employee's joining date.");
+                }
+            });
+        }
 
         ClientTimesheet entry = new ClientTimesheet();
         entry.setEmployee(employee);

@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import com.hrms.repository.EmployeeReportingRepository;
+import com.hrms.repository.CompanyDetailRepository;
+import com.hrms.model.CompanyDetail;
 import com.hrms.model.EmployeeReporting;
 
 import java.time.LocalDate;
@@ -40,6 +42,9 @@ public class TimesheetService {
 
     @Autowired
     private EmployeeReportingRepository employeeReportingRepository;
+
+    @Autowired
+    private CompanyDetailRepository companyDetailRepository;
 
     @Autowired
     private NotificationService notificationService;
@@ -69,9 +74,21 @@ public class TimesheetService {
         return convertToDTO(timesheet);
     }
 
+    private void validateDateAgainstJoiningDate(Long employeeId, LocalDate date) {
+        if (date == null || employeeId == null) return;
+        companyDetailRepository.findByEmployee_Id(employeeId).ifPresent(detail -> {
+            if (detail.getJoiningDate() != null && date.isBefore(detail.getJoiningDate())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Timesheet entries cannot be created for dates before the employee's joining date.");
+            }
+        });
+    }
+
     public TimesheetDTO createTimesheet(TimesheetDTO dto) {
         Employee employee = employeeRepository.findById(dto.getEmployeeId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
+
+        validateDateAgainstJoiningDate(dto.getEmployeeId(), dto.getDate());
 
         Timesheet timesheet = new Timesheet();
         timesheet.setEmployee(employee);
@@ -122,6 +139,10 @@ public class TimesheetService {
             timesheet.getStatus() != TimesheetStatus.PENDING_RM_AS_HR_APPROVAL &&
             timesheet.getStatus() != TimesheetStatus.PENDING_ADMIN_APPROVAL) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only pending timesheets can be updated");
+        }
+
+        if (dto.getDate() != null && timesheet.getEmployee() != null) {
+            validateDateAgainstJoiningDate(timesheet.getEmployee().getId(), dto.getDate());
         }
 
         timesheet.setDate(dto.getDate());
@@ -294,15 +315,22 @@ public class TimesheetService {
     public void saveWeeklyTimesheet(Long employeeId, LocalDate weekStart, List<TimesheetDTO> entries) {
         LocalDate weekEnd = weekStart.plusDays(6);
 
-        // Server-side guard (double safety): reject any entry dated after today. Timesheet
-        // hours may only be recorded for today and past days; the frontend also locks future
-        // day columns. This runs BEFORE the delete so an invalid request cannot wipe data.
+        // Server-side guard: reject any entry dated after today or before employee joining date.
         if (entries != null) {
             LocalDate today = LocalDate.now();
+            LocalDate joiningDate = companyDetailRepository.findByEmployee_Id(employeeId)
+                    .map(CompanyDetail::getJoiningDate)
+                    .orElse(null);
             for (TimesheetDTO dto : entries) {
-                if (dto.getDate() != null && dto.getDate().isAfter(today)) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Cannot enter hours for future date: " + dto.getDate());
+                if (dto.getDate() != null) {
+                    if (dto.getDate().isAfter(today)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Cannot enter hours for future date: " + dto.getDate());
+                    }
+                    if (joiningDate != null && dto.getDate().isBefore(joiningDate)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Timesheet entries cannot be created for dates before the employee's joining date.");
+                    }
                 }
             }
         }
