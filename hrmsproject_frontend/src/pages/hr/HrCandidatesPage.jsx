@@ -8,6 +8,7 @@ import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
 import api from "../../utils/api";
 import DisabledBadge from "../../components/DisabledBadge";
 import { ProjectSuffix } from "../../utils/employeeName";
+import { generateEmployeeProfilePDF } from "../../utils/employeePdfGenerator";
 
 export default function HrCandidatesPage() {
   const { employees, loading, error, refresh } = useEmployees();
@@ -262,13 +263,14 @@ export default function HrCandidatesPage() {
                       <th className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/40 border-b border-brand-blue/5">Status</th>
                       <th className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/40 border-b border-brand-blue/5">Hierarchy Lead</th>
                       <th className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/40 border-b border-brand-blue/5">HR Coordinator</th>
-                      <th className="py-5 px-8 text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/40 border-b border-brand-blue/5">Corporate Email</th>
+                      <th className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/40 border-b border-brand-blue/5">Corporate Email</th>
+                      <th className="py-5 px-8 text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/40 border-b border-brand-blue/5 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-brand-blue/5">
                     {filteredEmployees.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-20 text-center italic text-brand-text/20 font-bold uppercase tracking-widest text-xs">
+                        <td colSpan={8} className="py-20 text-center italic text-brand-text/20 font-bold uppercase tracking-widest text-xs">
                           No personnel found matching search criteria
                         </td>
                       </tr>
@@ -320,10 +322,25 @@ export default function HrCandidatesPage() {
                           <td className="py-5 px-6 text-xs font-bold text-brand-text/60">
                             {assignmentsMap[emp.id]?.hrName || '–'}
                           </td>
-                          <td className="py-5 px-8">
+                          <td className="py-5 px-6">
                             <span className="text-xs font-bold text-brand-text/40 group-hover:text-brand-text transition-colors underline decoration-brand-blue/5 decoration-2 underline-offset-4 line-clamp-1">
                               {emp.corporateEmail || "await@provisioning.org"}
                             </span>
+                          </td>
+                          <td className="py-5 px-8 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                generateEmployeeProfilePDF(emp, showToast);
+                              }}
+                              className="p-2.5 bg-brand-blue/5 text-brand-text rounded-xl hover:bg-brand-blue hover:text-white transition-all shadow-sm flex items-center gap-1.5 mx-auto text-xs font-bold"
+                              title="Download Profile PDF"
+                            >
+                              <svg className="w-4 h-4 text-blue-600 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span className="hidden sm:inline">PDF</span>
+                            </button>
                           </td>
                         </tr>
                       ))

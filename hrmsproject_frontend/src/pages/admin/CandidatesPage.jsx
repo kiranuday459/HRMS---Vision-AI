@@ -6,6 +6,7 @@ import useEmployees from "../../hooks/useEmployees";
 import api from "../../utils/api";
 import DisabledBadge from "../../components/DisabledBadge";
 import { ProjectSuffix } from "../../utils/employeeName";
+import { generateEmployeeProfilePDF } from "../../utils/employeePdfGenerator";
 
 export default function CandidatesPage() {
   const { employees, loading, error, refresh } = useEmployees();
@@ -419,6 +420,13 @@ export default function CandidatesPage() {
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                       View Profile
                     </button>
+                    <button
+                      onClick={() => { closeMenu(); generateEmployeeProfilePDF(emp, showToast); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      Download PDF
+                    </button>
                     <div className="h-px bg-brand-blue/5 mx-2 my-1" />
                     <button
                       onClick={() => { closeMenu(); requestDestructiveAction("delete", emp); }}
@@ -430,6 +438,13 @@ export default function CandidatesPage() {
                   </>
                 ) : (
                   <>
+                    <button
+                      onClick={() => { closeMenu(); generateEmployeeProfilePDF(emp, showToast); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      Download PDF
+                    </button>
                     <button
                       onClick={() => { closeMenu(); requestDestructiveAction("disable", emp); }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-amber-600 hover:bg-amber-50 transition-colors"

@@ -24,6 +24,7 @@ import "../../styles/formValidation.css";
 
 import Logo from '../../assets/visionai-logo.png';
 import Sidebar from "../../components/Sidebar";
+import { generateEmployeeProfilePDF } from "../../utils/employeePdfGenerator";
 
 const splitPhone = (phone) => {
   if (!phone) return { countryCode: "+91", number: "" };
@@ -1056,6 +1057,18 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                   <h2 className="mt-3 text-[18px] font-medium text-brand-text leading-tight">{employee?.firstName} {employee?.lastName}</h2>
                   <p className="text-[13px] text-brand-text/50 mt-0.5">{form.role || employee?.designation || "VisionAi Team"}</p>
                   <span className="mt-2 inline-flex items-center px-2.5 py-1 rounded-full bg-brand-blue/10 text-brand-blue text-[11px] font-semibold">{roleBadgeLabel}</span>
+                  {(user.role === "HR" || user.role === "ADMIN") && (
+                    <button
+                      onClick={() => generateEmployeeProfilePDF(employee)}
+                      className="mt-3 w-full py-2 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                      title="Download Profile PDF"
+                    >
+                      <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Download PDF
+                    </button>
+                  )}
                 </div>
 
                 <nav className="mt-4 flex lg:flex-col gap-1 overflow-x-auto">
@@ -1083,6 +1096,18 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                 <div className="flex flex-wrap items-center justify-between gap-3 px-6 lg:px-10 py-5 border-b border-gray-100">
                   <h2 className="text-base font-semibold text-brand-text">{activeSectionLabel}</h2>
                   <div className="flex items-center gap-2">
+                    {(user.role === "HR" || user.role === "ADMIN") && (
+                      <button
+                        onClick={() => generateEmployeeProfilePDF(employee)}
+                        className="px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-all flex items-center gap-1.5 shadow-sm"
+                        title="Download Profile PDF"
+                      >
+                        <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="hidden sm:inline">Download PDF</span>
+                      </button>
+                    )}
                     {/* Edit Profile is hidden on the read-only Leave Balance tab; Back stays. */}
                     {activeSection === 'leave_balance' ? null : !editing ? (
                       <button
