@@ -953,8 +953,8 @@ export default function EmployeeProfile() {
                                       disabled={isDisabled}
                                       className={`w-28 bg-[#F8F7F4] border-none rounded-xl px-2 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${isDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
                                     >
-                                      <option value="+91">+91 (IN)</option>
-                                      <option value="+81">+81 (JP)</option>
+                                      <option value="+91">+91</option>
+                                      <option value="+81">+81</option>
                                     </select>
                                     <input
                                       type={field.type || "text"}
@@ -1023,7 +1023,8 @@ export default function EmployeeProfile() {
                                   disabled={!editing}
                                   className={`w-28 bg-[#F8F7F4] border-none rounded-xl px-2 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${(!editing) ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 >
-                                  <option value="+91">+91 (IN)</option>
+                                  <option value="+91">+91</option>
+                                  <option value="+81">+81</option>
                                 </select>
                                 <input
                                   name={field.name}
