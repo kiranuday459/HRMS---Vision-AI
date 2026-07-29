@@ -45,6 +45,14 @@ public class EmployeeDocumentController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
         }
 
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("File is empty"));
+        }
+
+        if (file.getSize() > 5 * 1024 * 1024) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("File size exceeds maximum limit of 5MB"));
+        }
+
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         User currentUser = principal.getUser();
         
