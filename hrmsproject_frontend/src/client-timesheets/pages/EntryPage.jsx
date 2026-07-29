@@ -22,6 +22,8 @@ const parseLocal = (ymd) => {
 };
 const toYMD = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const numOr0 = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+// Saturday (6) and Sunday (0) are locked for entry and excluded from hour totals.
+const isWeekendYMD = (ymd) => { const g = parseLocal(ymd).getDay(); return g === 0 || g === 6; };
 
 function useNavItems() {
     const clock = (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>);
@@ -115,6 +117,7 @@ export default function ClientTimesheetEntry() {
     const isDayEditable = (ymd, rowGate) => {
         if (!weekEditable) return false;
         if (!rowGate) return false;
+        if (isWeekendYMD(ymd)) return false; // Saturday/Sunday are locked
         return ymd >= rowGate && ymd <= todayYMD;
     };
 
@@ -144,17 +147,38 @@ export default function ClientTimesheetEntry() {
     };
     const removeRow = (rowIdx) => setProjectRows((prev) => prev.filter((_, i) => i !== rowIdx));
 
-    const rowTotal = (row) => row.days.reduce((s, d) => s + numOr0(d.hours), 0);
+    // Weekend (Sat/Sun) hours are locked and excluded from every hour total.
+    const rowTotal = (row) => row.days.reduce((s, d) => s + (isWeekendYMD(d.date) ? 0 : numOr0(d.hours)), 0);
     const totalBillable = projectRows.filter((r) => r.clientBillable !== "NON_BILLABLE").reduce((s, r) => s + rowTotal(r), 0);
     const totalNonBillable = projectRows.filter((r) => r.clientBillable === "NON_BILLABLE").reduce((s, r) => s + rowTotal(r), 0);
     const totalProject = totalBillable + totalNonBillable;
     const totalTimeOff = timeOffRows.reduce((s, r) => s + rowTotal(r), 0);
     const grandTotal = totalProject + totalTimeOff;
 
+    // Overtime: computed per day as a daily aggregate across ALL rows (project + time-off).
+    // Anything over 8h in a single weekday is OT; the remainder is Regular. Weekends are
+    // excluded (locked). OT is a categorization of the same hours, so it does not change the
+    // Grand Total — it just splits it into Regular + OT.
+    const dayOtList = days.map((d) => {
+        if (isWeekendYMD(d.ymd)) return { wd: d.wd, ot: 0 };
+        let total = 0;
+        projectRows.forEach((r) => { total += numOr0(r.days.find((x) => x.date === d.ymd)?.hours); });
+        timeOffRows.forEach((r) => { total += numOr0(r.days.find((x) => x.date === d.ymd)?.hours); });
+        return { wd: d.wd, ot: Math.max(0, total - 8) };
+    });
+    const totalOT = dayOtList.reduce((s, d) => s + d.ot, 0);
+    const totalRegular = grandTotal - totalOT;
+
+    // A project row is "empty" when it has no identity and no hours — never persist these
+    // (keeps blank/duplicate rows out of the saved draft).
+    const isEmptyProjectRow = (r) =>
+        !r.projectId && !r.projectName && !r.taskId && !r.taskDescription &&
+        !r.billingLocation && !r.comment && r.days.every((d) => numOr0(d.hours) === 0);
+
     const buildPayload = () => ({
         weekStartDate: meta.weekStartDate,
         weekEndDate: meta.weekEndDate,
-        projectRows: projectRows.map((r) => ({
+        projectRows: projectRows.filter((r) => !isEmptyProjectRow(r)).map((r) => ({
             projectId: r.projectId, projectName: r.projectName, taskId: r.taskId,
             taskDescription: r.taskDescription, onsiteOffshore: r.onsiteOffshore,
             clientBillable: r.clientBillable, billingLocation: r.billingLocation, comment: r.comment,
@@ -166,19 +190,26 @@ export default function ClientTimesheetEntry() {
         })),
     });
 
-    const handleSave = async () => {
+    // Upsert the whole week (all project rows + time-off rows) as a DRAFT. Save and Update
+    // Totals both go through here, so the timesheet stays a single draft record (overwrite,
+    // never a new submission) until the user clicks Submit.
+    const persistDraft = async (successMsg) => {
         setSaving(true);
         try {
             const res = await api("/api/client-timesheets/save-draft", { method: "POST", body: JSON.stringify(buildPayload()) });
             const json = await res.json().catch(() => ({}));
             if (res.ok) {
-                toast.success("Draft saved.");
+                toast.success(successMsg);
                 if (json.data) applyDetail(json.data);
             } else {
                 toast.error(json.error || json.message || "Could not save draft.");
             }
         } catch (err) { console.error(err); toast.error("Save failed."); } finally { setSaving(false); }
     };
+
+    const handleSave = () => persistDraft("Draft saved.");
+    // Update Totals recalculates live (below) AND syncs the latest entered values to the draft.
+    const handleUpdateTotals = () => persistDraft("Totals updated and saved.");
 
     const handleSubmit = async () => {
         setSaving(true);
@@ -237,8 +268,6 @@ export default function ClientTimesheetEntry() {
                                 <h2 className="text-lg font-bold text-brand-text">{meta.employeeName}</h2>
                                 <div className="flex flex-wrap gap-x-10 gap-y-1 mt-2 text-sm text-brand-text/70">
                                     <span><span className="font-semibold text-brand-text/50">Period End Date:</span> {meta.weekEndDate}</span>
-                                    <span><span className="font-semibold text-brand-text/50">Version:</span> Original</span>
-                                    <span><span className="font-semibold text-brand-text/50">Time Report ID:</span> NEXT</span>
                                 </div>
                             </div>
 
@@ -278,8 +307,12 @@ export default function ClientTimesheetEntry() {
                                                         <tr key={rowIdx} className="border-b border-[#E3E8EF]">
                                                             <td className="px-3 py-2 text-xs font-semibold text-brand-text">{r.projectId || "—"}</td>
                                                             <td className="px-3 py-2 text-xs text-brand-text/80 max-w-[150px]">{r.projectName || "—"}</td>
-                                                            <td className="px-3 py-2 text-xs text-brand-text/60">{r.taskId || "—"}</td>
-                                                            <td className="px-3 py-2 text-xs text-brand-text/60 max-w-[150px]">{r.taskDescription || "—"}</td>
+                                                            <td className="px-2 py-2">
+                                                                <input disabled={!weekEditable} value={r.taskId} onChange={(e) => setRowField(rowIdx, "taskId", e.target.value)} placeholder="—" className="w-24 text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none focus:border-brand-yellow disabled:bg-gray-100 disabled:text-gray-400" />
+                                                            </td>
+                                                            <td className="px-2 py-2">
+                                                                <input disabled={!weekEditable} value={r.taskDescription} onChange={(e) => setRowField(rowIdx, "taskDescription", e.target.value)} placeholder="—" className="w-40 text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none focus:border-brand-yellow disabled:bg-gray-100 disabled:text-gray-400" />
+                                                            </td>
                                                             <td className="px-2 py-2">
                                                                 <select disabled={!weekEditable} value={r.onsiteOffshore} onChange={(e) => setRowField(rowIdx, "onsiteOffshore", e.target.value)} className="text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none disabled:bg-gray-100 disabled:text-gray-400">
                                                                     <option value="ONSITE">Onsite</option>
@@ -369,10 +402,17 @@ export default function ClientTimesheetEntry() {
                                     <div className="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                         <div className="flex flex-col gap-1 text-sm">
                                             <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Holiday/Time off Hours:</span><span className="font-black text-brand-text">{totalTimeOff.toFixed(2)}</span></div>
+                                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Regular Hours:</span><span className="font-black text-brand-text">{totalRegular.toFixed(2)}</span></div>
+                                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total OT Hours:</span><span className="font-black text-amber-600">{totalOT.toFixed(2)}</span></div>
                                             <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Grand Total:</span><span className="font-black text-brand-text">{grandTotal.toFixed(2)}</span></div>
+                                            {totalOT > 0 && (
+                                                <p className="text-[11px] text-amber-600 mt-0.5">
+                                                    Overtime (&gt;8h/day): {dayOtList.filter((d) => d.ot > 0).map((d) => `${d.wd} ${d.ot.toFixed(2)}`).join(" · ")}
+                                                </p>
+                                            )}
                                         </div>
                                         <div className="flex flex-wrap gap-3">
-                                            <button onClick={() => toast.info("Totals updated.")} className="px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-widest transition-all active:scale-95">Update Totals</button>
+                                            <button onClick={handleUpdateTotals} disabled={saving || !weekEditable} className="px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40">Update Totals</button>
                                             <button onClick={handleSave} disabled={saving || !weekEditable} className="px-5 py-2.5 rounded-lg bg-[#2C2C2A] hover:bg-black text-white text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40">Save</button>
                                             <button onClick={handleSubmit} disabled={saving || !weekEditable} className="px-6 py-2.5 rounded-lg bg-brand-blue-dark hover:brightness-110 text-white text-xs font-bold uppercase tracking-widest shadow-lg shadow-brand-blue/20 transition-all active:scale-95 disabled:opacity-40">Submit</button>
                                         </div>
