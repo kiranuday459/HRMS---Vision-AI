@@ -452,6 +452,11 @@ export default function EmployeeProfile() {
   const handleFileUpload = async (category, event, isFixed = false) => {
     const file = event.target.files[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("File size exceeds 5MB limit. Please select a file smaller than 5MB.");
+        event.target.value = null;
+        return;
+      }
       let finalLabel = "";
       let docType = "";
 
@@ -953,8 +958,8 @@ export default function EmployeeProfile() {
                                       disabled={isDisabled}
                                       className={`w-28 bg-[#F8F7F4] border-none rounded-xl px-2 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${isDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
                                     >
-                                      <option value="+91">+91 (IN)</option>
-                                      <option value="+81">+81 (JP)</option>
+                                      <option value="+91">+91</option>
+                                      <option value="+81">+81</option>
                                     </select>
                                     <input
                                       type={field.type || "text"}
@@ -1023,7 +1028,8 @@ export default function EmployeeProfile() {
                                   disabled={!editing}
                                   className={`w-28 bg-[#F8F7F4] border-none rounded-xl px-2 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${(!editing) ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 >
-                                  <option value="+91">+91 (IN)</option>
+                                  <option value="+91">+91</option>
+                                  <option value="+81">+81</option>
                                 </select>
                                 <input
                                   name={field.name}
@@ -1184,9 +1190,37 @@ export default function EmployeeProfile() {
                             <div key={edu.id} className="bg-white p-4 rounded-xl border border-brand-blue/5 flex flex-col gap-3 shadow-sm relative group">
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-bold text-brand-text">{edu.label}</span>
-                                {editing && (
-                                  !uploadedFiles[edu.id] ? (
-                                    <label className="cursor-pointer text-brand-text hover:text-brand-yellow transition-all">
+                                <div className="flex items-center gap-1.5">
+                                  {uploadedFiles[edu.id] ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); window.open(uploadedFiles[edu.id].preview, '_blank'); }}
+                                        title="Download / View"
+                                        className="text-brand-text/60 hover:text-brand-blue p-1 rounded-lg hover:bg-gray-100 transition-all"
+                                      >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                          <polyline points="7 10 12 15 17 10"></polyline>
+                                          <line x1="12" y1="15" x2="12" y2="3"></line>
+                                        </svg>
+                                      </button>
+                                      {editing && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); removeFile(edu.id); }}
+                                          title="Delete"
+                                          className="text-red-500 hover:bg-red-50 p-1 rounded-lg transition-all"
+                                        >
+                                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="3 6 5 6 21 6"></polyline>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <label className="cursor-pointer text-brand-text/60 hover:text-brand-yellow p-1 rounded-lg hover:bg-gray-100 transition-all" title="Upload Document">
                                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                         <polyline points="17 8 12 3 7 8"></polyline>
@@ -1194,23 +1228,16 @@ export default function EmployeeProfile() {
                                       </svg>
                                       <input type="file" className="hidden" onChange={(e) => handleFileUpload(edu.id, e, true)} accept=".pdf,.jpg,.jpeg,.png" />
                                     </label>
-                                  ) : (
-                                    <button onClick={() => removeFile(edu.id)} className="text-red-500 hover:bg-red-50 p-1 rounded-lg">
-                                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="3 6 5 6 21 6"></polyline>
-                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                      </svg>
-                                    </button>
-                                  )
-                                )}
+                                  )}
+                                </div>
                               </div>
-                              <div className="h-[100px] flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden border border-dashed border-brand-blue/10 relative cursor-pointer" onClick={() => uploadedFiles[edu.id] && window.open(uploadedFiles[edu.id].preview, '_blank')}>
+                              <div className="h-[100px] flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden border border-dashed border-brand-blue/10 relative">
                                 {uploadedFiles[edu.id] ? (
-                                  <>
+                                  <div className="w-full h-full relative group cursor-pointer" onClick={() => window.open(uploadedFiles[edu.id].preview, '_blank')}>
                                     {uploadedFiles[edu.id].type.startsWith('image/') ? (
                                       <img src={uploadedFiles[edu.id].preview} alt={edu.label} className="w-full h-full object-cover" />
                                     ) : (
-                                      <div className="flex flex-col items-center justify-center text-brand-text/40">
+                                      <div className="flex flex-col items-center justify-center h-full text-brand-text/40">
                                         <svg className="w-8 h-8 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                           <polyline points="14 2 14 8 20 8"></polyline>
@@ -1218,10 +1245,18 @@ export default function EmployeeProfile() {
                                         <span className="text-[9px] font-bold text-center px-2 break-all line-clamp-2">{uploadedFiles[edu.id].name}</span>
                                       </div>
                                     )}
-                                    <div className="absolute inset-0 bg-brand-blue/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-widest">VIEW</div>
-                                  </>
+                                    <div className="absolute inset-0 bg-brand-blue/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-widest">VIEW / DOWNLOAD</div>
+                                  </div>
                                 ) : (
-                                  <span className="text-[10px] text-brand-text/20 font-bold uppercase tracking-widest italic">Empty</span>
+                                  <label className="w-full h-full flex flex-col items-center justify-center text-center p-2 cursor-pointer hover:bg-gray-100/60 transition-all">
+                                    <svg className="w-5 h-5 text-brand-text/30 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                      <polyline points="14 2 14 8 20 8"></polyline>
+                                    </svg>
+                                    <span className="text-[10px] font-bold text-brand-text/60">PDF, JPG, JPEG, PNG</span>
+                                    <span className="text-[9px] font-medium text-brand-text/40 mt-0.5">Max file size ≤ 5MB</span>
+                                    <input type="file" className="hidden" onChange={(e) => handleFileUpload(edu.id, e, true)} accept=".pdf,.jpg,.jpeg,.png" />
+                                  </label>
                                 )}
                               </div>
                             </div>

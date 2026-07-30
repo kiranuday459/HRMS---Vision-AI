@@ -433,8 +433,8 @@ export default function AddEmployeeModal({ open, onClose, onEmployeeCreated }) {
                                                 }}
                                                 className="bg-gray-50 border border-gray-200 rounded-l-lg px-2 py-2.5 text-sm font-medium text-brand-text focus:ring-2 focus:ring-brand-blue-dark/10 focus:border-brand-blue-dark transition-all outline-none border-r-0"
                                             >
-                                                <option value="+91">🇮🇳 India (+91)</option>
-                                                <option value="+81">🇯🇵 Japan (+81)</option>
+                                                <option value="+91">+91</option>
+                                                <option value="+81">+81</option>
                                             </select>
                                             <input
                                                 type="text"
@@ -455,7 +455,7 @@ export default function AddEmployeeModal({ open, onClose, onEmployeeCreated }) {
                                         </div>
                                         <FormFieldError error={fieldErrors.phoneNumber} show={!!fieldErrors.phoneNumber} />
                                         <p className="text-[10px] text-gray-400 mt-1">
-                                            {phoneCountryCode === "+91" ? "India: Enter exactly 10 digits" : "Japan: Enter exactly 11 digits"}
+                                            {phoneCountryCode === "+91" ? "+91: Enter exactly 10 digits" : "+81: Enter exactly 11 digits"}
                                         </p>
                                     </div>
                                     <div>
