@@ -592,7 +592,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                 <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[70px]">Project ID <span className="text-red-500">*</span></th>
                                 <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[100px]">Project Name <span className="text-red-500">*</span></th>
                                 <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[70px]">Task ID</th>
-                                <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[70px]">On/Off</th>
+                                <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[110px]">On/Off</th>
                                 <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[80px]">Billable</th>
                                 <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[110px]">Location</th>
                                 {dates.map((d, i) => {
@@ -623,8 +623,8 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                     <td className="p-0.5 border-r border-[#F1EFE8]">
                                         <input type="text" value={row.taskId} maxLength={32} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none" />
                                     </td>
-                                    <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <select value={row.onsite} onChange={(e) => handleRowChange(index, 'onsite', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none">
+                                    <td className="p-0.5 border-r border-[#F1EFE8] min-w-[110px]">
+                                        <select value={row.onsite} onChange={(e) => handleRowChange(index, 'onsite', e.target.value)} className="w-full px-2.5 py-1.5 text-[11px] font-medium text-[#0C447C] bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded-md outline-none cursor-pointer transition-all duration-150">
                                             <option>Onsite</option>
                                             <option>Offshore</option>
                                         </select>

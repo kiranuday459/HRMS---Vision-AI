@@ -15,8 +15,8 @@ import RejectRequestModal from "../../components/RejectRequestModal";
 import HrRerouteBanner from "../../components/HrRerouteBanner";
 import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
-import { ProjectSuffix } from "../../utils/employeeName";
-import { Eye } from "lucide-react";
+import DownloadTimesheetModal from "../../components/DownloadTimesheetModal";
+import { Eye, Download } from "lucide-react";
 
 
 export default function ReportingManagerTeam() {
@@ -31,6 +31,7 @@ export default function ReportingManagerTeam() {
     const [leavesError, setLeavesError] = useState(null);
     const [leavesFilter, setLeavesFilter] = useState("");
     const [leaveStatusFilter, setLeaveStatusFilter] = useState("All");
+    const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
     const storedUser = JSON.parse(localStorage.getItem("user")) || {};
     const initialManagerId = storedUser.employeeId || storedUser.id || storedUser.userId || null;
 
@@ -579,6 +580,13 @@ export default function ReportingManagerTeam() {
                                             <option>Rejected</option>
                                         </select>
                                     </div>
+                                    <button
+                                         onClick={() => setIsDownloadModalOpen(true)}
+                                         className="h-10 px-4 bg-brand-blue-dark text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 hover:bg-brand-blue-hover transition-all shadow-sm"
+                                     >
+                                         <Download size={14} />
+                                         Download Timesheet
+                                     </button>
                                 </div>
                                 <div className="space-y-8">
                                         {tsLoading ? (
@@ -767,6 +775,12 @@ export default function ReportingManagerTeam() {
                 onClose={() => { setRejectModalOpen(false); setRejectTarget(null); }}
                 onConfirm={handleConfirmReject}
                 submitting={submittingReject}
+            />
+
+            <DownloadTimesheetModal
+                isOpen={isDownloadModalOpen}
+                onClose={() => setIsDownloadModalOpen(false)}
+                employees={teamMembers}
             />
         </div>
     );
