@@ -14,6 +14,7 @@ import { getLeaveActionLabel } from "../../utils/leaveStatus";
 import { getWeekStatus } from "../../utils/timesheetStatus";
 import { useClientAccess } from "../../hooks/useClientAccess";
 import ClientOtpVerifyModal from "../../components/ClientOtpVerifyModal";
+import ClientTimesheetSwitch from "../../components/ClientTimesheetSwitch";
 
 const EmployeeDashboard = () => {
 	const navigate = useNavigate();
@@ -364,17 +365,6 @@ const EmployeeDashboard = () => {
 		}
 	];
 
-	const formatAssignmentDate = (dateStr) => {
-		if (!dateStr) return "21-Jul-2026";
-		const d = new Date(dateStr);
-		if (isNaN(d.getTime())) return String(dateStr);
-		const day = String(d.getDate()).padStart(2, '0');
-		const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-		const month = monthNames[d.getMonth()];
-		const year = d.getFullYear();
-		return `${day}-${month}-${year}`;
-	};
-
 	// Add HR Actions if user is HR
 	if (user.role === 'HR') {
 		navItems.push({
@@ -600,65 +590,7 @@ const EmployeeDashboard = () => {
 				<div className={`flex-1 ${activeTab === 'profile' ? 'p-2 md:p-6' : 'p-3 md:p-8'} flex flex-col ${activeTab === 'profile' ? 'gap-2' : 'gap-6 md:gap-8'}`}>
 					{activeTab === 'dashboard' && (
 						<>
-							{/* Dedicated Client Timesheet card */}
-							{clientAssigned && (
-								<div
-									className="bg-white border border-[#E5E7EB] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all"
-									style={{ borderRadius: "12px", padding: "20px 24px" }}
-								>
-									<div className="flex items-start gap-3">
-										<div className="w-10 h-10 rounded-lg bg-[#185FA5]/10 flex items-center justify-center shrink-0">
-											<svg className="w-5 h-5 text-[#185FA5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-												<rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-												<path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-											</svg>
-										</div>
-										<div>
-											<h3 className="text-base font-bold text-[#2C2C2A] flex items-center gap-2">
-												Client Timesheet
-											</h3>
-											{!clientVerified ? (
-												<div className="mt-1 text-sm text-[#5F5E5A] space-y-0.5">
-													<p className="font-semibold text-[#185FA5]">
-														You have been assigned to project: {clientProject || "p3"}
-													</p>
-													<p className="text-xs">Verify your access to start logging hours</p>
-												</div>
-											) : (
-												<div className="mt-1 text-sm text-[#5F5E5A] space-y-0.5">
-													<p className="font-semibold text-[#2C2C2A]">
-														Project: {clientProject || "p3"}
-													</p>
-													<p className="text-xs text-[#888780]">
-														Assigned: {formatAssignmentDate(clientAssignmentDate)}
-													</p>
-												</div>
-											)}
-										</div>
-									</div>
-									<div className="self-end sm:self-center shrink-0">
-										{!clientVerified ? (
-											<button
-												type="button"
-												onClick={() => setOtpModalOpen(true)}
-												className="px-5 py-2.5 bg-[#185FA5] hover:bg-[#13507f] text-white font-bold text-xs tracking-wide transition-all shadow-sm active:scale-95 uppercase"
-												style={{ borderRadius: "8px" }}
-											>
-												VERIFY ACCESS
-											</button>
-										) : (
-											<button
-												type="button"
-												onClick={() => navigate("/employee/client-timesheet")}
-												className="px-5 py-2.5 bg-[#185FA5] hover:bg-[#13507f] text-white font-bold text-xs tracking-wide transition-all shadow-sm active:scale-95"
-												style={{ borderRadius: "8px" }}
-											>
-												Open Client Timesheet
-											</button>
-										)}
-									</div>
-								</div>
-							)}
+							<ClientTimesheetSwitch onVerifyClick={() => setOtpModalOpen(true)} />
 
 							{error && (
 								<div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium">

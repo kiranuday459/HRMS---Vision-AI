@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { RotateCw } from "lucide-react";
 import api from "../../utils/api";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
-import { clientTimesheetBase } from "../../utils/clientTimesheetNav";
+import { clientTimesheetBase, roleDashboardPath } from "../../utils/clientTimesheetNav";
 
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const fmtRange = (ymd) => {
@@ -22,16 +22,16 @@ function useNavItems() {
     );
     return [
         {
-            tab: "dashboard", label: "Dashboard", to: "/employee",
+            tab: "dashboard", label: "Dashboard", to: roleDashboardPath(),
             icon: (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>),
         },
-        { tab: "timesheet", label: "Timesheet", to: "/employee?tab=timesheet", icon: clock },
+        { tab: "timesheet", label: "Timesheet", to: `${roleDashboardPath()}?tab=timesheet`, icon: clock },
         {
-            tab: "client-timesheet", label: "Client Timesheet", to: "/employee/client-timesheet",
+            tab: "client-timesheet", label: "Client Timesheet", to: clientTimesheetBase(),
             icon: (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline><path d="M8 3h8"></path></svg>),
         },
         {
-            tab: "leave", label: "Leave Request", to: "/employee?tab=leave",
+            tab: "leave", label: "Leave Request", to: `${roleDashboardPath()}?tab=leave`,
             icon: (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>),
         },
     ];

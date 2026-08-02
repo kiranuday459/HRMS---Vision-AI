@@ -16,6 +16,7 @@ import LeaveDetailsModal from "../../components/LeaveDetailsModal";
 import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";
 import RejectRequestModal from "../../components/RejectRequestModal";
 import NotificationComponent from "../../components/NotificationComponent";
+import ClientTimesheetSwitch from "../../components/ClientTimesheetSwitch";
 import { toast } from 'react-toastify';
 
 // Builds initials (max 2) from a full name, e.g. "Mounika K" -> "MK".
@@ -482,6 +483,7 @@ export default function AdminDashboard() {
           <div className="flex-1 p-4 overflow-y-auto md:overflow-hidden flex flex-col">
             {activeTab === "dashboard" && (
               <div className="flex flex-col gap-4 h-full overflow-visible md:overflow-hidden">
+                <ClientTimesheetSwitch />
                 {/* ROW 1 - Metric Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 shrink-0">
                   <MetricCard

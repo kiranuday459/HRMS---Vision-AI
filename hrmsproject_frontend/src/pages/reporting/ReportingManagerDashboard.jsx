@@ -9,6 +9,8 @@ import EmployeeOwnProfile from "../employee/EmployeeOwnProfile";
 import { getRmNavItems } from "../../utils/rmNav";
 import { useClientAccess } from "../../hooks/useClientAccess";
 import ClientOtpVerifyModal from "../../components/ClientOtpVerifyModal";
+import ClientTimesheetSwitch from "../../components/ClientTimesheetSwitch";
+import { CLIENT_TIMESHEET_DASHBOARD } from "../../utils/clientTimesheetNav";
 import { getWeekStatus, getTimesheetStatusBadge, REPORTING_MANAGER_SELF } from "../../utils/timesheetStatus";
 import { getLeaveActionLabel } from "../../utils/leaveStatus";
 import NotificationComponent from "../../components/NotificationComponent";
@@ -203,9 +205,9 @@ const ReportingManagerDashboard = () => {
 
       if (entry.status === 'PENDING_RM_APPROVAL') week.status = 'PENDING_RM_APPROVAL';
       else if (entry.status === 'PENDING_HR_APPROVAL' && week.status !== 'PENDING_RM_APPROVAL') week.status = 'PENDING_HR_APPROVAL';
-      else if (entry.status === 'PENDING_ADMIN_APPROVAL' && !['PENDING_RM_APPROVAL','PENDING_HR_APPROVAL'].includes(week.status)) week.status = 'PENDING_ADMIN_APPROVAL';
-      else if (entry.status === 'REJECTED' && !['PENDING_RM_APPROVAL','PENDING_HR_APPROVAL','PENDING_ADMIN_APPROVAL'].includes(week.status)) week.status = 'REJECTED';
-      else if (entry.status === 'APPROVED' && !['PENDING_RM_APPROVAL','PENDING_HR_APPROVAL','PENDING_ADMIN_APPROVAL','REJECTED'].includes(week.status)) week.status = 'APPROVED';
+      else if (entry.status === 'PENDING_ADMIN_APPROVAL' && !['PENDING_RM_APPROVAL', 'PENDING_HR_APPROVAL'].includes(week.status)) week.status = 'PENDING_ADMIN_APPROVAL';
+      else if (entry.status === 'REJECTED' && !['PENDING_RM_APPROVAL', 'PENDING_HR_APPROVAL', 'PENDING_ADMIN_APPROVAL'].includes(week.status)) week.status = 'REJECTED';
+      else if (entry.status === 'APPROVED' && !['PENDING_RM_APPROVAL', 'PENDING_HR_APPROVAL', 'PENDING_ADMIN_APPROVAL', 'REJECTED'].includes(week.status)) week.status = 'APPROVED';
 
       // This is the RM's OWN timesheet — use the self viewer context so any pending
       // stage reads as "Pending approval from HR" (an RM never approves their own sheet).
@@ -308,14 +310,14 @@ const ReportingManagerDashboard = () => {
   const navItems = getRmNavItems(activeTab);
 
   // Client Timesheet nav item — visible ONLY when assigned AND OTP-verified (same rule as employees).
-  if (clientAssigned && clientVerified) {
-    navItems.splice(3, 0, {
-      tab: "client-timesheet",
-      label: "Client Timesheet",
-      to: "/reporting-dashboard/client-timesheet",
-      icon: (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline><path d="M8 3h8"></path></svg>),
-    });
-  }
+  // if (clientAssigned && clientVerified) {
+  //   navItems.splice(3, 0, {
+  //     tab: "client-timesheet",
+  //     label: "Client Timesheet",
+  //     to: CLIENT_TIMESHEET_DASHBOARD,
+  //     icon: (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline><path d="M8 3h8"></path></svg>),
+  //   });
+  // }
 
   const headingSection = activeTab === 'dashboard' ? 'dashboard' : activeTab === 'profile' ? 'profile' : null;
 
@@ -521,27 +523,7 @@ const ReportingManagerDashboard = () => {
         <div className={`flex-1 ${activeTab === 'profile' ? 'p-2 md:p-6' : 'p-4 md:p-10'} flex flex-col ${activeTab === 'profile' ? 'gap-2' : 'space-y-8'}`}>
           {activeTab === 'dashboard' && (
             <>
-              {/* Client Timesheet activation banner — assigned but not yet verified (same as employee). */}
-              {clientAssigned && !clientVerified && (
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-                  style={{ background: "#EFF6FF", borderLeft: "4px solid #185FA5", borderRadius: "8px", padding: "16px 20px" }}>
-                  <div className="flex items-start gap-3">
-                    <span className="text-xl leading-none mt-0.5">🔔</span>
-                    <div style={{ color: "#1e3a5f" }} className="text-[14px] font-normal leading-relaxed">
-                      <p className="font-bold">
-                        You have been assigned to client project{clientProject ? `: ${clientProject}` : ""}
-                      </p>
-                      <p>A verification OTP has been sent to your registered email.</p>
-                      <p>Verify your access to start logging client hours.</p>
-                    </div>
-                  </div>
-                  <button onClick={() => setOtpModalOpen(true)}
-                    className="shrink-0 self-start sm:self-center text-white font-bold text-[13px] tracking-wide transition-all active:scale-[0.98]"
-                    style={{ background: "#185FA5", borderRadius: "6px", padding: "10px 18px" }}>
-                    VERIFY ACCESS
-                  </button>
-                </div>
-              )}
+              <ClientTimesheetSwitch onVerifyClick={() => setOtpModalOpen(true)} />
 
               {error && (
                 <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium">
@@ -642,56 +624,56 @@ const ReportingManagerDashboard = () => {
                               </button>
                             </td>
                           </tr>
-                          {expandedWeek === week.weekKey && (
-                            <tr>
-                              <td colSpan={5} className="p-0 bg-bg-slate border-b border-brand-blue/5">
-                                <div className="px-6 py-4">
-                                  <div className="flex items-center justify-between mb-3">
-                                    <span className="text-xs font-bold text-brand-text">Week of {week.startDateStr} ({week.startDateStr} — {week.endDateStr})</span>
-                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${week.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' : week.status === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-brand-yellow/10 text-brand-yellow'}`}>{getTimesheetStatusBadge(week.status, REPORTING_MANAGER_SELF)}</span>
-                                  </div>
-                                  {week.entries.length > 0 ? (
-                                    <div className="overflow-x-auto rounded-lg border border-brand-blue/5 bg-white">
-                                      <table className="w-full text-left text-xs">
-                                        <thead className="bg-bg-slate text-brand-text/40 uppercase tracking-widest text-[9px] font-bold">
-                                          <tr>
-                                            <th className="p-2 px-4">Date</th>
-                                            <th className="p-2 px-4 text-right">Billable Project</th>
-                                            <th className="p-2 px-4 text-right">Non-Billable</th>
-                                            <th className="p-2 px-4 text-right">Time Off/Holiday</th>
-                                            <th className="p-2 px-4 text-right">Total</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-brand-blue/5">
-                                          {buildDayRows(week.entries).map((d) => (
-                                            <tr key={d.date}>
-                                              <td className="p-2 px-4 font-bold text-brand-text">{formatDate(d.date)}</td>
-                                              <td className="p-2 px-4 text-right text-brand-text/70">{d.billable.toFixed(1)}</td>
-                                              <td className="p-2 px-4 text-right text-brand-text/70">{d.nonBillable.toFixed(1)}</td>
-                                              <td className="p-2 px-4 text-right text-brand-text/70">{d.timeOff.toFixed(1)}</td>
-                                              <td className="p-2 px-4 text-right font-black text-brand-text">{d.total.toFixed(1)}</td>
-                                            </tr>
-                                          ))}
-                                        </tbody>
-                                        <tfoot>
-                                          <tr className="bg-bg-slate font-black text-brand-text">
-                                            <td className="p-2 px-4 uppercase text-[9px] tracking-widest">Total</td>
-                                            <td className="p-2 px-4"></td>
-                                            <td className="p-2 px-4"></td>
-                                            <td className="p-2 px-4"></td>
-                                            <td className="p-2 px-4 text-right">{week.totalHours.toFixed(1)}</td>
-                                          </tr>
-                                        </tfoot>
-                                      </table>
+                            {expandedWeek === week.weekKey && (
+                              <tr>
+                                <td colSpan={5} className="p-0 bg-bg-slate border-b border-brand-blue/5">
+                                  <div className="px-6 py-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <span className="text-xs font-bold text-brand-text">Week of {week.startDateStr} ({week.startDateStr} — {week.endDateStr})</span>
+                                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${week.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' : week.status === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-brand-yellow/10 text-brand-yellow'}`}>{getTimesheetStatusBadge(week.status, REPORTING_MANAGER_SELF)}</span>
                                     </div>
-                                  ) : (
-                                    <p className="text-[10px] text-brand-text/30 font-bold uppercase tracking-widest">No entries for this week</p>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
+                                    {week.entries.length > 0 ? (
+                                      <div className="overflow-x-auto rounded-lg border border-brand-blue/5 bg-white">
+                                        <table className="w-full text-left text-xs">
+                                          <thead className="bg-bg-slate text-brand-text/40 uppercase tracking-widest text-[9px] font-bold">
+                                            <tr>
+                                              <th className="p-2 px-4">Date</th>
+                                              <th className="p-2 px-4 text-right">Billable Project</th>
+                                              <th className="p-2 px-4 text-right">Non-Billable</th>
+                                              <th className="p-2 px-4 text-right">Time Off/Holiday</th>
+                                              <th className="p-2 px-4 text-right">Total</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-brand-blue/5">
+                                            {buildDayRows(week.entries).map((d) => (
+                                              <tr key={d.date}>
+                                                <td className="p-2 px-4 font-bold text-brand-text">{formatDate(d.date)}</td>
+                                                <td className="p-2 px-4 text-right text-brand-text/70">{d.billable.toFixed(1)}</td>
+                                                <td className="p-2 px-4 text-right text-brand-text/70">{d.nonBillable.toFixed(1)}</td>
+                                                <td className="p-2 px-4 text-right text-brand-text/70">{d.timeOff.toFixed(1)}</td>
+                                                <td className="p-2 px-4 text-right font-black text-brand-text">{d.total.toFixed(1)}</td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                          <tfoot>
+                                            <tr className="bg-bg-slate font-black text-brand-text">
+                                              <td className="p-2 px-4 uppercase text-[9px] tracking-widest">Total</td>
+                                              <td className="p-2 px-4"></td>
+                                              <td className="p-2 px-4"></td>
+                                              <td className="p-2 px-4"></td>
+                                              <td className="p-2 px-4 text-right">{week.totalHours.toFixed(1)}</td>
+                                            </tr>
+                                          </tfoot>
+                                        </table>
+                                      </div>
+                                    ) : (
+                                      <p className="text-[10px] text-brand-text/30 font-bold uppercase tracking-widest">No entries for this week</p>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
                         ))
                       ) : (
                         <tr>
