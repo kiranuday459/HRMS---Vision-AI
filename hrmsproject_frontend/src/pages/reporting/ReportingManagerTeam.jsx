@@ -731,7 +731,7 @@ export default function ReportingManagerTeam() {
                                                         </td>
                                                         <td className="p-5 px-6 text-brand-text/70 text-xs font-bold">{leave.type || leave.leaveType}</td>
                                                         <td className="p-5 px-6 text-brand-text/60 text-xs text-center">{leave.startDate}{leave.endDate && leave.endDate !== leave.startDate ? ` → ${leave.endDate}` : ''}</td>
-                                                        <td className="p-5 px-6 text-center"><span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${leave.status === 'PENDING' ? 'bg-brand-yellow/10 text-brand-yellow-dark' : leave.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{getLeaveStatusLabel(leave, 'REPORTING_MANAGER')}</span></td>
+                                                        <td className="p-5 px-6 text-center"><span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all inline-block whitespace-nowrap ${leave.status === 'PENDING' ? 'bg-brand-yellow/10 text-brand-yellow-dark' : leave.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{getLeaveStatusLabel(leave, 'REPORTING_MANAGER')}</span></td>
                                                         <td className="p-5 px-8 text-right">
                                                             <div className="flex justify-end gap-2">
                                                                 <button

@@ -74,12 +74,11 @@ const api = async (endpoint, options = {}) => {
 
     const response = await fetch(url, config);
 
-    // Global interceptor: any expired/forbidden session → logout + redirect.
-    // Skipped on the auth screens (/login, /forgot-password) where a 401/403 is a
-    // normal credential response, not an expired session.
+    // Global interceptor: expired session (401) → logout + redirect.
+    // 403 (Forbidden) is handled per-request and does NOT invalidate session.
     const path = window.location.pathname;
     const onAuthScreen = path.includes("/login") || path.includes("/forgot-password");
-    if (!onAuthScreen && (response.status === 401 || response.status === 403)) {
+    if (!onAuthScreen && response.status === 401) {
         forceLogout("session_expired");
         // Return a promise that never settles so callers don't run their
         // `.json()` / error branches and flash a "Failed to load" message

@@ -261,19 +261,21 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
             });
             toast.success("Excel Generated successfully.");
 
-            // Notify download
+            // Notify download (optional background notification)
             try {
                 const filterStr = `Date Range: ${fromDate} to ${toDate} | Role Filter: ${memberType} | Selected Employees Count: ${selectedIds.length}`;
-                await api("/api/timesheets/download-notification", {
+                api("/api/timesheets/download-notification", {
                     method: "POST",
                     body: JSON.stringify({
                         recordCount: selectedIds.length,
                         filters: filterStr,
                         timesheetType: "Internal Timesheet"
                     })
+                }).catch((err) => {
+                    console.warn("Download notification skipped:", err);
                 });
             } catch (err) {
-                console.error("Failed to send download confirmation email:", err);
+                console.warn("Failed to send download confirmation email:", err);
             }
 
             if (hasData) onClose();

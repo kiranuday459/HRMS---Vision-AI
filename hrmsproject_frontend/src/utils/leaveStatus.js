@@ -27,12 +27,12 @@ export const getLeaveStatusLabel = (leave, viewerRole = 'EMPLOYEE') => {
             const atHrStage = leave.approvalStage === 'PENDING_RM_AS_HR_APPROVAL';
             if (viewerRole === 'REPORTING_MANAGER') {
                 return atHrStage
-                    ? 'Pending Your Approval (HR Stage — HR Unavailable)'
-                    : 'Pending Your Approval';
+                    ? 'Pending Approval (HR Stage — HR Unavailable)'
+                    : 'Pending Approval';
             }
             return 'Pending Approval (HR Unavailable — Reporting Manager handling)';
         }
-        if (viewerRole === 'REPORTING_MANAGER') return 'Pending Your Approval';
+        if (viewerRole === 'REPORTING_MANAGER') return 'Pending Approval';
         return 'Pending Approval';
     }
     if (status === 'APPROVED') {
