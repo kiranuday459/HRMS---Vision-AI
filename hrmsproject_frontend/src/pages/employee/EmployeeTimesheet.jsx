@@ -24,7 +24,7 @@ const EmployeeTimesheet = () => {
 
   const fetchEmployeeProfile = async () => {
     try {
-      const response = await api("/me/employee");
+      const response = await api("/api/me/employee");
 
       if (response.ok) {
         const result = await response.json();

@@ -18,6 +18,7 @@ import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
 import DownloadTimesheetModal from "../../components/DownloadTimesheetModal";
 import { Eye, Download } from "lucide-react";
+import { ProjectSuffix } from "../../utils/employeeName";
 
 
 export default function ReportingManagerTeam() {
@@ -75,7 +76,7 @@ export default function ReportingManagerTeam() {
 
         const fetchEmployeeProfile = async () => {
             try {
-                const response = await api("/me/employee");
+                const response = await api("/api/me/employee");
                 if (response.ok) {
                     const result = await response.json();
                     const employeeData = result.data || result;
