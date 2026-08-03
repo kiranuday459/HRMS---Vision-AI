@@ -22,8 +22,12 @@ function StatusPill({ active }) {
     );
 }
 
-/* ─── Detail Drawer ───────────────────────────────────── */
-function AssignmentDetailDrawer({ assignment, onClose }) {
+/* ─── Detail Modal ────────────────────────────────────── */
+/**
+ * Centered dialog (not a right-edge drawer) so it matches the other detail and
+ * confirmation dialogs in this module. Content is unchanged — position only.
+ */
+function AssignmentDetailModal({ assignment, onClose }) {
     useEffect(() => {
         document.body.style.overflow = "hidden";
         return () => { document.body.style.overflow = ""; };
@@ -39,20 +43,26 @@ function AssignmentDetailDrawer({ assignment, onClose }) {
     );
 
     return (
-        <>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6">
             <div
-                className="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[180]"
+                className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
                 onClick={onClose}
+                aria-hidden="true"
             />
-            <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white z-[190] shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="assignment-detail-title"
+                className="relative z-10 w-full max-w-lg max-h-[90vh] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            >
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-brand-blue/5 bg-brand-blue/[0.02]">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-brand-blue/5 bg-brand-blue/[0.02] shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue-dark">
                             <Briefcase size={18} />
                         </div>
                         <div>
-                            <p className="text-base font-black text-brand-text tracking-tight">Assignment Detail</p>
+                            <p id="assignment-detail-title" className="text-base font-black text-brand-text tracking-tight">Assignment Detail</p>
                             <p className="text-[9px] font-bold text-brand-text/35 uppercase tracking-[0.18em]">
                                 {assignment.active ? "Active" : "Ended"}
                             </p>
@@ -61,7 +71,7 @@ function AssignmentDetailDrawer({ assignment, onClose }) {
                     <button
                         onClick={onClose}
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-brand-text/40 hover:bg-bg-slate hover:text-brand-text transition-all"
-                        aria-label="Close drawer"
+                        aria-label="Close dialog"
                     >
                         <X size={18} />
                     </button>
@@ -90,7 +100,7 @@ function AssignmentDetailDrawer({ assignment, onClose }) {
                     )}
                 </div>
             </div>
-        </>
+        </div>
     );
 }
 
@@ -278,9 +288,9 @@ export default function AssignedMembersTab() {
                 </div>
             </div>
 
-            {/* Detail drawer */}
+            {/* Detail modal */}
             {detailRow && (
-                <AssignmentDetailDrawer
+                <AssignmentDetailModal
                     assignment={detailRow}
                     onClose={() => setDetailRow(null)}
                 />

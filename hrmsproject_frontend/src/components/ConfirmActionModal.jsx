@@ -1,11 +1,15 @@
 import React from "react";
 
 /**
- * Reusable confirmation dialog for non-destructive admin decisions (Approve).
+ * Confirmation dialog for non-destructive admin decisions (Approve) in VisionAI HRMS.
  *
  * Mirrors RejectRequestModal's layout/wording so approve and reject read as one
- * interaction pattern across Leaves, Timesheets and Client Timesheets. Rejections
- * keep using RejectRequestModal — it additionally enforces a mandatory reason.
+ * interaction pattern across Leaves and Timesheets. Rejections keep using
+ * RejectRequestModal — it additionally enforces a mandatory reason.
+ *
+ * HRMS only. The Client Timesheet module has its own
+ * client-timesheets/components/ClientTimesheetConfirmModal in that workspace's chrome;
+ * the two systems are kept separate and must not share dialog components.
  */
 export default function ConfirmActionModal({
   isOpen,

@@ -501,7 +501,7 @@ export default function ClientTimesheetEntry() {
                                             )}
                                         </div>
                                         <div className="flex flex-wrap gap-3">
-                                            <button onClick={handleUpdateTotals} disabled={saving || !weekEditable} className="px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40">Update Totals</button>
+                                            {/* <button onClick={handleUpdateTotals} disabled={saving || !weekEditable} className="px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40">Update Totals</button> */}
                                             <button onClick={handleSave} disabled={saving || !weekEditable} className="px-5 py-2.5 rounded-lg bg-[#2C2C2A] hover:bg-black text-white text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40">Save</button>
                                             <button onClick={handleSubmit} disabled={saving || !weekEditable} className="px-6 py-2.5 rounded-lg bg-brand-blue-dark hover:brightness-110 text-white text-xs font-bold uppercase tracking-widest shadow-lg shadow-brand-blue/20 transition-all active:scale-95 disabled:opacity-40">
                                                 {meta.status === "PENDING" || meta.status === "REJECTED" ? "Resubmit" : "Submit"}

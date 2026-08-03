@@ -405,71 +405,68 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
         };
 
         // Employee name → title-case, no spaces. "ganesh y" → "GaneshY".
+        // "employee one" → "Employee One". Words stay separated: squashing them together was
+        // what produced the run-on "employeeone" in the old file names.
         const formatEmployeeName = (fullName) => {
             if (!fullName || !fullName.trim()) return "Employee";
             return fullName.trim().split(/\s+/)
                 .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
-                .join("");
+                .join(" ");
         };
-        // DD.MM.YY — Excel forbids "/" in sheet names, so "." replaces the requested slashes.
-        const ddmmyy = (d) =>
-            `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getFullYear()).slice(-2)}`;
+        const monthShort = (d) => d.toLocaleString("en-US", { month: "short" }); // e.g. Jul
+        const yy = (d) => String(d.getFullYear()).slice(-2);
+        // "Jul 26" — each sheet always covers a whole calendar month, so the day range the
+        // tab name used to spell out ("01.08.26-31.08.26") added length without information.
+        const monthLabelOf = (d) => `${monthShort(d)} ${yy(d)}`;
 
         // Build one workbook for an employee group: a tab per month, newest first.
-        // Tab name: "GaneshY_Aug26_01.08.26-31.08.26" (full calendar-month range, not the
-        // filtered range). Compact month label keeps the full name legible under Excel's
-        // 31-char limit; the trim step below is a safety net for very long names.
+        // Tab names are just the month ("Jul 26"); the employee is already the file name,
+        // and every workbook holds exactly one employee.
         const buildWorkbook = (group) => {
             const wb = new ExcelJS.Workbook();
-            const empFormatted = formatEmployeeName(group.name);
             months.forEach((monthDate) => {
-                const monthLabel = `${monthDate.toLocaleString("en-US", { month: "short" })}${String(monthDate.getFullYear()).slice(-2)}`; // e.g. Aug26
-                const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-                const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
-                const dateRange = `${ddmmyy(monthStart)}-${ddmmyy(monthEnd)}`;
-
-                let tabName = `${empFormatted}_${monthLabel}_${dateRange}`;
-                if (tabName.length > 31) {
-                    const excess = tabName.length - 31;
-                    const trimmedName = empFormatted.slice(0, Math.max(1, empFormatted.length - excess));
-                    tabName = `${trimmedName}_${monthLabel}_${dateRange}`;
-                    if (tabName.length > 31) tabName = tabName.slice(0, 31);
-                }
-
-                const ws = wb.addWorksheet(sheetNameFor(tabName));
+                const ws = wb.addWorksheet(sheetNameFor(monthLabelOf(monthDate)));
                 populateSheet(ws, group, monthDate);
             });
             return wb;
         };
 
         // ---- File-name helpers ----
-        const monthShort = (d) => d.toLocaleString("en-US", { month: "short" }); // e.g. Jun
-        const rangeLabel = months.length === 1
-            ? `${monthShort(rangeStart)}${rangeStart.getFullYear()}`
-            : `${monthShort(rangeStart)}${rangeStart.getFullYear()}-${monthShort(rangeEnd)}${rangeEnd.getFullYear()}`;
-        const fileNameSafe = (name) => ((name || "Employee").replace(/[^A-Za-z0-9]+/g, "") || "Employee");
+        // "Jul 26" for one month, "Jul-Aug 26" within a year, "Dec 25-Jan 26" across years.
+        const rangeLabel = (() => {
+            if (months.length === 1) return monthLabelOf(rangeStart);
+            if (rangeStart.getFullYear() === rangeEnd.getFullYear()) {
+                return `${monthShort(rangeStart)}-${monthShort(rangeEnd)} ${yy(rangeEnd)}`;
+            }
+            return `${monthLabelOf(rangeStart)}-${monthLabelOf(rangeEnd)}`;
+        })();
+        // Strip only what a filesystem rejects, so spaces and the name stay intact.
+        const fileNameSafe = (name) =>
+            ((name || "Employee").replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim() || "Employee");
+        const workbookFileName = (group) => `${fileNameSafe(formatEmployeeName(group.name))} - ${rangeLabel}.xlsx`;
 
         const groupList = Array.from(groups.values());
 
         if (groupList.length <= 1) {
-            // Single employee → one .xlsx.
+            // Single employee → one .xlsx, e.g. "Employee One - Jul-Aug 26.xlsx".
             const group = groupList[0];
             const wb = buildWorkbook(group);
             const buffer = await wb.xlsx.writeBuffer();
             const blob = new Blob([buffer], {
                 type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             });
-            saveAs(blob, `ClientTimesheet_${fileNameSafe(group.name)}_${rangeLabel}.xlsx`);
+            saveAs(blob, workbookFileName(group));
         } else {
-            // Multiple employees → one .xlsx per employee, delivered as a .zip.
+            // Multiple employees → one .xlsx per employee, delivered as a .zip. Each file
+            // keeps the same "Name - Range.xlsx" pattern so the archive stays readable.
             const zip = new JSZip();
             for (const group of groupList) {
                 const wb = buildWorkbook(group);
                 const buffer = await wb.xlsx.writeBuffer();
-                zip.file(`ClientTimesheet_${fileNameSafe(group.name)}_${rangeLabel}.xlsx`, buffer);
+                zip.file(workbookFileName(group), buffer);
             }
             const zipBlob = await zip.generateAsync({ type: "blob" });
-            saveAs(zipBlob, `ClientTimesheets_${rangeLabel}.zip`);
+            saveAs(zipBlob, `Timesheets - ${rangeLabel}.zip`);
         }
     };
 

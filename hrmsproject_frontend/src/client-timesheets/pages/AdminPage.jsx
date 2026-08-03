@@ -5,7 +5,7 @@ import ClientTimesheetDetailDrawer from "../components/ClientTimesheetDetailDraw
 import AccessManagementTab from "../components/AccessManagementTab";
 import AssignedMembersTab from "../components/AssignedMembersTab";
 import AssignEmployeeToClientProjectModal from "../../components/AssignEmployeeToClientProjectModal";
-import ConfirmActionModal from "../../components/ConfirmActionModal";
+import ClientTimesheetConfirmModal from "../components/ClientTimesheetConfirmModal";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { Download, Check, X, Eye, Briefcase } from "lucide-react";
@@ -428,7 +428,7 @@ export default function ClientTimesheets() {
             </div>
 
             {/* Approve confirmation */}
-            <ConfirmActionModal
+            <ClientTimesheetConfirmModal
                 isOpen={approvingBlock != null}
                 onClose={() => setApprovingBlock(null)}
                 onConfirm={() => handleApproveBlock(approvingBlock)}
