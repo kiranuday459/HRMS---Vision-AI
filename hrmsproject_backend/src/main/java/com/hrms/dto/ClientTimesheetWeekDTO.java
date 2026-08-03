@@ -45,6 +45,8 @@ public class ClientTimesheetWeekDTO {
     }
 
     public static class ProjectRowDTO {
+        /** Stable row key — multiple rows may share the same projectId. */
+        private String rowId;
         private String projectId;
         private String projectName;
         private String taskId;
@@ -57,6 +59,8 @@ public class ClientTimesheetWeekDTO {
         private Double totalHours;
         private List<DayHourDTO> days = new ArrayList<>();
 
+        public String getRowId() { return rowId; }
+        public void setRowId(String rowId) { this.rowId = rowId; }
         public String getProjectId() { return projectId; }
         public void setProjectId(String projectId) { this.projectId = projectId; }
         public String getProjectName() { return projectName; }

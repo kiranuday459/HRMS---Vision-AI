@@ -15,9 +15,12 @@ import {
   PanelLeftOpen
 } from 'lucide-react';
 import useSidebarCollapsed from '../hooks/useSidebarCollapsed';
+import { useWorkspace } from '../hooks/useWorkspace';
+import { clientTimesheetDashboardPath } from '../utils/clientTimesheetNav';
 
 export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
   const navigate = useNavigate();
+  const { switchToClientWorkspace } = useWorkspace();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, toggleCollapsed] = useSidebarCollapsed();
 
@@ -32,7 +35,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
     else if (tab === "candidates" || tab === "team") navigate(isManager ? "/reporting-team" : "/admin/candidates");
     else if (tab === "reporting-managers") navigate("/admin/reporting-managers");
     else if (tab === "timesheets") navigate("/admin/timesheets");
-    else if (tab === "client-timesheets") navigate("/admin/client-timesheets");
+    else if (tab === "client-timesheets") switchToClientWorkspace(navigate, clientTimesheetDashboardPath());
     setMobileOpen(false);
   };
 
@@ -48,7 +51,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
       { id: "hr-team", label: "HR Team", Icon: ShieldCheck },
       { id: "leave-requests", label: "Leaves", Icon: CalendarDays },
       { id: "timesheets", label: "Timesheets", Icon: Clock },
-      { id: "client-timesheets", label: "Client timesheets", Icon: Briefcase, hasSeparator: true, isBold: true }
+      // { id: "client-timesheets", label: "Client timesheets", Icon: Briefcase, hasSeparator: true, isBold: true }
     ];
 
   // Mobile hamburger (fixed) — hide when drawer open

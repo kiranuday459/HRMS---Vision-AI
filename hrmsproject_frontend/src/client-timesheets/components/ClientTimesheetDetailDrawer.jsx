@@ -86,24 +86,29 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
     const rowTotal = (row) => dayHours(row).reduce((s, h) => s + h, 0);
 
     return (
-        <div className="fixed inset-0 z-[300] flex">
-            <div className="flex-1 bg-black/40 backdrop-blur-[1px]" onClick={onClose} />
-            <aside className="w-full max-w-[880px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" onClick={onClose} aria-hidden="true" />
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="client-timesheet-detail-title"
+                className="relative w-full max-w-[min(1100px,90vw)] max-h-[90vh] bg-white shadow-2xl rounded-xl flex flex-col overflow-hidden"
+            >
                 {/* Header */}
-                <div className="p-5 border-b border-[#E3E8EF] flex items-center justify-between bg-bg-slate/30">
+                <div className="p-5 border-b border-[#E3E8EF] flex items-center justify-between bg-bg-slate/30 shrink-0">
                     <div>
-                        <h2 className="text-lg font-black text-brand-text tracking-tight">Client Timesheet Detail</h2>
+                        <h2 id="client-timesheet-detail-title" className="text-lg font-black text-brand-text tracking-tight">Client Timesheet Detail</h2>
                         <p className="text-[9px] font-black text-brand-text/40 uppercase tracking-[0.2em] mt-0.5">Read-only</p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-brand-blue/5 rounded-xl transition-all" aria-label="Close"><X size={20} /></button>
                 </div>
 
                 {loading ? (
-                    <div className="flex-1 flex items-center justify-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Loading...</div>
+                    <div className="flex-1 flex items-center justify-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse min-h-[200px]">Loading...</div>
                 ) : !detail ? (
-                    <div className="flex-1 flex items-center justify-center text-brand-text/40 text-sm">No detail available.</div>
+                    <div className="flex-1 flex items-center justify-center text-brand-text/40 text-sm min-h-[200px]">No detail available.</div>
                 ) : (
-                    <div className="flex-1 overflow-auto p-5 md:p-6">
+                    <div className="flex-1 min-h-0 overflow-y-auto p-5 md:p-6">
                         {/* Meta */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm mb-6">
                             <Meta label="Employee" value={detail.employeeName} />
@@ -115,37 +120,37 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                         </div>
 
                         {/* Project table (read-only) */}
-                        <div className="border border-[#E3E8EF] rounded-xl overflow-x-auto">
-                            <table className="w-full text-left border-collapse min-w-[1000px]">
+                        <div className="border border-[#E3E8EF] rounded-xl overflow-hidden">
+                            <table className="w-full text-left border-collapse table-fixed">
                                 <thead>
-                                    <tr className="bg-brand-blue-dark text-white text-[10px] uppercase tracking-wide">
-                                        <th className="px-3 py-2.5 font-bold">Project ID</th>
-                                        <th className="px-3 py-2.5 font-bold">Project Name</th>
-                                        <th className="px-3 py-2.5 font-bold">Task ID</th>
-                                        <th className="px-3 py-2.5 font-bold">Task Description</th>
-                                        <th className="px-3 py-2.5 font-bold">Onsite/Offshore</th>
-                                        <th className="px-3 py-2.5 font-bold">Client Billable</th>
-                                        <th className="px-3 py-2.5 font-bold">Billing Location</th>
-                                        {days.map((d, i) => (<th key={i} className="px-1 py-2.5 font-bold text-center"><div>{d.dom}</div><div className="text-[8px] opacity-80">{d.wd}</div></th>))}
-                                        <th className="px-2 py-2.5 font-bold text-center">Total</th>
-                                        <th className="px-2 py-2.5 font-bold text-center">Comment</th>
+                                    <tr className="bg-brand-blue-dark text-white text-[9px] uppercase tracking-wide">
+                                        <th className="px-2 py-2 font-bold w-[7%]">Project ID</th>
+                                        <th className="px-2 py-2 font-bold w-[9%]">Project Name</th>
+                                        <th className="px-2 py-2 font-bold w-[7%]">Task ID</th>
+                                        <th className="px-2 py-2 font-bold w-[12%]">Task Description</th>
+                                        <th className="px-2 py-2 font-bold w-[8%]">Onsite/Offshore</th>
+                                        <th className="px-2 py-2 font-bold w-[8%]">Client Billable</th>
+                                        <th className="px-2 py-2 font-bold w-[7%]">Billing Location</th>
+                                        {days.map((d, i) => (<th key={i} className="px-0.5 py-2 font-bold text-center w-[4%]"><div>{d.dom}</div><div className="text-[7px] opacity-80">{d.wd}</div></th>))}
+                                        <th className="px-1 py-2 font-bold text-center w-[5%]">Total</th>
+                                        <th className="px-1 py-2 font-bold text-center w-[4%]">Comment</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {projectRows.length === 0 ? (
                                         <tr><td colSpan={9 + days.length} className="px-4 py-6 text-center text-sm text-brand-text/40">No project entries.</td></tr>
                                     ) : projectRows.map((r, idx) => (
-                                        <tr key={idx} className="border-b border-[#E3E8EF] text-xs">
-                                            <td className="px-3 py-2 font-semibold text-brand-text">{r.projectId || "—"}</td>
-                                            <td className="px-3 py-2 text-brand-text/80">{r.projectName || "—"}</td>
-                                            <td className="px-3 py-2 text-brand-text/60">{r.taskId || "—"}</td>
-                                            <td className="px-3 py-2 text-brand-text/60">{r.taskDescription || "—"}</td>
-                                            <td className="px-3 py-2 text-brand-text/70">{onsiteLabel(r.onsiteOffshore)}</td>
-                                            <td className="px-3 py-2 text-brand-text/70">{billableLabel(r.clientBillable)}</td>
-                                            <td className="px-3 py-2 text-brand-text/70">{r.billingLocation || "—"}</td>
-                                            {dayHours(r).map((h, i) => (<td key={i} className="px-1 py-2 text-center text-brand-text">{hourCell(h)}</td>))}
-                                            <td className="px-2 py-2 text-center font-bold text-brand-text">{rowTotal(r).toFixed(2)}</td>
-                                            <td className="px-2 py-2 text-center">{r.comment ? <MessageSquare size={14} className="inline text-emerald-600" title={r.comment} /> : <span className="text-brand-text/30">—</span>}</td>
+                                        <tr key={idx} className="border-b border-[#E3E8EF] text-[10px]">
+                                            <td className="px-2 py-1.5 font-semibold text-brand-text truncate" title={r.projectId || ""}>{r.projectId || "—"}</td>
+                                            <td className="px-2 py-1.5 text-brand-text/80 truncate" title={r.projectName || ""}>{r.projectName || "—"}</td>
+                                            <td className="px-2 py-1.5 text-brand-text/60 truncate" title={r.taskId || ""}>{r.taskId || "—"}</td>
+                                            <td className="px-2 py-1.5 text-brand-text/60 truncate" title={r.taskDescription || ""}>{r.taskDescription || "—"}</td>
+                                            <td className="px-2 py-1.5 text-brand-text/70">{onsiteLabel(r.onsiteOffshore)}</td>
+                                            <td className="px-2 py-1.5 text-brand-text/70">{billableLabel(r.clientBillable)}</td>
+                                            <td className="px-2 py-1.5 text-brand-text/70 truncate" title={r.billingLocation || ""}>{r.billingLocation || "—"}</td>
+                                            {dayHours(r).map((h, i) => (<td key={i} className="px-0.5 py-1.5 text-center text-brand-text">{hourCell(h)}</td>))}
+                                            <td className="px-1 py-1.5 text-center font-bold text-brand-text">{rowTotal(r).toFixed(2)}</td>
+                                            <td className="px-1 py-1.5 text-center">{r.comment ? <MessageSquare size={14} className="inline text-emerald-600" title={r.comment} /> : <span className="text-brand-text/30">—</span>}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -160,22 +165,22 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                         </div>
 
                         {/* Holiday / Time off (read-only) */}
-                        <div className="mt-6 border border-[#E3E8EF] rounded-xl overflow-x-auto">
+                        <div className="mt-6 border border-[#E3E8EF] rounded-xl overflow-hidden">
                             <div className="px-4 py-2.5 border-b border-[#E3E8EF]"><h3 className="text-xs font-black text-brand-text uppercase tracking-wide">Holiday/Time off</h3></div>
-                            <table className="w-full border-collapse min-w-[820px]">
+                            <table className="w-full border-collapse table-fixed">
                                 <thead>
-                                    <tr className="text-[10px] text-brand-text/40 uppercase">
-                                        <th className="px-4 py-2 text-right font-bold w-[260px]"></th>
-                                        {days.map((d, i) => (<th key={i} className="px-1 py-2 font-bold text-center"><div className="text-brand-text/70">{d.dom}</div><div className="text-[8px]">{d.wd}</div></th>))}
-                                        <th className="px-2 py-2 font-bold text-center">Total</th>
+                                    <tr className="text-[9px] text-brand-text/40 uppercase">
+                                        <th className="px-3 py-2 text-right font-bold w-[22%]"></th>
+                                        {days.map((d, i) => (<th key={i} className="px-0.5 py-2 font-bold text-center w-[9%]"><div className="text-brand-text/70">{d.dom}</div><div className="text-[7px]">{d.wd}</div></th>))}
+                                        <th className="px-1 py-2 font-bold text-center w-[8%]">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {timeOffRows.map((r) => (
-                                        <tr key={r.type} className="border-b border-[#E3E8EF] text-xs">
-                                            <td className="px-4 py-2 text-right font-semibold text-brand-text/70">{TIMEOFF_LABELS[r.type]}</td>
-                                            {dayHours(r).map((h, i) => (<td key={i} className="px-1 py-2 text-center text-brand-text">{hourCell(h)}</td>))}
-                                            <td className="px-2 py-2 text-center font-bold text-brand-text">{rowTotal(r).toFixed(2)}</td>
+                                        <tr key={r.type} className="border-b border-[#E3E8EF] text-[10px]">
+                                            <td className="px-3 py-1.5 text-right font-semibold text-brand-text/70">{TIMEOFF_LABELS[r.type]}</td>
+                                            {dayHours(r).map((h, i) => (<td key={i} className="px-0.5 py-1.5 text-center text-brand-text">{hourCell(h)}</td>))}
+                                            <td className="px-1 py-1.5 text-center font-bold text-brand-text">{rowTotal(r).toFixed(2)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -193,7 +198,7 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
 
                 {/* Actions footer */}
                 {!loading && detail && (
-                    <div className="p-5 border-t border-[#E3E8EF] bg-bg-slate/30">
+                    <div className="p-5 border-t border-[#E3E8EF] bg-bg-slate/30 shrink-0">
                         {status === "PENDING" ? (
                             rejecting ? (
                                 <div className="space-y-3">
@@ -217,7 +222,7 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                         )}
                     </div>
                 )}
-            </aside>
+            </div>
         </div>
     );
 }

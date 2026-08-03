@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 import React from "react";
+import { CLIENT_TIMESHEET_DASHBOARD, CLIENT_TIMESHEET_ADMIN } from "./utils/clientTimesheetNav";
 // import LoginPage from "./components/LoginPage";
 import LoginPage from "./pages/login/LoginPage";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
@@ -28,13 +29,19 @@ import HrManagerLeaves from "./pages/hr/HrManagerLeaves";
 import HrManagerTimesheets from "./pages/hr/HrManagerTimesheets";
 import SessionManager from "./components/SessionManager";
 import { ClientAccessProvider } from "./hooks/useClientAccess";
+import { WorkspaceProvider } from "./hooks/useWorkspace";
 import ClientTimesheetGuard from "./components/ClientTimesheetGuard";
 // import EmployeeForm from "./components/EmployeeForm";
 // import ForgotPassword from "./components/ForgotPassword";
 // import AdminDashboard from "./components/AdminDashboard";
 
 
-import { useLocation } from "react-router-dom";
+import { useParams } from "react-router-dom";
+
+function LegacyClientWeekRedirect() {
+  const { weekStart } = useParams();
+  return <Navigate to={`${CLIENT_TIMESHEET_DASHBOARD}/${weekStart}`} replace />;
+}
 
 function App() {
   const [user, setUser] = React.useState(() => {
@@ -74,6 +81,7 @@ function App() {
         pauseOnHover
       />
       <ClientAccessProvider>
+      <WorkspaceProvider>
       <Routes>
         {/* Login */}
         <Route path="/login" element={<LoginPage setUser={setUser} />} />
@@ -101,30 +109,27 @@ function App() {
               : <Navigate to="/employee?tab=timesheet" />
           }
         />
-        {/* Client Timesheets module — its own layout (top bar + Home), no HRMS sidebar. */}
+        {/* Client Timesheet workspace — unified routes, distinct layout, same auth session. */}
         <Route element={<ClientTimesheetsLayout />}>
           <Route
-            path="/employee/client-timesheet"
+            path={CLIENT_TIMESHEET_DASHBOARD}
             element={authLoading ? null : (user ? <ClientTimesheetGuard><ClientTimesheetSummary /></ClientTimesheetGuard> : <Navigate to="/login" />)}
           />
           <Route
-            path="/employee/client-timesheet/:weekStart"
-            element={authLoading ? null : (user ? <ClientTimesheetGuard><ClientTimesheetEntry /></ClientTimesheetGuard> : <Navigate to="/login" />)}
-          />
-          {/* Reporting Manager Client Timesheet — same guarded pages as the employee, under the RM route tree. */}
-          <Route
-            path="/reporting-dashboard/client-timesheet"
-            element={authLoading ? null : (user ? <ClientTimesheetGuard><ClientTimesheetSummary /></ClientTimesheetGuard> : <Navigate to="/login" />)}
-          />
-          <Route
-            path="/reporting-dashboard/client-timesheet/:weekStart"
+            path={`${CLIENT_TIMESHEET_DASHBOARD}/:weekStart`}
             element={authLoading ? null : (user ? <ClientTimesheetGuard><ClientTimesheetEntry /></ClientTimesheetGuard> : <Navigate to="/login" />)}
           />
           <Route
-            path="/admin/client-timesheets"
+            path={CLIENT_TIMESHEET_ADMIN}
             element={authLoading ? null : (user && user.role === "ADMIN" ? <ClientTimesheets /> : <Navigate to="/login" />)}
           />
         </Route>
+        {/* Legacy client-timesheet paths → unified workspace routes */}
+        <Route path="/employee/client-timesheet" element={<Navigate to={CLIENT_TIMESHEET_DASHBOARD} replace />} />
+        <Route path="/employee/client-timesheet/:weekStart" element={<LegacyClientWeekRedirect />} />
+        <Route path="/reporting-dashboard/client-timesheet" element={<Navigate to={CLIENT_TIMESHEET_DASHBOARD} replace />} />
+        <Route path="/reporting-dashboard/client-timesheet/:weekStart" element={<LegacyClientWeekRedirect />} />
+        <Route path="/admin/client-timesheets" element={<Navigate to={CLIENT_TIMESHEET_ADMIN} replace />} />
         <Route
           path="/admin"
           element={authLoading ? null : (user && user.role === "ADMIN" ? <AdminDashboard /> : <Navigate to="/login" />)}
@@ -211,6 +216,7 @@ function App() {
         ) : <Navigate to="/login" />} />
 
       </Routes>
+      </WorkspaceProvider>
       </ClientAccessProvider>
     </>
   );

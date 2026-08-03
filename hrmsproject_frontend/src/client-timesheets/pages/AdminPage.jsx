@@ -52,6 +52,9 @@ const SummaryCell = ({ value, label }) => (
     </div>
 );
 
+// Admin approval queue: only timesheets the employee has submitted for review.
+const ADMIN_QUEUE_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED"]);
+
 export default function ClientTimesheets() {
     const location = useLocation();
     // Page tab: "timesheets" (approval queue) | "assigned" (assigned members) | "access" (access management).
@@ -168,9 +171,10 @@ export default function ClientTimesheets() {
             );
     }, [entries]);
 
-    // Block-level filtering by resolved status.
+    // Block-level filtering: submitted states only (exclude employee drafts / not started).
     const displayedBlocks = useMemo(
         () => blocks.filter((b) =>
+            ADMIN_QUEUE_STATUSES.has(b.status) &&
             (!statusFilter || b.status === statusFilter)
         ),
         [blocks, statusFilter]
@@ -302,7 +306,7 @@ export default function ClientTimesheets() {
                                         className="bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
                                     >
                                         <option value="">All statuses</option>
-                                        <option value="PENDING">Pending</option>
+                                        <option value="PENDING">Pending Approval</option>
                                         <option value="APPROVED">Approved</option>
                                         <option value="REJECTED">Rejected</option>
                                     </select>

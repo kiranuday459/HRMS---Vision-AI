@@ -1,7 +1,8 @@
-// Role-aware paths for the shared Client Timesheet module. The Summary/Entry pages are
-// reused by both employees (/employee/...) and reporting managers (/reporting-dashboard/...);
-// these helpers pick the correct base path from the logged-in user's role so the same
-// components work under either route tree.
+// Role-aware paths for the shared Client Timesheet module. Unified workspace routes
+// live under /client-timesheet/*; legacy role-prefixed paths redirect here.
+
+export const CLIENT_TIMESHEET_DASHBOARD = "/client-timesheet/dashboard";
+export const CLIENT_TIMESHEET_ADMIN = "/client-timesheet/admin";
 
 const readRole = () => {
     try {
@@ -11,14 +12,26 @@ const readRole = () => {
     }
 };
 
-/** Base path for the Client Timesheet summary/entry pages for the current user's role. */
-export function clientTimesheetBase() {
-    return readRole() === "REPORTING_MANAGER"
-        ? "/reporting-dashboard/client-timesheet"
-        : "/employee/client-timesheet";
+/** Primary dashboard route for the Client Timesheet workspace (role-aware). */
+export function clientTimesheetDashboardPath() {
+    return readRole() === "ADMIN" ? CLIENT_TIMESHEET_ADMIN : CLIENT_TIMESHEET_DASHBOARD;
 }
 
-/** Dashboard to fall back to when Client Timesheet access is denied. */
+/** Base path for summary/entry pages within the client workspace. */
+export function clientTimesheetBase() {
+    return CLIENT_TIMESHEET_DASHBOARD;
+}
+
+/** Build the week entry path for a given week start date. */
+export function clientTimesheetWeekPath(weekStart) {
+    return `${CLIENT_TIMESHEET_DASHBOARD}/${weekStart}`;
+}
+
+/** Dashboard to return to when exiting the Client Timesheet workspace. */
 export function roleDashboardPath() {
-    return readRole() === "REPORTING_MANAGER" ? "/manager" : "/employee";
+    const role = readRole();
+    if (role === "ADMIN") return "/admin";
+    if (role === "HR") return "/hr";
+    if (role === "REPORTING_MANAGER") return "/manager";
+    return "/employee";
 }

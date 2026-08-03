@@ -161,39 +161,52 @@ public class ClientTimesheetWeekService {
         List<LocalDate> weekDays = new ArrayList<>();
         for (int i = 0; i < 7; i++) weekDays.add(weekStartDate.plusDays(i));
 
-        // ---- Project rows: start from active assignments, overlay saved hours ----
-        // Saved project lines keyed by projectId+date.
-        Map<String, ClientTimesheet> savedProjectByKey = new HashMap<>();
-        Set<String> savedProjectIds = new LinkedHashSet<>();
+        // ---- Project rows: group saved day-lines by stable row id (multiple rows per project) ----
+        List<ClientTimesheet> projectLines = new ArrayList<>();
         for (ClientTimesheet l : lines) {
             if (!isTimeOff(l.getCategory())) {
-                String pid = l.getProjectId() != null ? l.getProjectId() : "";
-                savedProjectByKey.put(pid + "|" + l.getDate(), l);
-                savedProjectIds.add(pid);
+                projectLines.add(l);
+            }
+        }
+
+        Map<String, List<ClientTimesheet>> linesByRowId = new LinkedHashMap<>();
+        for (ClientTimesheet l : projectLines) {
+            String rowKey = rowKeyForLine(l);
+            linesByRowId.computeIfAbsent(rowKey, k -> new ArrayList<>()).add(l);
+        }
+
+        Map<String, ClientProjectAssignmentDTO> assignmentByProject = new HashMap<>();
+        for (ClientProjectAssignmentDTO a : assignments) {
+            if (a.getProjectId() != null) {
+                assignmentByProject.put(a.getProjectId(), a);
             }
         }
 
         List<ClientTimesheetWeekDTO.ProjectRowDTO> projectRows = new ArrayList<>();
-        Set<String> emittedProjectIds = new LinkedHashSet<>();
-        for (ClientProjectAssignmentDTO a : assignments) {
-            projectRows.add(buildProjectRow(a.getProjectId(), a.getProjectName(), a.getTaskId(),
-                    a.getTaskDescription(), a.getOnsiteOffshore(), a.getClientBillable(), a.getBillingLocation(),
-                    a.getAssignmentStartDate(), weekDays, savedProjectByKey));
-            emittedProjectIds.add(a.getProjectId() != null ? a.getProjectId() : "");
+        Set<String> projectIdsWithRows = new LinkedHashSet<>();
+        for (List<ClientTimesheet> group : linesByRowId.values()) {
+            ClientTimesheetWeekDTO.ProjectRowDTO row = buildProjectRowFromSavedLines(group, weekDays);
+            ClientProjectAssignmentDTO a = assignmentByProject.get(row.getProjectId());
+            if (row.getAssignmentStartDate() == null && a != null) {
+                row.setAssignmentStartDate(a.getAssignmentStartDate());
+            }
+            if (row.getAssignmentStartDate() == null) {
+                row.setAssignmentStartDate(dto.getEarliestAssignmentDate());
+            }
+            projectRows.add(row);
+            if (row.getProjectId() != null) {
+                projectIdsWithRows.add(row.getProjectId());
+            }
         }
-        // Include any saved project rows whose project is no longer an active assignment
-        // (so a saved draft is never lost).
-        for (String pid : savedProjectIds) {
-            if (!emittedProjectIds.contains(pid)) {
-                ClientTimesheet sample = lines.stream()
-                        .filter(l -> !isTimeOff(l.getCategory()) && Objects.equals(l.getProjectId() != null ? l.getProjectId() : "", pid))
-                        .findFirst().orElse(null);
-                if (sample != null) {
-                    projectRows.add(buildProjectRow(sample.getProjectId(), sample.getProjectName(), sample.getTaskId(),
-                            sample.getTaskDescription(), sample.getOnsiteOffshore(),
-                            Boolean.TRUE.equals(sample.getBillable()) ? "BILLABLE" : "NON_BILLABLE",
-                            sample.getBillingLocation(), dto.getEarliestAssignmentDate(), weekDays, savedProjectByKey));
-                }
+
+        // Template rows for active assignments that have no saved lines yet this week.
+        for (ClientProjectAssignmentDTO a : assignments) {
+            String pid = a.getProjectId() != null ? a.getProjectId() : "";
+            if (!projectIdsWithRows.contains(pid)) {
+                projectRows.add(buildProjectRowTemplate(a.getProjectId(), a.getProjectName(), a.getTaskId(),
+                        a.getTaskDescription(), a.getOnsiteOffshore(), a.getClientBillable(), a.getBillingLocation(),
+                        a.getAssignmentStartDate(), weekDays));
+                projectIdsWithRows.add(pid);
             }
         }
         dto.setProjectRows(projectRows);
@@ -252,11 +265,44 @@ public class ClientTimesheetWeekService {
         return dto;
     }
 
-    private ClientTimesheetWeekDTO.ProjectRowDTO buildProjectRow(String projectId, String projectName,
+    /** Row grouping key for persisted day-lines (supports many rows per project). */
+    private String rowKeyForLine(ClientTimesheet line) {
+        if (line.getProjectRowId() != null && !line.getProjectRowId().isBlank()) {
+            return line.getProjectRowId();
+        }
+        String pid = line.getProjectId() != null ? line.getProjectId() : "";
+        return "legacy:" + pid;
+    }
+
+    private ClientTimesheetWeekDTO.ProjectRowDTO buildProjectRowFromSavedLines(List<ClientTimesheet> group,
+            List<LocalDate> weekDays) {
+        ClientTimesheet sample = group.get(0);
+        Map<LocalDate, ClientTimesheet> byDate = new HashMap<>();
+        for (ClientTimesheet l : group) {
+            byDate.put(l.getDate(), l);
+        }
+        String rowId = sample.getProjectRowId() != null && !sample.getProjectRowId().isBlank()
+                ? sample.getProjectRowId()
+                : rowKeyForLine(sample);
+        return buildProjectRowCore(rowId, sample.getProjectId(), sample.getProjectName(), sample.getTaskId(),
+                sample.getTaskDescription(), sample.getOnsiteOffshore(),
+                Boolean.TRUE.equals(sample.getBillable()) ? "BILLABLE" : "NON_BILLABLE",
+                sample.getBillingLocation(), null, weekDays, byDate, sample.getComment());
+    }
+
+    private ClientTimesheetWeekDTO.ProjectRowDTO buildProjectRowTemplate(String projectId, String projectName,
+            String taskId, String taskDescription, String onsiteOffshore, String clientBillable,
+            String billingLocation, LocalDate assignmentStartDate, List<LocalDate> weekDays) {
+        return buildProjectRowCore(null, projectId, projectName, taskId, taskDescription, onsiteOffshore,
+                clientBillable, billingLocation, assignmentStartDate, weekDays, Collections.emptyMap(), null);
+    }
+
+    private ClientTimesheetWeekDTO.ProjectRowDTO buildProjectRowCore(String rowId, String projectId, String projectName,
             String taskId, String taskDescription, String onsiteOffshore, String clientBillable,
             String billingLocation, LocalDate assignmentStartDate, List<LocalDate> weekDays,
-            Map<String, ClientTimesheet> savedByKey) {
+            Map<LocalDate, ClientTimesheet> savedByDate, String comment) {
         ClientTimesheetWeekDTO.ProjectRowDTO row = new ClientTimesheetWeekDTO.ProjectRowDTO();
+        row.setRowId(rowId);
         row.setProjectId(projectId);
         row.setProjectName(projectName);
         row.setTaskId(taskId);
@@ -265,14 +311,12 @@ public class ClientTimesheetWeekService {
         row.setClientBillable(clientBillable != null ? clientBillable : "BILLABLE");
         row.setBillingLocation(billingLocation != null ? billingLocation : null);
         row.setAssignmentStartDate(assignmentStartDate);
-        String pid = projectId != null ? projectId : "";
+        row.setComment(comment);
         double total = 0;
         List<ClientTimesheetWeekDTO.DayHourDTO> days = new ArrayList<>();
-        String comment = null;
         for (LocalDate d : weekDays) {
-            ClientTimesheet saved = savedByKey.get(pid + "|" + d);
+            ClientTimesheet saved = savedByDate.get(d);
             double h = saved != null && saved.getHours() != null ? saved.getHours() : 0;
-            if (saved != null && saved.getComment() != null) comment = saved.getComment();
             ClientTimesheetWeekDTO.DayHourDTO dh = new ClientTimesheetWeekDTO.DayHourDTO();
             dh.setDate(d);
             dh.setHours(h);
@@ -281,7 +325,6 @@ public class ClientTimesheetWeekService {
         }
         row.setDays(days);
         row.setTotalHours(total);
-        row.setComment(comment);
         return row;
     }
 
@@ -352,6 +395,10 @@ public class ClientTimesheetWeekService {
         if (payload.getProjectRows() != null) {
             for (ClientTimesheetWeekDTO.ProjectRowDTO r : payload.getProjectRows()) {
                 boolean billable = !"NON_BILLABLE".equalsIgnoreCase(r.getClientBillable());
+                String rowId = r.getRowId();
+                if (rowId == null || rowId.isBlank()) {
+                    rowId = UUID.randomUUID().toString();
+                }
                 for (ClientTimesheetWeekDTO.DayHourDTO d : r.getDays()) {
                     double h = d.getHours() != null ? d.getHours() : 0;
                     if (h <= 0) continue;
@@ -360,6 +407,7 @@ public class ClientTimesheetWeekService {
                     line.setDate(d.getDate());
                     line.setWeekStartDate(weekStartDate);
                     line.setWeekEndDate(weekEndDate);
+                    line.setProjectRowId(rowId);
                     line.setProjectId(r.getProjectId());
                     line.setProjectName(r.getProjectName());
                     line.setTaskId(r.getTaskId());

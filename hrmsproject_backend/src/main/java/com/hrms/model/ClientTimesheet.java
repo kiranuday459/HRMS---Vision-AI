@@ -47,6 +47,9 @@ public class ClientTimesheet {
     // Optional link to the week header record (client_timesheet_weeks).
     private Long weekId;
 
+    // Stable id grouping day-level lines into one UI row (supports multiple rows per project).
+    private String projectRowId;
+
     // Project / task metadata mirrored from the employee's client-project assignment.
     private String projectId;
     private String taskId;
@@ -218,6 +221,14 @@ public class ClientTimesheet {
 
     public void setWeekId(Long weekId) {
         this.weekId = weekId;
+    }
+
+    public String getProjectRowId() {
+        return projectRowId;
+    }
+
+    public void setProjectRowId(String projectRowId) {
+        this.projectRowId = projectRowId;
     }
 
     public String getProjectId() {
