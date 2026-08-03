@@ -27,12 +27,14 @@ public class Leave {
     
     @Enumerated(EnumType.STRING)
     private LeaveType leaveType;
-    
+
+    @Column(length = 500)
     private String reason;
     
     @Enumerated(EnumType.STRING)
     private LeaveStatus status = LeaveStatus.PENDING;
-    
+
+    @Column(length = 500)
     private String rejectionReason;
     
     @ManyToOne

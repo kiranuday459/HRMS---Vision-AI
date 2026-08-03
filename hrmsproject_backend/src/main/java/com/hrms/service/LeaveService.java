@@ -149,6 +149,10 @@ public class LeaveService {
     }
 
     public LeaveDTO createLeave(LeaveDTO dto) {
+        if (dto.getReason() != null && dto.getReason().length() > 500) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Leave reason cannot exceed 500 characters");
+        }
+
         Employee employee = employeeRepository.findById(dto.getEmployeeId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
 
@@ -482,6 +486,10 @@ public class LeaveService {
     public LeaveDTO rejectLeave(Long id, Long approverId, String reason) {
         if (reason == null || reason.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rejection reason is required.");
+        }
+
+        if (reason.length() > 500) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Exceeded maximum characters limit");
         }
 
         Leave leave = leaveRepository.findById(id)
