@@ -9,6 +9,7 @@ import api from "../../utils/api";
 import DownloadTimesheetModal from "../../components/DownloadTimesheetModal";
 import { ProjectSuffix } from "../../utils/employeeName";
 import RejectRequestModal from "../../components/RejectRequestModal";
+import ConfirmActionModal from "../../components/ConfirmActionModal";
 
 export default function AdminTimesheets() {
     const [activeTab, setActiveTab] = useState("timesheets");
@@ -24,6 +25,8 @@ export default function AdminTimesheets() {
     const [groupedWeeks, setGroupedWeeks] = useState([]);
     const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
     // Rejection reason modal for admin action on HR timesheets: holds the week being rejected.
+    const [approveModal, setApproveModal] = useState(null);
+    const [approveSubmitting, setApproveSubmitting] = useState(false);
     const [rejectModal, setRejectModal] = useState(null);
     const [rejectReason, setRejectReason] = useState("");
     const [rejectSubmitting, setRejectSubmitting] = useState(false);
@@ -200,7 +203,15 @@ export default function AdminTimesheets() {
     };
 
 
-    const handleApproveWeek = async (week) => {
+    // Open the approval confirmation (spec: confirm before approving).
+    const handleApproveWeek = (week) => {
+        setApproveModal(week);
+    };
+
+    // Confirm approval from the modal.
+    const confirmApproveWeek = async () => {
+        const week = approveModal;
+        if (!week) return;
         try {
             // Admin can approve ANY pending timesheet, regardless of the stage it currently
             // sits at (RM / HR / Admin). This is an Admin-only override; RM/HR flows unchanged.
@@ -210,9 +221,11 @@ export default function AdminTimesheets() {
 
             if (adminApprovableEntries.length === 0) {
                 toast.info("No pending timesheets in this week.");
+                setApproveModal(null);
                 return;
             }
 
+            setApproveSubmitting(true);
             setLoading(true);
             for (const entry of adminApprovableEntries) {
                 await api(`/api/timesheets/${entry.id}/approve`, {
@@ -221,12 +234,14 @@ export default function AdminTimesheets() {
                 });
             }
             toast.success("Timesheet approved successfully");
+            setApproveModal(null);
             await fetchData();
             setTsSubView('summary');
         } catch (err) {
             console.error(err);
             toast.error("Error approving timesheets");
         } finally {
+            setApproveSubmitting(false);
             setLoading(false);
         }
     };
@@ -522,6 +537,18 @@ export default function AdminTimesheets() {
                 isOpen={isDownloadModalOpen}
                 onClose={() => setIsDownloadModalOpen(false)}
                 employees={employees}
+            />
+
+            <ConfirmActionModal
+                isOpen={!!approveModal}
+                onClose={() => setApproveModal(null)}
+                onConfirm={confirmApproveWeek}
+                submitting={approveSubmitting}
+                title="Approve Timesheet"
+                message={approveModal
+                    ? `Are you sure you want to approve this timesheet for ${approveModal.employeeName} — week of ${approveModal.startDate}?`
+                    : ""}
+                confirmLabel="Approve"
             />
 
             <RejectRequestModal

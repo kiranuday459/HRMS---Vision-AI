@@ -15,6 +15,7 @@ import YearlyHolidayCalendar from "../common/YearlyHolidayCalendar";
 import LeaveDetailsModal from "../../components/LeaveDetailsModal";
 import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";
 import RejectRequestModal from "../../components/RejectRequestModal";
+import ConfirmActionModal from "../../components/ConfirmActionModal";
 import NotificationComponent from "../../components/NotificationComponent";
 import ClientTimesheetSwitch from "../../components/ClientTimesheetSwitch";
 import { toast } from 'react-toastify';
@@ -138,6 +139,8 @@ export default function AdminDashboard() {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [pendingLeaves, setPendingLeaves] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [approvingLeaveId, setApprovingLeaveId] = useState(null);
+  const [approveSubmitting, setApproveSubmitting] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectingLeaveId, setRejectingLeaveId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -381,17 +384,26 @@ export default function AdminDashboard() {
     return days;
   };
 
-  const handleApprove = async (leaveId) => {
+  // Approve is confirmed first (ConfirmActionModal), mirroring the reject flow.
+  const handleApproveClick = (leaveId) => setApprovingLeaveId(leaveId);
+
+  const handleApproveConfirm = async () => {
+    if (!approvingLeaveId) return;
     try {
-      const response = await api(`/api/leaves/${leaveId}/approve`, {
+      setApproveSubmitting(true);
+      const response = await api(`/api/leaves/${approvingLeaveId}/approve`, {
         method: 'POST',
         body: JSON.stringify({ approverId: currentUserId })
       });
       if (response.ok) {
         toast.success('Leave approved successfully!');
+        setApprovingLeaveId(null);
         fetchLeaveRequests();
+      } else {
+        const json = await response.json().catch(() => ({}));
+        toast.error(json.message || 'Failed to approve leave');
       }
-    } catch (error) { console.error(error); }
+    } catch (error) { console.error(error); } finally { setApproveSubmitting(false); }
   };
 
   const handleRejectClick = (leaveId) => {
@@ -700,7 +712,7 @@ export default function AdminDashboard() {
                                 <button onClick={() => { setSelectedLeave(leave); setIsDetailsModalOpen(true); }} className="p-2 bg-brand-blue/5 text-brand-text rounded-lg hover:bg-brand-blue-dark hover:text-white transition-all" title="View Details" aria-label="View Details"><Eye size={16} /></button>
                                 {leave.status === 'PENDING' && (
                                   <LeaveDecisionButtons
-                                    onApprove={() => handleApprove(leave.id)}
+                                    onApprove={() => handleApproveClick(leave.id)}
                                     onReject={() => handleRejectClick(leave.id)}
                                   />
                                 )}
@@ -755,7 +767,7 @@ export default function AdminDashboard() {
                             {leave.status === 'PENDING' && (
                               <div className="flex-1 flex items-center justify-end gap-2">
                                 <LeaveDecisionButtons
-                                  onApprove={() => handleApprove(leave.id)}
+                                  onApprove={() => handleApproveClick(leave.id)}
                                   onReject={() => handleRejectClick(leave.id)}
                                 />
                               </div>
@@ -781,6 +793,16 @@ export default function AdminDashboard() {
       </div>
 
       <YearlyHolidayCalendar isOpen={isYearlyCalendarOpen} onClose={() => setIsYearlyCalendarOpen(false)} />
+
+      <ConfirmActionModal
+        isOpen={!!approvingLeaveId}
+        onClose={() => setApprovingLeaveId(null)}
+        onConfirm={handleApproveConfirm}
+        submitting={approveSubmitting}
+        title="Approve Leave Request"
+        message="Are you sure you want to approve this leave request?"
+        confirmLabel="Approve"
+      />
 
       <RejectRequestModal
         isOpen={showRejectModal}

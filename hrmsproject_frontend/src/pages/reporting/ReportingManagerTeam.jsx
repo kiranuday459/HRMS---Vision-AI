@@ -12,6 +12,7 @@ import { getLeaveStatusLabel, isHrDisabledReroute } from "../../utils/leaveStatu
 import LeaveDetailsModal from "../../components/LeaveDetailsModal";
 import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";
 import RejectRequestModal from "../../components/RejectRequestModal";
+import ConfirmActionModal from "../../components/ConfirmActionModal";
 import HrRerouteBanner from "../../components/HrRerouteBanner";
 import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
@@ -49,6 +50,9 @@ export default function ReportingManagerTeam() {
     const [selectedLeave, setSelectedLeave] = useState(null);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+    const [approveModalOpen, setApproveModalOpen] = useState(false);
+    const [approveTarget, setApproveTarget] = useState(null);
+    const [submittingApprove, setSubmittingApprove] = useState(false);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
     const [rejectTarget, setRejectTarget] = useState(null);
     const [submittingReject, setSubmittingReject] = useState(false);
@@ -203,6 +207,11 @@ export default function ReportingManagerTeam() {
         }
     };
 
+    const handleApproveLeave = (leaveId) => {
+        setApproveTarget({ type: 'leave', leaveId });
+        setApproveModalOpen(true);
+    };
+
     const handleRejectLeave = (leaveId) => {
         setRejectTarget({ type: 'leave', leaveId });
         setRejectModalOpen(true);
@@ -335,7 +344,13 @@ export default function ReportingManagerTeam() {
         return result.sort((a, b) => b.start - a.start);
     };
 
-    const handleApproveWeek = async (week) => {
+    // Open the approval confirmation (spec: confirm before approving).
+    const handleApproveWeek = (week) => {
+        setApproveTarget({ type: 'week', week });
+        setApproveModalOpen(true);
+    };
+
+    const approveWeekEntries = async (week) => {
         try {
             // The RM acts on their RM stage and, when HR is disabled, the stand-in HR stage.
             const pendingEntries = week.entries.filter(e => e.status === APPROVAL_STATUS.PENDING_RM_APPROVAL || e.status === APPROVAL_STATUS.PENDING_RM_AS_HR_APPROVAL);
@@ -363,6 +378,36 @@ export default function ReportingManagerTeam() {
     const handleRejectWeek = (week) => {
         setRejectTarget({ type: 'week', week });
         setRejectModalOpen(true);
+    };
+
+    // Single confirm handler for both approve targets (leave request / timesheet week).
+    const handleConfirmApprove = async () => {
+        if (!approveTarget) return;
+        setSubmittingApprove(true);
+        try {
+            if (approveTarget.type === 'leave') {
+                const res = await api(`/api/leaves/${approveTarget.leaveId}/approve`, {
+                    method: 'POST',
+                    body: JSON.stringify({ approverId: managerId })
+                });
+                if (res.ok) {
+                    toast.success("Leave approved successfully");
+                    if (managerId) fetchLeaves(managerId);
+                } else {
+                    const json = await res.json().catch(() => ({}));
+                    toast.error(json.message || "Failed to approve leave");
+                }
+            } else if (approveTarget.type === 'week') {
+                await approveWeekEntries(approveTarget.week);
+            }
+            setApproveModalOpen(false);
+            setApproveTarget(null);
+        } catch (err) {
+            console.error(err);
+            toast.error("Error performing approval");
+        } finally {
+            setSubmittingApprove(false);
+        }
     };
 
     const handleConfirmReject = async (reason) => {
@@ -746,7 +791,7 @@ export default function ReportingManagerTeam() {
                                                                 </button>
                                                                 {leave.status === 'PENDING' && !isDisabled && (
                                                                     <LeaveDecisionButtons
-                                                                        onApprove={async () => { await api(`/api/leaves/${leave.id}/approve`, { method: 'POST', body: JSON.stringify({ approverId: managerId }) }); fetchLeaves(managerId); }}
+                                                                        onApprove={() => handleApproveLeave(leave.id)}
                                                                         onReject={() => handleRejectLeave(leave.id)}
                                                                     />
                                                                 )}
@@ -768,6 +813,18 @@ export default function ReportingManagerTeam() {
                 isOpen={isDetailsModalOpen}
                 onClose={() => setIsDetailsModalOpen(false)}
                 leave={selectedLeave}
+            />
+
+            <ConfirmActionModal
+                isOpen={approveModalOpen}
+                onClose={() => { setApproveModalOpen(false); setApproveTarget(null); }}
+                onConfirm={handleConfirmApprove}
+                submitting={submittingApprove}
+                title={approveTarget?.type === 'leave' ? "Approve Leave Request" : "Approve Timesheet"}
+                message={approveTarget?.type === 'leave'
+                    ? "Are you sure you want to approve this leave request?"
+                    : `Are you sure you want to approve this timesheet${approveTarget?.week?.employeeName ? ` for ${approveTarget.week.employeeName}` : ""}?`}
+                confirmLabel="Approve"
             />
 
             <RejectRequestModal

@@ -60,10 +60,6 @@ public class ClientTimesheetWeekService {
     // =====================================================================
     public List<ClientTimesheetWeekSummaryDTO> getWeeks(Long employeeId) {
         LocalDate gate = assignmentService.earliestAssignmentDate(employeeId);
-        if (gate == null) {
-            // No active client assignment → no weeks to show.
-            return Collections.emptyList();
-        }
 
         // Load everything once, group in memory by week start.
         List<ClientTimesheet> allLines = lineRepository.findByEmployeeIdOrderByDateDesc(employeeId);
@@ -77,12 +73,49 @@ public class ClientTimesheetWeekService {
             headerByWeek.put(w.getWeekStartDate(), w);
         }
 
+        // The employee's own saved/submitted weeks are always listed, whether or not an
+        // ACTIVE assignment still backs them. The assignment gate alone used to decide the
+        // whole list, so an assignment that was ended (active = false / NULL) hid weeks the
+        // admin queue could still see and approve — the summary then rendered its
+        // "no active client project assignment" empty state over real data.
+        Set<LocalDate> dataWeeks = new HashSet<>();
+        linesByWeek.keySet().stream().filter(Objects::nonNull).forEach(dataWeeks::add);
+        headerByWeek.keySet().stream().filter(Objects::nonNull).forEach(dataWeeks::add);
+
+        LocalDate gateWeek = gate != null ? weekStartOf(gate) : null;
+        LocalDate earliestDataWeek = dataWeeks.stream().min(LocalDate::compareTo).orElse(null);
+        LocalDate latestDataWeek = dataWeeks.stream().max(LocalDate::compareTo).orElse(null);
+
+        // Oldest week to list: the assignment gate, or the employee's oldest record —
+        // whichever reaches further back.
+        LocalDate floor = gateWeek;
+        if (earliestDataWeek != null && (floor == null || earliestDataWeek.isBefore(floor))) {
+            floor = earliestDataWeek;
+        }
+        if (floor == null) {
+            // Genuinely nothing: no active assignment AND no saved/submitted records.
+            System.err.println("[ClientTimesheet] Empty summary served for employee " + employeeId
+                    + " — no active client project assignment and no timesheet records.");
+            return Collections.emptyList();
+        }
+        if (gateWeek == null) {
+            // Records exist without an active assignment — the exact admin-sees-it /
+            // employee-doesn't mismatch. Surfaced so it is traceable for a real user.
+            System.err.println("[ClientTimesheet] Employee " + employeeId + " has "
+                    + dataWeeks.size() + " client timesheet week(s) but NO active assignment"
+                    + " (client_project_assignments.active). Listing records from " + floor + ".");
+        }
+
         LocalDate cursor = weekStartOf(LocalDate.now());
-        LocalDate gateWeek = weekStartOf(gate);
+        // Never start below a record the employee already has (e.g. a week carried over
+        // from an earlier assignment period), or that week would be silently dropped.
+        if (latestDataWeek != null && latestDataWeek.isAfter(cursor)) {
+            cursor = latestDataWeek;
+        }
 
         List<ClientTimesheetWeekSummaryDTO> out = new ArrayList<>();
         int count = 0;
-        while (!cursor.isBefore(gateWeek) && count < MAX_WEEKS) {
+        while (!cursor.isBefore(floor) && count < MAX_WEEKS) {
             List<ClientTimesheet> lines = linesByWeek.getOrDefault(cursor, Collections.emptyList());
             ClientTimesheetWeek header = headerByWeek.get(cursor);
 
@@ -471,9 +504,27 @@ public class ClientTimesheetWeekService {
      * in the future. Project rows use their own assignmentStartDate; time-off rows use the
      * global earliest assignment date.
      */
+    // Column widths of the free-text fields the employee types into (see
+    // migration_create_client_timesheets_table.sql / migration_add_client_timesheet_entry_columns.sql).
+    // Overrunning these used to reach MySQL and surface as a raw 500 "Data too long for
+    // column" on Save, so they are rejected here with a message the employee can act on.
+    private static final int MAX_TASK_ID = 255;
+    private static final int MAX_TASK_DESCRIPTION = 255;
+    private static final int MAX_BILLING_LOCATION = 64;
+
+    private void requireMaxLength(String value, int max, String fieldLabel) {
+        if (value != null && value.length() > max) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    fieldLabel + " must be " + max + " characters or fewer (currently " + value.length() + ").");
+        }
+    }
+
     private void validateEntries(ClientTimesheetWeekDTO payload, LocalDate gate, LocalDate today) {
         if (payload.getProjectRows() != null) {
             for (ClientTimesheetWeekDTO.ProjectRowDTO r : payload.getProjectRows()) {
+                requireMaxLength(r.getTaskId(), MAX_TASK_ID, "Task/Activity ID");
+                requireMaxLength(r.getTaskDescription(), MAX_TASK_DESCRIPTION, "Task/Activity Description");
+                requireMaxLength(r.getBillingLocation(), MAX_BILLING_LOCATION, "Billing Location");
                 LocalDate rowGate = r.getAssignmentStartDate() != null ? r.getAssignmentStartDate() : gate;
                 for (ClientTimesheetWeekDTO.DayHourDTO d : r.getDays()) {
                     double h = d.getHours() != null ? d.getHours() : 0;

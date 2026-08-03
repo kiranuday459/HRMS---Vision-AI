@@ -1,6 +1,7 @@
 package com.hrms.exception;
 
 import com.hrms.dto.ApiResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -57,6 +58,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(ex.getStatusCode())
                 .body(ApiResponse.error(ex.getReason()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex) {
+        // Without this these fall through to the generic handler and the raw JDBC text —
+        // the whole INSERT statement and driver message — is returned to the browser. It
+        // reads as a server crash, so a rejected save/submit looks like nothing happened.
+        // The detail stays in the server log; the client gets something actionable.
+        Throwable cause = ex.getMostSpecificCause();
+        System.err.println("[DataIntegrity] " + (cause != null ? cause.getMessage() : ex.getMessage()));
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(
+                        "One or more entries are too long or invalid to save. Please shorten your text and try again."));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

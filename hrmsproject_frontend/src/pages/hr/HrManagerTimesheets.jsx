@@ -13,6 +13,7 @@ import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
 import DownloadTimesheetModal from "../../components/DownloadTimesheetModal";
 import RejectRequestModal from "../../components/RejectRequestModal";
+import ConfirmActionModal from "../../components/ConfirmActionModal";
 import DisabledBadge from "../../components/DisabledBadge";
 
 export default function HrManagerTimesheets() {
@@ -33,6 +34,9 @@ export default function HrManagerTimesheets() {
     const [groupedWeeks, setGroupedWeeks] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+    const [approveModalOpen, setApproveModalOpen] = useState(false);
+    const [approveTarget, setApproveTarget] = useState(null);
+    const [submittingApprove, setSubmittingApprove] = useState(false);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
     const [rejectTarget, setRejectTarget] = useState(null);
     const [submittingReject, setSubmittingReject] = useState(false);
@@ -243,14 +247,25 @@ export default function HrManagerTimesheets() {
         return result.sort((a, b) => b.start - a.start);
     };
 
-    const handleApproveWeek = async (week) => {
+    // Open the approval confirmation (spec: confirm before approving).
+    const handleApproveWeek = (week) => {
+        setApproveTarget(week);
+        setApproveModalOpen(true);
+    };
+
+    const handleConfirmApproveWeek = async () => {
+        const week = approveTarget;
+        if (!week) return;
         try {
             const pendingEntries = week.entries.filter(e => e.status === APPROVAL_STATUS.PENDING_HR_APPROVAL);
             if (pendingEntries.length === 0) {
                 toast.info("No HR-approvable timesheets in this week.");
+                setApproveModalOpen(false);
+                setApproveTarget(null);
                 return;
             }
 
+            setSubmittingApprove(true);
             setLoading(true);
             for (const entry of pendingEntries) {
                 await api(`/api/timesheets/${entry.id}/approve`, {
@@ -259,11 +274,14 @@ export default function HrManagerTimesheets() {
                 });
             }
             toast.success(`Week approved for ${week.employeeName}`);
+            setApproveModalOpen(false);
+            setApproveTarget(null);
             await fetchData();
             setTsSubView('summary');
         } catch (err) {
             toast.error("Error approving week");
         } finally {
+            setSubmittingApprove(false);
             setLoading(false);
         }
     };
@@ -620,6 +638,18 @@ export default function HrManagerTimesheets() {
                 isOpen={isDownloadModalOpen}
                 onClose={() => setIsDownloadModalOpen(false)}
                 employees={employees}
+            />
+
+            <ConfirmActionModal
+                isOpen={approveModalOpen}
+                onClose={() => { setApproveModalOpen(false); setApproveTarget(null); }}
+                onConfirm={handleConfirmApproveWeek}
+                submitting={submittingApprove}
+                title="Approve Timesheet"
+                message={approveTarget
+                    ? `Are you sure you want to approve this timesheet for ${approveTarget.employeeName}?`
+                    : ""}
+                confirmLabel="Approve"
             />
 
             <RejectRequestModal

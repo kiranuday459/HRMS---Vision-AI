@@ -67,6 +67,10 @@ export default function ClientTimesheetSummary() {
             if (res.ok) {
                 const json = await res.json().catch(() => ({}));
                 setWeeks(Array.isArray(json.data) ? json.data : []);
+            } else {
+                // Without this the empty state reads as "you have no assignment" whenever
+                // the request fails — a very different problem with the same appearance.
+                console.error(`Client timesheet weeks request failed (${res.status}); showing empty state.`);
             }
         } catch (err) {
             console.error("Error fetching client timesheet weeks:", err);

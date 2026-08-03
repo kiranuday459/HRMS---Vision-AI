@@ -5,6 +5,7 @@ import { getHrNavItems } from "../../utils/hrNav";
 import LeaveDetailsModal from "../../components/LeaveDetailsModal";
 import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";
 import RejectRequestModal from "../../components/RejectRequestModal";
+import ConfirmActionModal from "../../components/ConfirmActionModal";
 import { Eye } from "lucide-react";
 import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
@@ -26,6 +27,9 @@ export default function HrManagerLeaves() {
     const [leaveStatusFilter, setLeaveStatusFilter] = useState("All");
     const [selectedLeave, setSelectedLeave] = useState(null);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+    const [approveModalOpen, setApproveModalOpen] = useState(false);
+    const [approveLeaveId, setApproveLeaveId] = useState(null);
+    const [submittingApprove, setSubmittingApprove] = useState(false);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
     const [rejectLeaveId, setRejectLeaveId] = useState(null);
     const [submittingReject, setSubmittingReject] = useState(false);
@@ -104,14 +108,24 @@ export default function HrManagerLeaves() {
         }
     };
 
-    const handleApprove = async (leaveId) => {
+    // Approve is confirmed first (ConfirmActionModal), mirroring the reject flow.
+    const handleApprove = (leaveId) => {
+        setApproveLeaveId(leaveId);
+        setApproveModalOpen(true);
+    };
+
+    const handleConfirmApprove = async () => {
+        if (!approveLeaveId) return;
+        setSubmittingApprove(true);
         try {
-            const res = await api(`/api/leaves/${leaveId}/approve`, {
+            const res = await api(`/api/leaves/${approveLeaveId}/approve`, {
                 method: 'POST',
                 // current user (HR) approves it
                 body: JSON.stringify({ approverId: user.id })
             });
             if (res.ok) {
+                setApproveModalOpen(false);
+                setApproveLeaveId(null);
                 fetchData();
             } else {
                 alert("Failed to approve leave");
@@ -119,6 +133,8 @@ export default function HrManagerLeaves() {
         } catch (e) {
             console.error(e);
             alert("Error approving leave");
+        } finally {
+            setSubmittingApprove(false);
         }
     };
 
@@ -419,6 +435,16 @@ export default function HrManagerLeaves() {
                 isOpen={isDetailsModalOpen}
                 onClose={() => setIsDetailsModalOpen(false)}
                 leave={selectedLeave}
+            />
+
+            <ConfirmActionModal
+                isOpen={approveModalOpen}
+                onClose={() => { setApproveModalOpen(false); setApproveLeaveId(null); }}
+                onConfirm={handleConfirmApprove}
+                submitting={submittingApprove}
+                title="Approve Leave Request"
+                message="Are you sure you want to approve this leave request?"
+                confirmLabel="Approve"
             />
 
             <RejectRequestModal

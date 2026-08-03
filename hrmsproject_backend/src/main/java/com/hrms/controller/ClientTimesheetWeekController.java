@@ -41,6 +41,10 @@ public class ClientTimesheetWeekController {
                 EmployeeDTO employee = employeeService.getEmployeeByUserId(user.getId());
                 return employee != null ? employee.getId() : null;
             } catch (Exception e) {
+                // Swallowing this silently made a failed lookup indistinguishable from
+                // "employee has no client timesheets" on the summary page.
+                System.err.println("[ClientTimesheet] Could not resolve employee for user "
+                        + user.getId() + ": " + e.getMessage());
                 return null;
             }
         }

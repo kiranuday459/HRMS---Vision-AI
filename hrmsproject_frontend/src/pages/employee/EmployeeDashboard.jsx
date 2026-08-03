@@ -599,27 +599,6 @@ const EmployeeDashboard = () => {
 
 							)}
 
-							{/* Probation Notice */}
-							{leaveBalance && leaveBalance.onProbation && (
-								<div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3">
-									<svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-										<circle cx="12" cy="12" r="10"></circle>
-										<line x1="12" y1="8" x2="12" y2="12"></line>
-										<line x1="12" y1="16" x2="12" y2="16"></line>
-									</svg>
-									<div>
-										<p className="text-[11px] font-black text-red-600 uppercase tracking-widest">You are on probation</p>
-										<p className="text-[10px] font-bold text-red-600/80 mt-1 leading-relaxed">
-											No paid leaves are allocated during the first 6 months from your joining date.
-											{leaveBalance.probationEndDate && (
-												<> Probation ends on <span className="font-black">{new Date(leaveBalance.probationEndDate).toLocaleDateString('en-GB')}</span>.</>
-											)}
-											{' '}Any leave taken now will be treated as <span className="font-black">Loss of Pay (LOP)</span>.
-										</p>
-									</div>
-								</div>
-							)}
-
 							{/* Stats Grid */}
 							<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
 								{loading ? (

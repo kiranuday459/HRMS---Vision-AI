@@ -16,6 +16,13 @@ const TIMEOFF_LABELS = {
 };
 const TIMEOFF_ORDER = ["SICK", "HOLIDAY", "PTO", "LOP", "EARNED"];
 
+// Must match the client_timesheets column widths (and the server-side check in
+// ClientTimesheetWeekService.validateEntries) — without these caps a long paste
+// reached MySQL and came back as a raw "Data too long for column" 500 on Save.
+const MAX_TASK_ID = 255;
+const MAX_TASK_DESCRIPTION = 255;
+const MAX_BILLING_LOCATION = 64;
+
 const parseLocal = (ymd) => {
     const [y, m, d] = String(ymd).split("T")[0].split("-").map(Number);
     return new Date(y, m - 1, d);
@@ -137,7 +144,11 @@ export default function ClientTimesheetEntry() {
 
     useEffect(() => { fetchDetail(); }, [fetchDetail]);
 
-    const weekEditable = meta.status !== "PENDING" && meta.status !== "APPROVED";
+    // A week stays editable until the admin takes a final decision. DRAFT, PENDING (submitted,
+    // awaiting review) and REJECTED all remain open, so the employee can revise and resubmit as
+    // many times as they need. Only APPROVED locks the week — matching the backend guard in
+    // ClientTimesheetWeekService.persist().
+    const weekEditable = meta.status !== "APPROVED";
 
     const isDayEditable = (ymd, rowGate) => {
         if (!weekEditable) return false;
@@ -237,27 +248,47 @@ export default function ClientTimesheetEntry() {
                 toast.success(successMsg);
                 if (json.data) applyDetail(json.data);
             } else {
-                toast.error(json.error || json.message || "Could not save draft.");
+                const detail = json.error || json.message || "";
+                console.error(`Client timesheet save failed (${res.status}):`, detail);
+                toast.error(`Couldn't save, please try again.${detail ? ` (${detail})` : ""}`);
             }
-        } catch (err) { console.error(err); toast.error("Save failed."); } finally { setSaving(false); }
+        } catch (err) { console.error(err); toast.error("Couldn't save, please try again."); } finally { setSaving(false); }
     };
 
     const handleSave = () => persistDraft("Draft saved.");
     // Update Totals recalculates live (below) AND syncs the latest entered values to the draft.
     const handleUpdateTotals = () => persistDraft("Totals updated and saved.");
 
+    // Submit re-persists the whole week and then flips its status, so a validation failure
+    // anywhere in the payload leaves it a draft. Success is reported only after the server
+    // echoes back a submitted status — never optimistically off the click alone, which is
+    // how a failed submit previously looked like nothing had happened.
     const handleSubmit = async () => {
         setSaving(true);
         try {
             const res = await api(`/api/client-timesheets/weeks/${weekStart}/submit`, { method: "PATCH", body: JSON.stringify(buildPayload()) });
             const json = await res.json().catch(() => ({}));
-            if (res.ok) {
-                toast.success("Submitted for approval.");
-                if (json.data) applyDetail(json.data);
-            } else {
-                toast.error(json.error || json.message || "Could not submit.");
+            const detail = json.error || json.message || "";
+            if (!res.ok) {
+                console.error(`Client timesheet submit failed (${res.status}):`, detail);
+                toast.error(`Couldn't submit, please try again.${detail ? ` (${detail})` : ""}`);
+                return;
             }
-        } catch (err) { console.error(err); toast.error("Submit failed."); } finally { setSaving(false); }
+            if (json.data) applyDetail(json.data);
+            const savedStatus = String(json.data?.status || "").toUpperCase();
+            const submitted = savedStatus && savedStatus !== "DRAFT" && savedStatus !== "NOT_STARTED";
+            if (submitted) {
+                toast.success("Submitted for approval.");
+            } else {
+                // The request succeeded but the week did not actually leave draft — never
+                // tell the employee it is with the admin when the admin queue won't show it.
+                console.error("Client timesheet submit returned a non-submitted status:", savedStatus, json);
+                toast.error("Couldn't submit — this week is still a draft. Please try again.");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Couldn't submit, please try again.");
+        } finally { setSaving(false); }
     };
 
     const openComment = (rowId) => {
@@ -356,10 +387,10 @@ export default function ClientTimesheetEntry() {
                                                             <td className="px-3 py-2 text-xs font-semibold text-brand-text">{r.projectId || "—"}</td>
                                                             <td className="px-3 py-2 text-xs text-brand-text/80 max-w-[150px]">{r.projectName || "—"}</td>
                                                             <td className="px-2 py-2">
-                                                                <input disabled={!weekEditable} value={r.taskId} onChange={(e) => setRowField(r.rowId, "taskId", e.target.value)} placeholder="—" className="w-24 text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none focus:border-brand-yellow disabled:bg-gray-100 disabled:text-gray-400" />
+                                                                <input disabled={!weekEditable} maxLength={MAX_TASK_ID} value={r.taskId} onChange={(e) => setRowField(r.rowId, "taskId", e.target.value)} placeholder="—" className="w-24 text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none focus:border-brand-yellow disabled:bg-gray-100 disabled:text-gray-400" />
                                                             </td>
                                                             <td className="px-2 py-2">
-                                                                <input disabled={!weekEditable} value={r.taskDescription} onChange={(e) => setRowField(r.rowId, "taskDescription", e.target.value)} placeholder="—" className="w-40 text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none focus:border-brand-yellow disabled:bg-gray-100 disabled:text-gray-400" />
+                                                                <input disabled={!weekEditable} maxLength={MAX_TASK_DESCRIPTION} value={r.taskDescription} onChange={(e) => setRowField(r.rowId, "taskDescription", e.target.value)} placeholder="—" title={r.taskDescription || undefined} className="w-40 text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none focus:border-brand-yellow disabled:bg-gray-100 disabled:text-gray-400" />
                                                             </td>
                                                             <td className="px-2 py-2">
                                                                 <select disabled={!weekEditable} value={r.onsiteOffshore} onChange={(e) => setRowField(r.rowId, "onsiteOffshore", e.target.value)} className="text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none disabled:bg-gray-100 disabled:text-gray-400">
@@ -374,7 +405,7 @@ export default function ClientTimesheetEntry() {
                                                                 </select>
                                                             </td>
                                                             <td className="px-2 py-2">
-                                                                <input disabled={!weekEditable} value={r.billingLocation} onChange={(e) => setRowField(r.rowId, "billingLocation", e.target.value)} className="w-16 text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none disabled:bg-gray-100 disabled:text-gray-400" />
+                                                                <input disabled={!weekEditable} maxLength={MAX_BILLING_LOCATION} value={r.billingLocation} onChange={(e) => setRowField(r.rowId, "billingLocation", e.target.value)} className="w-16 text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none disabled:bg-gray-100 disabled:text-gray-400" />
                                                             </td>
                                                             {r.days.map((d, dayIdx) => (
                                                                 <td key={d.date} className="px-1 py-2 text-center">
@@ -462,12 +493,16 @@ export default function ClientTimesheetEntry() {
                                         <div className="flex flex-wrap gap-3">
                                             <button onClick={handleUpdateTotals} disabled={saving || !weekEditable} className="px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40">Update Totals</button>
                                             <button onClick={handleSave} disabled={saving || !weekEditable} className="px-5 py-2.5 rounded-lg bg-[#2C2C2A] hover:bg-black text-white text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40">Save</button>
-                                            <button onClick={handleSubmit} disabled={saving || !weekEditable} className="px-6 py-2.5 rounded-lg bg-brand-blue-dark hover:brightness-110 text-white text-xs font-bold uppercase tracking-widest shadow-lg shadow-brand-blue/20 transition-all active:scale-95 disabled:opacity-40">Submit</button>
+                                            <button onClick={handleSubmit} disabled={saving || !weekEditable} className="px-6 py-2.5 rounded-lg bg-brand-blue-dark hover:brightness-110 text-white text-xs font-bold uppercase tracking-widest shadow-lg shadow-brand-blue/20 transition-all active:scale-95 disabled:opacity-40">
+                                                {meta.status === "PENDING" || meta.status === "REJECTED" ? "Resubmit" : "Submit"}
+                                            </button>
                                         </div>
                                     </div>
-                                    {!weekEditable && (
+                                    {!weekEditable ? (
                                         <p className="mt-3 text-xs text-brand-text/40">This week is {statusMeta.label.toLowerCase()} and can no longer be edited.</p>
-                                    )}
+                                    ) : meta.status === "PENDING" ? (
+                                        <p className="mt-3 text-xs text-brand-text/40">Submitted and awaiting approval — you can still edit and resubmit until it is approved or rejected.</p>
+                                    ) : null}
                                 </>
                             )}
                         </>
