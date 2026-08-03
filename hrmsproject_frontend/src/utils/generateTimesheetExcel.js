@@ -235,7 +235,7 @@ export async function generateTimesheetExcel({
                 { col: 3, text: "Day Type", fill: GREEN_FILL, font: FONT_HEADER_11, colLetter: "C" },
                 { col: 4, text: "Project Name", fill: GREEN_FILL, font: FONT_HEADER_10, colLetter: "D" },
                 { col: 5, text: "Project ID", fill: GREEN_FILL, font: FONT_HEADER_10, colLetter: "E" },
-                { col: 6, text: "NShore/OFFShore", fill: GREEN_FILL, font: FONT_HEADER_10, colLetter: "F" },
+                { col: 6, text: "ONShore/OFFShore", fill: GREEN_FILL, font: FONT_HEADER_10, colLetter: "F" },
                 { col: 7, text: "Bill Type", fill: GREEN_FILL, font: FONT_HEADER_10, colLetter: "G" },
                 { col: 8, text: "TOTAL", fill: BLUE_FILL, font: FONT_HEADER_10, colLetter: "H" },
                 { col: 9, text: "Comments", fill: BLUE_FILL, font: FONT_HEADER_10, colLetter: "I" }
