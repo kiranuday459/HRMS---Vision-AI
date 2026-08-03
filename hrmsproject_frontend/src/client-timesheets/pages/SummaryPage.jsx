@@ -157,6 +157,13 @@ export default function ClientTimesheetSummary() {
                                                 {fmtRange(w.weekStartDate)} To {fmtRange(w.weekEndDate)}
                                             </button>
                                             <span className={`text-sm font-semibold mt-1 ${meta.text}`}>{meta.label}</span>
+                                            {/* Rejected weeks show why, so the employee knows what to fix
+                                                before resubmitting. */}
+                                            {w.rejectionReason && (
+                                                <p className="mt-1 text-[13px] text-[#b91c1c] leading-snug">
+                                                    <span className="font-semibold">Reason:</span> {w.rejectionReason}
+                                                </p>
+                                            )}
                                         </div>
                                         {/* Right: summary columns */}
                                         <div className="flex flex-wrap lg:flex-nowrap">

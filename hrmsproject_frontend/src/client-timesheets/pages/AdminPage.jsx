@@ -151,6 +151,7 @@ export default function ClientTimesheets() {
                     timesheetIds: [],
                     statuses: [],
                     approvedByName: null,
+                    rejectionReason: null,
                 };
                 map.set(key, b);
             }
@@ -164,6 +165,9 @@ export default function ClientTimesheets() {
             b.statuses.push((r.status || "").toUpperCase());
             if (!b.projectName && r.projectName) b.projectName = r.projectName;
             if (!b.approvedByName && r.approvedByName) b.approvedByName = r.approvedByName;
+            // Reject writes the same reason onto every day row of the week, so the first
+            // non-blank one represents the week's most recent rejection.
+            if (!b.rejectionReason && r.rejectionReason) b.rejectionReason = r.rejectionReason;
         });
         return Array.from(map.values())
             .map((b) => ({ ...b, status: resolveWeekStatus(b.statuses) }))
@@ -358,6 +362,13 @@ export default function ClientTimesheets() {
                                                             {fmtRange(block.weekStart)} To {fmtRange(block.weekEnd)}
                                                         </button>
                                                         <div>{statusBadge(block.status)}</div>
+                                                        {/* Keeps a visible record of why a week was rejected,
+                                                            not just that it was. */}
+                                                        {block.status === "REJECTED" && block.rejectionReason && (
+                                                            <p className="text-[12px] text-[#b91c1c] leading-snug">
+                                                                <span className="font-semibold">Reason:</span> {block.rejectionReason}
+                                                            </p>
+                                                        )}
                                                     </div>
 
                                                     {/* Middle: hours summary */}

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import "./clientTimesheets.css";
 import { useWorkspace } from "../hooks/useWorkspace";
 import { CLIENT_TIMESHEET_DASHBOARD, CLIENT_TIMESHEET_ADMIN } from "../utils/clientTimesheetNav";
+import ClientTimesheetNotifications from "./components/ClientTimesheetNotifications";
 
 /**
  * Layout shell for the Client Timesheets workspace. Provides distinct teal/slate chrome
@@ -59,6 +60,9 @@ export default function ClientTimesheetsLayout() {
                     </nav>
                 </div>
                 <div className="flex items-center gap-2">
+                    {/* One bell for both sides — this shell is shared by the admin and
+                        employee views, and the API scopes rows to the caller. */}
+                    <ClientTimesheetNotifications />
                     <button
                         type="button"
                         onClick={handleExit}

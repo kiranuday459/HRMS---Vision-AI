@@ -38,6 +38,9 @@ public class ClientProjectAssignmentService {
     @Autowired
     private ClientVerificationService clientVerificationService;
 
+    @Autowired
+    private ClientTimesheetNotificationService notificationService;
+
     /**
      * Creates one assignment per employee in the payload (the admin modal assigns one
      * client/project to a set of employees). Returns the created assignments.
@@ -97,6 +100,11 @@ public class ClientProjectAssignmentService {
             // Generate + email the activation OTP. Best-effort email inside the service —
             // never fails the assignment if mail delivery is unavailable.
             clientVerificationService.issueAndSendOtp(employee);
+
+            // Side effect only: surface the assignment in the employee's Client Timesheet
+            // bell. Swallows its own failures, so it cannot fail the assignment.
+            notificationService.notifyEmployeeProjectAssigned(
+                    employee, dto.getProjectName(), dto.getAssignmentStartDate());
         }
         return created;
     }

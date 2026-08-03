@@ -3,7 +3,6 @@ import { X, Search, Download, Calendar, CheckSquare, Square } from "lucide-react
 import api from "../utils/api";
 import { toast } from "react-toastify";
 import ExcelJS from "exceljs";
-import { ProjectSuffix } from "../utils/employeeName";
 import { generateTimesheetExcel } from "../utils/generateTimesheetExcel";
 
 export default function DownloadTimesheetModal({ isOpen, onClose, employees: rawEmployees }) {
@@ -389,7 +388,7 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                                         <Square className="w-4 h-4 text-brand-text/20" />
                                     )}
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-black text-brand-text tracking-tight">{`${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.name || emp.fullName || "Unknown"}<ProjectSuffix project={emp.clientProject} /></span>
+                                        <span className="text-xs font-black text-brand-text tracking-tight">{`${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.name || emp.fullName || "Unknown"}</span>
                                         <span className="text-[9px] font-bold text-brand-text/30 uppercase tracking-widest">{emp.oryfolksId || `EMP${emp.id}`}</span>
                                     </div>
                                 </div>

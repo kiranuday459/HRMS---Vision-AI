@@ -41,6 +41,9 @@ public class ClientTimesheetService {
     @Autowired
     private CompanyDetailRepository companyDetailRepository;
 
+    @Autowired
+    private ClientTimesheetNotificationService notificationService;
+
     public List<ClientTimesheetDTO> getAll(Long employeeId, String clientName, String status,
             LocalDate fromDate, LocalDate toDate) {
         ClientTimesheetStatus statusEnum = (status != null && !status.isBlank())
@@ -103,7 +106,9 @@ public class ClientTimesheetService {
         entry.setApprovedBy(reviewer);
         entry.setRejectionReason(null);
         entry.setReviewedAt(LocalDateTime.now());
-        return convertToDTO(clientTimesheetRepository.save(entry));
+        ClientTimesheetDTO result = convertToDTO(clientTimesheetRepository.save(entry));
+        notificationService.notifyEmployeeTimesheetApproved(entry.getEmployee(), entry.getWeekStartDate());
+        return result;
     }
 
     public ClientTimesheetDTO reject(Long id, Long reviewerId, String reason) {
@@ -116,7 +121,9 @@ public class ClientTimesheetService {
         entry.setApprovedBy(reviewer);
         entry.setRejectionReason(reason);
         entry.setReviewedAt(LocalDateTime.now());
-        return convertToDTO(clientTimesheetRepository.save(entry));
+        ClientTimesheetDTO result = convertToDTO(clientTimesheetRepository.save(entry));
+        notificationService.notifyEmployeeTimesheetRejected(entry.getEmployee(), entry.getWeekStartDate(), reason);
+        return result;
     }
 
     private ClientTimesheetDTO convertToDTO(ClientTimesheet entry) {
