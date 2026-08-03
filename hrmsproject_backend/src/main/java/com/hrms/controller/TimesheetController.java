@@ -245,7 +245,7 @@ public class TimesheetController {
     private static final java.util.concurrent.ConcurrentHashMap<Long, java.time.Instant> lastNotificationMap = new java.util.concurrent.ConcurrentHashMap<>();
 
     @PostMapping("/download-notification")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('HR')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('HR') or hasRole('REPORTING_MANAGER') or hasRole('EMPLOYEE')")
     public ResponseEntity<ApiResponse<Void>> notifyDownload(
             @RequestBody TimesheetDownloadRequest request,
             Authentication authentication) {

@@ -3,6 +3,7 @@ import { X, Check, MessageSquare } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
+import ConfirmActionModal from "../../components/ConfirmActionModal";
 
 const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -35,6 +36,7 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
     const [acting, setActing] = useState(false);
     const [rejecting, setRejecting] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
+    const [confirmingApprove, setConfirmingApprove] = useState(false);
 
     const currentUserId = useMemo(() => { const u = JSON.parse(localStorage.getItem("user")) || {}; return u.id || u.userId; }, []);
 
@@ -65,7 +67,7 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
         setActing(true);
         try {
             const res = await api(`/api/client-timesheets/${timesheetId}/approve`, { method: "POST", body: JSON.stringify({ reviewerId: currentUserId }) });
-            if (res.ok) { toast.success("Client timesheet approved."); setStatus("APPROVED"); onActioned && onActioned(); }
+            if (res.ok) { toast.success("Client timesheet approved."); setStatus("APPROVED"); setConfirmingApprove(false); onActioned && onActioned(); }
             else toast.error("Could not approve.");
         } catch (err) { console.error(err); } finally { setActing(false); }
     };
@@ -205,13 +207,13 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                                     <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} maxLength={255} placeholder="Enter reason for rejection" rows="3" className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm" />
                                     <div className="flex justify-end gap-3">
                                         <button onClick={() => { setRejecting(false); setRejectReason(""); }} className="px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-brand-text/50 hover:bg-bg-slate transition">Cancel</button>
-                                        <button onClick={handleReject} disabled={acting} className="px-6 py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-black uppercase tracking-widest transition disabled:opacity-40">Confirm Reject</button>
+                                        <button onClick={handleReject} disabled={acting || !rejectReason.trim()} title={!rejectReason.trim() ? "Enter a rejection reason first" : undefined} className="px-6 py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-black uppercase tracking-widest transition disabled:opacity-40 disabled:cursor-not-allowed">Confirm Reject</button>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="flex justify-end gap-3">
                                     <button onClick={() => setRejecting(true)} disabled={acting} className="px-6 py-2.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white text-[11px] font-black uppercase tracking-widest transition disabled:opacity-40 flex items-center gap-2"><X size={15} /> Reject</button>
-                                    <button onClick={handleApprove} disabled={acting} className="px-6 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest transition disabled:opacity-40 flex items-center gap-2"><Check size={15} /> Approve</button>
+                                    <button onClick={() => setConfirmingApprove(true)} disabled={acting} className="px-6 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest transition disabled:opacity-40 flex items-center gap-2"><Check size={15} /> Approve</button>
                                 </div>
                             )
                         ) : (
@@ -223,6 +225,16 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                     </div>
                 )}
             </div>
+
+            <ConfirmActionModal
+                isOpen={confirmingApprove}
+                onClose={() => setConfirmingApprove(false)}
+                onConfirm={handleApprove}
+                submitting={acting}
+                title="Approve Client Timesheet"
+                message={`Are you sure you want to approve this client timesheet for ${detail?.employeeName || "this employee"} (${fmtRange(detail?.weekStartDate)} to ${fmtRange(detail?.weekEndDate)})? Once approved the employee can no longer edit it.`}
+                confirmLabel="Approve"
+            />
         </div>
     );
 }

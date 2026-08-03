@@ -103,10 +103,13 @@ export default function RejectRequestModal({
             >
               Cancel
             </button>
+            {/* Confirm stays disabled until a reason is entered; the submit handler keeps its
+                own guard so the requirement holds even if the button is triggered another way. */}
             <button
               type="submit"
-              disabled={submitting}
-              className="px-5 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all text-xs uppercase tracking-wider shadow-md disabled:opacity-50 active:scale-95"
+              disabled={submitting || !reason.trim()}
+              title={!reason.trim() ? "Enter a rejection reason first" : undefined}
+              className="px-5 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all text-xs uppercase tracking-wider shadow-md disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
             >
               {submitting ? "Rejecting..." : "OK"}
             </button>

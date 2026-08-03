@@ -29,6 +29,11 @@ public class ClientTimesheet {
 
     private String clientName;
     private String projectName;
+
+    // Legacy admin-facing task field; the week entry mirrors taskDescription into it.
+    // Length is stated explicitly because it must stay in step with task_description —
+    // a value that fits one and not the other fails the insert on this column first.
+    @Column(length = 255)
     private String task;
 
     private Double hours;
@@ -52,9 +57,17 @@ public class ClientTimesheet {
 
     // Project / task metadata mirrored from the employee's client-project assignment.
     private String projectId;
+
+    @Column(length = 255)
     private String taskId;
+
+    @Column(length = 255)
     private String taskDescription;
+
     private String onsiteOffshore;
+
+    // Narrower than the JPA default — must match migration_add_client_timesheet_entry_columns.sql.
+    @Column(length = 64)
     private String billingLocation;
 
     @Column(columnDefinition = "TEXT")

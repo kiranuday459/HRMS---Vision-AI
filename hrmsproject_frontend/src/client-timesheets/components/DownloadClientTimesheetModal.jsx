@@ -163,22 +163,24 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             await generateExcel(rows);
             toast.success("Excel generated successfully.");
 
-            // Notify download
+            // Notify download (optional background notification)
             try {
                 const selectedEmployee = employeeId ? employees.find(e => String(e.id) === String(employeeId)) : null;
                 const empName = selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : "All Employees";
                 const filterStr = `Date Range: ${fromDate || "Any"} to ${toDate || "Any"} | Employee: ${empName} | Project: ${project || "All"} | Status: ${status || "All"}`;
 
-                await api("/api/timesheets/download-notification", {
+                api("/api/timesheets/download-notification", {
                     method: "POST",
                     body: JSON.stringify({
                         recordCount: rows.length,
                         filters: filterStr,
                         timesheetType: "Client Timesheet"
                     })
+                }).catch((err) => {
+                    console.warn("Download notification skipped:", err);
                 });
             } catch (err) {
-                console.error("Failed to send download confirmation email:", err);
+                console.warn("Failed to send download confirmation email:", err);
             }
 
             onClose();

@@ -5,6 +5,7 @@ import ClientTimesheetDetailDrawer from "../components/ClientTimesheetDetailDraw
 import AccessManagementTab from "../components/AccessManagementTab";
 import AssignedMembersTab from "../components/AssignedMembersTab";
 import AssignEmployeeToClientProjectModal from "../../components/AssignEmployeeToClientProjectModal";
+import ConfirmActionModal from "../../components/ConfirmActionModal";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { Download, Check, X, Eye, Briefcase } from "lucide-react";
@@ -68,6 +69,8 @@ export default function ClientTimesheets() {
     // Queue filters (applied at the block level)
     const [statusFilter, setStatusFilter] = useState("");
 
+    // Approve flow — holds the week block awaiting confirmation.
+    const [approvingBlock, setApprovingBlock] = useState(null);
     // Reject flow — holds the week block being rejected (all its day IDs).
     const [rejectingBlock, setRejectingBlock] = useState(null);
     const [rejectReason, setRejectReason] = useState("");
@@ -180,9 +183,10 @@ export default function ClientTimesheets() {
         [blocks, statusFilter]
     );
 
-    // Approve every day in the week block, then refresh.
+    // Approve every day in the week block, then refresh. Only reached once the admin
+    // confirms in the approve dialog.
     const handleApproveBlock = async (block) => {
-        if (acting) return;
+        if (acting || !block) return;
         try {
             setActing(true);
             await Promise.all(
@@ -194,6 +198,7 @@ export default function ClientTimesheets() {
                 )
             );
             toast.success("Week approved.");
+            setApprovingBlock(null);
             fetchEntries();
         } catch (err) {
             console.error(err);
@@ -376,7 +381,7 @@ export default function ClientTimesheets() {
                                                         {isPending ? (
                                                             <>
                                                                 <button
-                                                                    onClick={() => handleApproveBlock(block)}
+                                                                    onClick={() => setApprovingBlock(block)}
                                                                     disabled={acting}
                                                                     className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-500 hover:text-white transition-all disabled:opacity-50"
                                                                     title="Approve week"
@@ -411,6 +416,19 @@ export default function ClientTimesheets() {
                 </main>
             </div>
 
+            {/* Approve confirmation */}
+            <ConfirmActionModal
+                isOpen={approvingBlock != null}
+                onClose={() => setApprovingBlock(null)}
+                onConfirm={() => handleApproveBlock(approvingBlock)}
+                submitting={acting}
+                title="Approve Client Timesheet"
+                message={approvingBlock
+                    ? `Are you sure you want to approve this client timesheet for ${approvingBlock.employeeName} (${fmtRange(approvingBlock.weekStart)} to ${fmtRange(approvingBlock.weekEnd)})? Once approved the employee can no longer edit it.`
+                    : ""}
+                confirmLabel="Approve"
+            />
+
             {/* Reject reason modal */}
             {rejectingBlock != null && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]">
@@ -429,7 +447,7 @@ export default function ClientTimesheets() {
                         />
                         <div className="flex gap-3">
                             <button onClick={() => { setRejectingBlock(null); setRejectReason(""); }} className="flex-1 bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition">Cancel</button>
-                            <button onClick={handleRejectConfirm} disabled={acting} className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-600 transition shadow-lg disabled:opacity-50">Reject</button>
+                            <button onClick={handleRejectConfirm} disabled={acting || !rejectReason.trim()} title={!rejectReason.trim() ? "Enter a rejection reason first" : undefined} className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-600 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">Reject</button>
                         </div>
                     </div>
                 </div>

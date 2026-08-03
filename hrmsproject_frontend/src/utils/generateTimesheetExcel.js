@@ -47,11 +47,12 @@ export async function generateTimesheetExcel({
     const LABEL_BLUE_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E1F2" } }; // #4472C4 @ 60% tint
     const GOLD_TINT_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFF2CC" } }; // #FFC000 @ 60% tint
 
-    const FONT_TITLE = { name: "Calibri", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
-    const FONT_HEADER_11 = { name: "Calibri", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
-    const FONT_HEADER_10 = { name: "Calibri", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
-    const FONT_LABEL_10_BOLD = { name: "Calibri", size: 10, bold: true, color: { argb: "FF1A2744" } };
-    const FONT_VALUE_10_REG = { name: "Calibri", size: 10, bold: false, color: { argb: "FF334155" } };
+    const FONT_TITLE = { name: "Calibri", size: 14, bold: false, color: { argb: "FFFFFFFF" } };
+    const FONT_HEADER_11 = { name: "Calibri", size: 11, bold: false, color: { argb: "FFFFFFFF" } };
+    const FONT_HEADER_10 = { name: "Calibri", size: 10, bold: false, color: { argb: "FFFFFFFF" } };
+    const FONT_HEADER_10_BOLD = { name: "Calibri", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+    const FONT_LABEL_10_REG = { name: "Calibri", size: 10, bold: false, color: { argb: "FFFFFFFF" } };
+    const FONT_VALUE_10_BOLD = { name: "Calibri", size: 10, bold: true, color: { argb: "FF334155" } };
     const FONT_DATA_10_REG = { name: "Calibri", size: 10, bold: false, color: { argb: "FF000000" } };
 
     // Group dates by Month Key (YYYY-MM)
@@ -91,154 +92,166 @@ export async function generateTimesheetExcel({
 
             const worksheet = workbook.addWorksheet(sheetName);
 
+            // Title date range calculation
+            const firstMonthDs = monthDates[0];
+            const lastMonthDs = monthDates[monthDates.length - 1];
+            const formatShortDate = (ds) => {
+                if (!ds) return "";
+                const d = parseLocalDate(ds);
+                const day = String(d.getDate()).padStart(2, "0");
+                const mon = d.toLocaleDateString("en-US", { month: "short" });
+                return `${day} ${mon}`;
+            };
+            const dateRangeStr = `[${formatShortDate(firstMonthDs)} - ${formatShortDate(lastMonthDs)}]`;
+
             // 1. Column Sizing
             worksheet.getColumn(1).width = 12.45; // A: Date
-            worksheet.getColumn(2).width = 12.45; // B: Day
+            worksheet.getColumn(2).width = 10.0;  // B: Day
             worksheet.getColumn(3).width = 14.0;  // C: Day Type
             worksheet.getColumn(4).width = 22.0;  // D: Project Name
             worksheet.getColumn(5).width = 15.0;  // E: Project ID
-            worksheet.getColumn(6).width = 12.0;  // F: ON/OFF
+            worksheet.getColumn(6).width = 16.0;  // F: NShore/OFFShore
             worksheet.getColumn(7).width = 14.0;  // G: Bill Type
             worksheet.getColumn(8).width = 12.45; // H: TOTAL
-            worksheet.getColumn(9).width = 3.82;  // I: Spacer
-            worksheet.getColumn(10).width = 12.45; // J: Monthly Summary Label
-            worksheet.getColumn(11).width = 12.45; // K: Spacer inside label
-            worksheet.getColumn(12).width = 12.45; // L: Spacer inside label
-            worksheet.getColumn(13).width = 12.45; // M: Monthly Summary Value
+            worksheet.getColumn(9).width = 20.0;  // I: Comments
+            worksheet.getColumn(10).width = 3.82; // J: Spacer
+            worksheet.getColumn(11).width = 14.0; // K: Monthly Summary Label Part 1
+            worksheet.getColumn(12).width = 14.0; // L: Monthly Summary Label Part 2
+            worksheet.getColumn(13).width = 14.0; // M: Monthly Summary Label Part 3
+            worksheet.getColumn(14).width = 12.45; // N: Monthly Summary Value
 
-            // 2. Freeze Panes at A8 (Row 8 starts scrolling)
+            // 2. Freeze Panes at A9 (Row 9 starts scrolling; Rows 1..8 stay locked at top)
             worksheet.views = [
-                { state: "frozen", xSplit: 0, ySplit: 7, topLeftCell: "A8", activeCell: "A8" }
+                { state: "frozen", xSplit: 0, ySplit: 8, topLeftCell: "A9", activeCell: "A9" }
             ];
 
-            // Set default row height = 20px for all rows except Row 1
+            // Set default row height = 20px for all rows except Row 1 & 2
             for (let r = 1; r <= 100; r++) {
-                worksheet.getRow(r).height = r === 1 ? 28 : 20;
+                worksheet.getRow(r).height = (r === 1 || r === 2) ? 22 : 20;
             }
 
-            // --- ROW 1: Title Row ---
-            worksheet.mergeCells("A1:H1");
+            // --- ROW 1 & 2: Title Row (A1:I2 merged) ---
+            worksheet.mergeCells("A1:I2");
             const a1 = worksheet.getCell("A1");
-            a1.value = `VISION AI HRMS TIMESHEET- ${monthYearStr}`;
+            a1.value = `VISION AI HRMS TIMESHEET - ${dateRangeStr} - ${yearFull}`;
             a1.fill = NAVY_FILL;
             a1.font = FONT_TITLE;
             a1.alignment = { horizontal: "center", vertical: "middle" };
 
-            worksheet.mergeCells("J1:M1");
-            const j1 = worksheet.getCell("J1");
-            j1.value = "MONTHLY SUMMARY";
-            j1.fill = NAVY_FILL;
-            j1.font = FONT_TITLE;
-            j1.alignment = { horizontal: "center", vertical: "middle" };
+            worksheet.mergeCells("K1:N1");
+            const k1 = worksheet.getCell("K1");
+            k1.value = "MONTHLY SUMMARY";
+            k1.fill = NAVY_FILL;
+            k1.font = FONT_TITLE;
+            k1.alignment = { horizontal: "center", vertical: "middle" };
 
-            // --- ROW 2: Left Side Empty / Right Side Summary Row 2 ---
-            // Left side A2:H2 remains empty (height 20)
+            // --- ROW 3: Blank Separator Row (Left side A3:I3 empty) ---
 
-            // --- ROW 3 & 4: Employee Info Block (Left) & Summary Panel (Right) ---
-            // A3: Employee Label
-            const a3 = worksheet.getCell("A3");
-            a3.value = "Employee:";
-            a3.fill = LABEL_BLUE_FILL;
-            a3.font = FONT_LABEL_10_BOLD;
-            a3.alignment = { horizontal: "center", vertical: "middle" };
-
-            worksheet.mergeCells("B3:D3");
-            const b3 = worksheet.getCell("B3");
-            b3.value = empName.toUpperCase();
-            b3.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
-            b3.font = FONT_VALUE_10_REG;
-            b3.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
-
-            worksheet.mergeCells("E3:F3");
-            const e3 = worksheet.getCell("E3");
-            e3.value = monthYearStr;
-            e3.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
-            e3.font = FONT_VALUE_10_REG;
-            e3.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
-
-            const g3 = worksheet.getCell("G3");
-            g3.value = "Manager:";
-            g3.fill = LABEL_BLUE_FILL;
-            g3.font = FONT_LABEL_10_BOLD;
-            g3.alignment = { horizontal: "right", vertical: "middle" };
-
-            const h3 = worksheet.getCell("H3");
-            h3.value = String(managerName).toUpperCase();
-            h3.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
-            h3.font = FONT_VALUE_10_REG;
-            h3.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+            // --- ROW 4 & 5: Employee Info Block (Left) ---
+            const designationVal = emp.designation || emp.jobTitle || emp.role || "Software Engineer";
 
             // Row 4
             const a4 = worksheet.getCell("A4");
-            a4.value = "Employee ID:";
-            a4.fill = LABEL_BLUE_FILL;
-            a4.font = FONT_LABEL_10_BOLD;
+            a4.value = "Employee:";
+            a4.fill = BLUE_FILL;
+            a4.font = FONT_HEADER_10;
             a4.alignment = { horizontal: "center", vertical: "middle" };
 
-            worksheet.mergeCells("B4:D4");
+            worksheet.mergeCells("B4:C4");
             const b4 = worksheet.getCell("B4");
-            b4.value = empCode;
-            b4.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
-            b4.font = FONT_VALUE_10_REG;
+            b4.value = empName.toUpperCase();
+            b4.fill = LABEL_BLUE_FILL;
+            b4.font = FONT_VALUE_10_BOLD;
             b4.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
 
+            worksheet.mergeCells("D4:D5");
+            const d4 = worksheet.getCell("D4");
+            d4.value = "Designation";
+            d4.fill = BLUE_FILL;
+            d4.font = FONT_HEADER_10;
+            d4.alignment = { horizontal: "center", vertical: "middle" };
+
+            worksheet.mergeCells("E4:F5");
             const e4 = worksheet.getCell("E4");
-            // Count of working days in month
-            const monthWorkDaysCount = monthDates.filter((ds) => {
-                const d = parseLocalDate(ds);
-                return d.getDay() !== 0 && d.getDay() !== 6;
-            }).length;
-            e4.value = String(monthWorkDaysCount);
-            e4.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
-            e4.font = FONT_VALUE_10_REG;
+            e4.value = designationVal;
+            e4.fill = LABEL_BLUE_FILL;
+            e4.font = FONT_VALUE_10_BOLD;
             e4.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
 
-            const f4 = worksheet.getCell("F4");
-            f4.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
-
             const g4 = worksheet.getCell("G4");
-            g4.value = "Reg Hrs/Day:";
-            g4.fill = LABEL_BLUE_FILL;
-            g4.font = FONT_LABEL_10_BOLD;
+            g4.value = "Manager:";
+            g4.fill = BLUE_FILL;
+            g4.font = FONT_HEADER_10;
             g4.alignment = { horizontal: "right", vertical: "middle" };
 
+            worksheet.mergeCells("H4:I4");
             const h4 = worksheet.getCell("H4");
-            h4.value = "8";
-            h4.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
-            h4.font = FONT_VALUE_10_REG;
+            h4.value = String(managerName).toUpperCase();
+            h4.fill = LABEL_BLUE_FILL;
+            h4.font = FONT_VALUE_10_BOLD;
             h4.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
 
-            // Apply thin borders to Employee Info Block (Rows 3 & 4, columns A..H)
-            [3, 4].forEach((rIdx) => {
+            // Row 5
+            const a5 = worksheet.getCell("A5");
+            a5.value = "Employee ID:";
+            a5.fill = BLUE_FILL;
+            a5.font = FONT_HEADER_10;
+            a5.alignment = { horizontal: "center", vertical: "middle" };
+
+            worksheet.mergeCells("B5:C5");
+            const b5 = worksheet.getCell("B5");
+            b5.value = empCode;
+            b5.fill = LABEL_BLUE_FILL;
+            b5.font = FONT_VALUE_10_BOLD;
+            b5.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+
+            const g5 = worksheet.getCell("G5");
+            g5.value = "Reg Hrs/Day:";
+            g5.fill = BLUE_FILL;
+            g5.font = FONT_HEADER_10;
+            g5.alignment = { horizontal: "right", vertical: "middle" };
+
+            worksheet.mergeCells("H5:I5");
+            const h5 = worksheet.getCell("H5");
+            h5.value = String(emp.regHrsPerDay || 8);
+            h5.fill = LABEL_BLUE_FILL;
+            h5.font = FONT_VALUE_10_BOLD;
+            h5.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+
+            // Apply thin borders to Employee Info Block (Rows 4 & 5, columns A..I)
+            [4, 5].forEach((rIdx) => {
                 const r = worksheet.getRow(rIdx);
-                for (let c = 1; c <= 8; c++) {
+                for (let c = 1; c <= 9; c++) {
                     r.getCell(c).border = thinBorder;
                 }
             });
 
-            // --- TABLE HEADERS: Rows 6 & 7 (Merged Vertically 6:7) ---
+            // --- ROW 6: Blank Separator Row (Left side A6:I6 empty) ---
+
+            // --- TABLE HEADERS: Rows 7 & 8 (Merged Vertically 7:8) ---
             const headers = [
-                { col: 1, text: "Date", fill: NAVY_FILL, font: FONT_HEADER_11, colLetter: "A" },
-                { col: 2, text: "Day", fill: NAVY_FILL, font: FONT_HEADER_11, colLetter: "B" },
-                { col: 3, text: "Day Type", fill: NAVY_FILL, font: FONT_HEADER_11, colLetter: "C" },
+                { col: 1, text: "Date", fill: GREEN_FILL, font: FONT_HEADER_11, colLetter: "A" },
+                { col: 2, text: "Day", fill: GREEN_FILL, font: FONT_HEADER_11, colLetter: "B" },
+                { col: 3, text: "Day Type", fill: GREEN_FILL, font: FONT_HEADER_11, colLetter: "C" },
                 { col: 4, text: "Project Name", fill: GREEN_FILL, font: FONT_HEADER_10, colLetter: "D" },
-                { col: 5, text: "Project ID", fill: BLUE_FILL, font: FONT_HEADER_10, colLetter: "E" },
-                { col: 6, text: "ON/OFF", fill: GREEN_FILL, font: FONT_HEADER_10, colLetter: "F" },
-                { col: 7, text: "Bill Type", fill: BLUE_FILL, font: FONT_HEADER_10, colLetter: "G" },
-                { col: 8, text: "TOTAL", fill: HEADER_TOTAL_FILL, font: FONT_HEADER_10, colLetter: "H" }
+                { col: 5, text: "Project ID", fill: GREEN_FILL, font: FONT_HEADER_10, colLetter: "E" },
+                { col: 6, text: "ONShore/OFFShore", fill: GREEN_FILL, font: FONT_HEADER_10, colLetter: "F" },
+                { col: 7, text: "Bill Type", fill: GREEN_FILL, font: FONT_HEADER_10, colLetter: "G" },
+                { col: 8, text: "TOTAL", fill: BLUE_FILL, font: FONT_HEADER_10, colLetter: "H" },
+                { col: 9, text: "Comments", fill: BLUE_FILL, font: FONT_HEADER_10, colLetter: "I" }
             ];
 
             headers.forEach((h) => {
-                worksheet.mergeCells(`${h.colLetter}6:${h.colLetter}7`);
-                const cell = worksheet.getCell(`${h.colLetter}6`);
+                worksheet.mergeCells(`${h.colLetter}7:${h.colLetter}8`);
+                const cell = worksheet.getCell(`${h.colLetter}7`);
                 cell.value = h.text;
                 cell.fill = h.fill;
                 cell.font = h.font;
                 cell.alignment = { horizontal: "center", vertical: "middle" };
 
-                // Apply border to merged cells in row 6 & 7
-                worksheet.getCell(`${h.colLetter}6`).border = thinBorder;
+                // Apply border to merged cells in row 7 & 8
                 worksheet.getCell(`${h.colLetter}7`).border = thinBorder;
+                worksheet.getCell(`${h.colLetter}8`).border = thinBorder;
             });
 
             // --- DATA ROWS & ACCUMULATION ---
@@ -247,11 +260,12 @@ export async function generateTimesheetExcel({
             let billableHoursTotal = 0;
             let nonBillableHoursTotal = 0;
             let weekendHolidayHoursTotal = 0;
-            let overtimeHoursTotal = 0;
             let grandTotalHours = 0;
 
+            const GREY_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
             monthDates.forEach((ds, idx) => {
-                const rowIdx = 8 + idx;
+                const rowIdx = 9 + idx;
                 const r = worksheet.getRow(rowIdx);
                 r.height = 20;
 
@@ -297,8 +311,6 @@ export async function generateTimesheetExcel({
                 }
 
                 if (dayEntries.length > 0) {
-                    // Aggregate or pick primary entry
-                    let primaryEntry = dayEntries[0];
                     dayEntries.forEach((entry) => {
                         const h = Number(entry.totalHours || 0);
                         totalHours += h;
@@ -342,13 +354,7 @@ export async function generateTimesheetExcel({
                 } else if (billType.toLowerCase().includes("billable")) {
                     billableHoursTotal += totalHours;
                 } else if (totalHours > 0) {
-                    // Default to billable if hours present and unspecified
                     billableHoursTotal += totalHours;
-                }
-
-                // Check for overtime (hours > 8)
-                if (totalHours > 8) {
-                    overtimeHoursTotal += (totalHours - 8);
                 }
 
                 // Write Cell Values
@@ -364,8 +370,10 @@ export async function generateTimesheetExcel({
                 hCell.value = Number(totalHours);
                 hCell.numFmt = "0.00";
 
-                // Cell Formatting
-                for (let c = 1; c <= 8; c++) {
+                r.getCell(9).value = ""; // Comments column
+
+                // Cell Formatting (Cols A..I / 1..9)
+                for (let c = 1; c <= 9; c++) {
                     const cell = r.getCell(c);
                     cell.font = FONT_DATA_10_REG;
                     cell.border = thinBorder;
@@ -376,14 +384,14 @@ export async function generateTimesheetExcel({
                     };
 
                     // Row Highlighting Rule:
-                    // Week Off rows (Saturdays/Sundays or Day Type = "Week Off"/Holiday): A-G filled #FFC000 @ 60% tint (#FFF2CC)
-                    // H (TOTAL) stays unfilled!
+                    // Week Off rows (Saturdays/Sundays or Day Type = "Week Off"/Holiday):
+                    // Day Type cell (c === 3) highlighted yellow (#FFF2CC)
+                    // All other cells (A, B, D, E, F, G, H, I) filled with light grey (#D9D9D9)
                     if (isWeekOffRow || dayType === "Public Holiday") {
-                        if (c < 8) {
+                        if (c === 3) {
                             cell.fill = GOLD_TINT_FILL;
                         } else {
-                            // Column H stays unfilled
-                            cell.fill = { type: "pattern", pattern: "none" };
+                            cell.fill = GREY_FILL;
                         }
                     } else {
                         cell.fill = { type: "pattern", pattern: "none" };
@@ -391,76 +399,86 @@ export async function generateTimesheetExcel({
                 }
             });
 
-            // --- SUMMARY PANEL (J2:M8) POPULATION ---
+            // --- SUMMARY PANEL (K2:N8) POPULATION ---
+            const totalHolidaysCount = monthDates.filter((ds) => {
+                return allHolidays.some((h) => {
+                    const hDate = h.holidayDate ? h.holidayDate.split("T")[0] : "";
+                    return hDate === ds;
+                });
+            }).length;
+
             const summaryRows = [
-                { row: 2, label: "Days logged", value: daysLoggedCount, fill: GREEN_FILL },
+                { row: 2, label: "Days logged", value: daysLoggedCount, fill: BLUE_FILL, isCount: true },
                 { row: 3, label: "Total regular Hours worked", value: totalRegHoursWorked, fill: BLUE_FILL },
                 { row: 4, label: "Billable Hours", value: billableHoursTotal, fill: BLUE_FILL },
-                { row: 5, label: "Non-Billable Hours", value: nonBillableHoursTotal, fill: BLUE_FILL },
+                { row: 5, label: "Non - Billable Hours", value: nonBillableHoursTotal, fill: BLUE_FILL },
                 { row: 6, label: "Total weekends & Holiday hours worked", value: weekendHolidayHoursTotal, fill: BLUE_FILL },
-                { row: 7, label: "Total OverTime Hours Worked", value: overtimeHoursTotal, fill: BLUE_FILL },
+                { row: 7, label: "Total Holidays", value: totalHolidaysCount, fill: BLUE_FILL, isCount: true },
                 { row: 8, label: "Total Hours worked.", value: grandTotalHours, fill: GREEN_FILL }
             ];
 
             summaryRows.forEach((s) => {
-                worksheet.mergeCells(`J${s.row}:L${s.row}`);
-                const lblCell = worksheet.getCell(`J${s.row}`);
+                worksheet.mergeCells(`K${s.row}:M${s.row}`);
+                const lblCell = worksheet.getCell(`K${s.row}`);
                 lblCell.value = s.label;
                 lblCell.fill = s.fill;
-                lblCell.font = FONT_HEADER_10;
+                lblCell.font = s.row === 8 ? FONT_HEADER_10_BOLD : FONT_HEADER_10;
                 lblCell.alignment = { horizontal: "center", vertical: "middle" };
 
-                // Apply borders to J:L merged cells
-                ["J", "K", "L"].forEach((colL) => {
+                // Apply borders to K:M merged cells
+                ["K", "L", "M"].forEach((colL) => {
                     worksheet.getCell(`${colL}${s.row}`).border = thinBorder;
                     worksheet.getCell(`${colL}${s.row}`).fill = s.fill;
                 });
 
-                const valCell = worksheet.getCell(`M${s.row}`);
+                const valCell = worksheet.getCell(`N${s.row}`);
                 valCell.value = Number(s.value);
                 valCell.fill = s.fill;
-                valCell.font = FONT_HEADER_10;
+                valCell.font = s.row === 8 ? FONT_HEADER_10_BOLD : FONT_HEADER_10;
                 valCell.alignment = { horizontal: "center", vertical: "middle" };
                 valCell.border = thinBorder;
-                if (s.row > 2) {
-                    valCell.numFmt = "0.00";
-                }
+                valCell.numFmt = s.isCount ? "0" : "0.00";
             });
 
             // --- TOTAL FOOTER ROW (Last data row + 1) ---
-            const totalRowIdx = 8 + monthDates.length;
+            const totalRowIdx = 9 + monthDates.length;
             const totalRow = worksheet.getRow(totalRowIdx);
             totalRow.height = 20;
 
             worksheet.mergeCells(`A${totalRowIdx}:F${totalRowIdx}`);
             const totLabelCell = worksheet.getCell(`A${totalRowIdx}`);
             totLabelCell.value = `TOTAL - ${monthYearStr}`;
-            totLabelCell.fill = NAVY_FILL;
+            totLabelCell.fill = BLUE_FILL;
             totLabelCell.font = FONT_HEADER_10;
             totLabelCell.alignment = { horizontal: "center", vertical: "middle" };
 
             // Apply fill and border to merged A..F cells
             ["A", "B", "C", "D", "E", "F"].forEach((colL) => {
                 const c = worksheet.getCell(`${colL}${totalRowIdx}`);
-                c.fill = NAVY_FILL;
+                c.fill = BLUE_FILL;
                 c.border = thinBorder;
             });
 
             const gTotCell = worksheet.getCell(`G${totalRowIdx}`);
-            gTotCell.value = 0.00;
-            gTotCell.numFmt = "0.00";
-            gTotCell.fill = NAVY_FILL;
+            gTotCell.value = 0;
+            gTotCell.numFmt = "0";
+            gTotCell.fill = BLUE_FILL;
             gTotCell.font = FONT_HEADER_10;
             gTotCell.alignment = { horizontal: "center", vertical: "middle" };
             gTotCell.border = thinBorder;
 
             const hTotCell = worksheet.getCell(`H${totalRowIdx}`);
-            hTotCell.value = Number(grandTotalHours);
-            hTotCell.numFmt = "0.00";
-            hTotCell.fill = NAVY_FILL;
+            hTotCell.value = grandTotalHours === 0 ? 0 : Number(grandTotalHours);
+            hTotCell.numFmt = grandTotalHours === 0 ? "0" : "0.00";
+            hTotCell.fill = BLUE_FILL;
             hTotCell.font = FONT_HEADER_10;
             hTotCell.alignment = { horizontal: "center", vertical: "middle" };
             hTotCell.border = thinBorder;
+
+            const iTotCell = worksheet.getCell(`I${totalRowIdx}`);
+            iTotCell.value = "";
+            iTotCell.fill = BLUE_FILL;
+            iTotCell.border = thinBorder;
         });
     });
 
