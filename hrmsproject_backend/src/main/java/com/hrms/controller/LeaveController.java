@@ -89,6 +89,10 @@ public class LeaveController {
     
     @PostMapping
     public ResponseEntity<ApiResponse<LeaveDTO>> createLeave(@Valid @RequestBody LeaveDTO dto) {
+        if (dto.getReason() != null && dto.getReason().length() > 500) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Leave reason cannot exceed 500 characters"));
+        }
         LeaveDTO created = leaveService.createLeave(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Leave application submitted successfully", created));
@@ -114,8 +118,12 @@ public class LeaveController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("Rejection reason is required."));
         }
-        Long approverId = Long.valueOf(request.get("approverId").toString());
         String reason = reasonObj.toString().trim();
+        if (reason.length() > 500) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Exceeded maximum characters limit"));
+        }
+        Long approverId = Long.valueOf(request.get("approverId").toString());
         LeaveDTO rejected = leaveService.rejectLeave(id, approverId, reason);
         return ResponseEntity.ok(ApiResponse.success("Leave rejected", rejected));
     }
