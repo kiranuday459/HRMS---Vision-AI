@@ -70,7 +70,7 @@ export default function ClientTimesheetEntry() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [meta, setMeta] = useState({ employeeName: "", weekStartDate: weekStart, weekEndDate: "", status: "DRAFT", earliestAssignmentDate: null });
+    const [meta, setMeta] = useState({ employeeName: "", weekStartDate: weekStart, weekEndDate: "", status: "DRAFT", earliestAssignmentDate: null, rejectionReason: null });
     const [projectRows, setProjectRows] = useState([]);
     const [timeOffRows, setTimeOffRows] = useState([]);
     const [commentModal, setCommentModal] = useState({ open: false, rowId: null, text: "" });
@@ -101,6 +101,7 @@ export default function ClientTimesheetEntry() {
             weekEndDate: String(dto.weekEndDate).split("T")[0],
             status: dto.status || "DRAFT",
             earliestAssignmentDate: dto.earliestAssignmentDate ? String(dto.earliestAssignmentDate).split("T")[0] : null,
+            rejectionReason: dto.rejectionReason || null,
         });
         const mapDays = (arr) => (arr || []).map((d) => ({
             date: String(d.date).split("T")[0],
@@ -349,6 +350,15 @@ export default function ClientTimesheetEntry() {
                                     <span><span className="font-semibold text-brand-text/50">Period End Date:</span> {meta.weekEndDate}</span>
                                 </div>
                             </div>
+
+                            {/* Why the week came back, shown above the grid the employee is
+                                about to correct and resubmit. */}
+                            {meta.rejectionReason && (
+                                <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                                    <p className="text-xs font-black uppercase tracking-widest text-red-600">Rejection reason</p>
+                                    <p className="mt-1 text-sm text-red-700 leading-relaxed">{meta.rejectionReason}</p>
+                                </div>
+                            )}
 
                             {noAssignment ? (
                                 <div className="bg-white rounded-xl border border-dashed border-[#E3E8EF] p-16 text-center">

@@ -7,7 +7,6 @@ import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
 import api from "../../utils/api";
 import DisabledBadge from "../../components/DisabledBadge";
-import { ProjectSuffix } from "../../utils/employeeName";
 import { generateEmployeeProfilePDF } from "../../utils/employeePdfGenerator";
 
 export default function HrCandidatesPage() {
@@ -292,7 +291,7 @@ export default function HrCandidatesPage() {
                                 {(emp.firstName?.[0] || emp.lastName?.[0] || 'U')}
                               </div>
                               <span className="text-sm font-bold text-brand-text tracking-tight">
-                                {`${emp.firstName || ""} ${emp.lastName || ""}`}<ProjectSuffix project={emp.clientProject} />
+                                {`${emp.firstName || ""} ${emp.lastName || ""}`}
                               </span>
                               {emp.active === false && (
 <DisabledBadge />

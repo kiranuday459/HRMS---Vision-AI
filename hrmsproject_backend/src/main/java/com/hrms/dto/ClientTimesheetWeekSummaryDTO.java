@@ -18,6 +18,9 @@ public class ClientTimesheetWeekSummaryDTO {
     private Double timeOffHolidayHours;
     private Double truTimeHours; // always null → "N/A"
 
+    // Most recent rejection reason for the week; null unless status is REJECTED.
+    private String rejectionReason;
+
     public LocalDate getWeekStartDate() {
         return weekStartDate;
     }
@@ -72,5 +75,13 @@ public class ClientTimesheetWeekSummaryDTO {
 
     public void setTruTimeHours(Double truTimeHours) {
         this.truTimeHours = truTimeHours;
+    }
+
+    public String getRejectionReason() {
+        return rejectionReason;
+    }
+
+    public void setRejectionReason(String rejectionReason) {
+        this.rejectionReason = rejectionReason;
     }
 }

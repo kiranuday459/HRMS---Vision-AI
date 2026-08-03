@@ -45,6 +45,9 @@ public class ClientTimesheetWeekService {
     @Autowired
     private ClientProjectAssignmentService assignmentService;
 
+    @Autowired
+    private ClientTimesheetNotificationService notificationService;
+
     // ---- Week helpers (Saturday start → Friday end) ----
     private LocalDate weekStartOf(LocalDate date) {
         int offset = (date.getDayOfWeek().getValue() - DayOfWeek.SATURDAY.getValue() + 7) % 7;
@@ -139,6 +142,7 @@ public class ClientTimesheetWeekService {
             row.setTimeOffHolidayHours(timeOff);
             row.setTruTimeHours(null); // N/A
             row.setStatus(deriveStatus(header, lines));
+            row.setRejectionReason(latestRejectionReason(lines));
             out.add(row);
 
             cursor = cursor.minusWeeks(1);
@@ -156,6 +160,22 @@ public class ClientTimesheetWeekService {
      *   all entries approved       → APPROVED
      *   any entry rejected         → REJECTED
      */
+    /**
+     * Most recent rejection reason across a week's line rows, or null if none carries one.
+     * Admin reject acts per day row, so a week can hold several copies of the same reason
+     * (and older ones from earlier rejections) — the latest review wins. Rows without a
+     * reviewedAt sort last so a stamped decision always beats an unstamped one.
+     */
+    private String latestRejectionReason(List<ClientTimesheet> lines) {
+        return lines.stream()
+                .filter(l -> l.getStatus() == ClientTimesheetStatus.REJECTED)
+                .filter(l -> l.getRejectionReason() != null && !l.getRejectionReason().isBlank())
+                .max(Comparator.comparing(ClientTimesheet::getReviewedAt,
+                        Comparator.nullsFirst(Comparator.naturalOrder())))
+                .map(ClientTimesheet::getRejectionReason)
+                .orElse(null);
+    }
+
     private String deriveStatus(ClientTimesheetWeek header, List<ClientTimesheet> lines) {
         if (lines.isEmpty()) {
             return "NOT_STARTED"; // week exists in the list but nothing was ever saved
@@ -190,6 +210,7 @@ public class ClientTimesheetWeekService {
         dto.setWeekEndDate(weekEndDate);
         dto.setEarliestAssignmentDate(assignmentService.earliestAssignmentDate(employeeId));
         dto.setStatus(deriveStatus(header, lines));
+        dto.setRejectionReason(latestRejectionReason(lines));
 
         List<LocalDate> weekDays = new ArrayList<>();
         for (int i = 0; i < 7; i++) weekDays.add(weekStartDate.plusDays(i));
@@ -295,6 +316,11 @@ public class ClientTimesheetWeekService {
         // Show the clicked row's status (matches the list); approve/reject act on this line.
         dto.setStatus(line.getStatus() != null ? line.getStatus().name() : dto.getStatus());
         dto.setSubmittedAt(line.getSubmittedAt() != null ? line.getSubmittedAt().toString() : null);
+        // Prefer the clicked row's own reason so it stays consistent with the status above;
+        // otherwise keep the week-level fallback already set by getWeekDetail.
+        if (line.getRejectionReason() != null && !line.getRejectionReason().isBlank()) {
+            dto.setRejectionReason(line.getRejectionReason());
+        }
         return dto;
     }
 
@@ -412,6 +438,9 @@ public class ClientTimesheetWeekService {
         if (existing.stream().anyMatch(l -> l.getStatus() == ClientTimesheetStatus.APPROVED)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This week is already approved and cannot be edited.");
         }
+        // Read the pre-existing state before the rows are replaced: a week that was
+        // rejected and is now being sent back is a resubmission, not a first submission.
+        boolean resubmission = existing.stream().anyMatch(l -> l.getStatus() == ClientTimesheetStatus.REJECTED);
 
         // ---- Validate all non-zero entries against the assignment gate + future ----
         validateEntries(payload, gate, today);
@@ -496,14 +525,15 @@ public class ClientTimesheetWeekService {
         }
         lineRepository.saveAll(toSave);
 
+        // Side effect only — the submit itself is already complete and the notification
+        // service swallows its own failures, so a bell problem can never fail a submit.
+        if (submit) {
+            notificationService.notifyAdminsTimesheetSubmitted(employee, weekStartDate, resubmission);
+        }
+
         return getWeekDetail(employeeId, weekStartDate);
     }
 
-    /**
-     * Rejects any entry (hours > 0) dated before the applicable assignment start date, or
-     * in the future. Project rows use their own assignmentStartDate; time-off rows use the
-     * global earliest assignment date.
-     */
     // Column widths of the free-text fields the employee types into (see
     // migration_create_client_timesheets_table.sql / migration_add_client_timesheet_entry_columns.sql).
     // Overrunning these used to reach MySQL and surface as a raw 500 "Data too long for
@@ -519,6 +549,11 @@ public class ClientTimesheetWeekService {
         }
     }
 
+    /**
+     * Rejects any entry (hours > 0) dated before the applicable assignment start date, or
+     * in the future. Project rows use their own assignmentStartDate; time-off rows use the
+     * global earliest assignment date.
+     */
     private void validateEntries(ClientTimesheetWeekDTO payload, LocalDate gate, LocalDate today) {
         if (payload.getProjectRows() != null) {
             for (ClientTimesheetWeekDTO.ProjectRowDTO r : payload.getProjectRows()) {

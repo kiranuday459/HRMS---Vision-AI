@@ -40,6 +40,9 @@ public class ClientVerificationService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private ClientTimesheetNotificationService notificationService;
+
     // ---------- Admin views ----------
 
     public List<AssignedEmployeeDTO> getAssignedEmployees() {
@@ -149,6 +152,10 @@ public class ClientVerificationService {
         employee.setClientOtp(null);
         employee.setClientOtpExpiry(null);
         employeeRepository.save(employee);
+
+        // Side effect only — recorded after verification has already succeeded.
+        notificationService.notifyEmployeeAccountVerified(employee);
+
         return "Verification successful. Client Timesheet access granted.";
     }
 

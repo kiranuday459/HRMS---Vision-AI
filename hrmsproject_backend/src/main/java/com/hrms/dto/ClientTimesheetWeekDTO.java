@@ -23,6 +23,10 @@ public class ClientTimesheetWeekDTO {
     private String projectId;
     private String submittedAt;
 
+    // Most recent rejection reason for the week, so both the employee (what to fix before
+    // resubmitting) and the admin (why it was rejected) can see it. Null unless rejected.
+    private String rejectionReason;
+
     // Global gate: earliest active assignment date. Day cells before this are locked.
     private LocalDate earliestAssignmentDate;
 
@@ -116,6 +120,8 @@ public class ClientTimesheetWeekDTO {
     public void setProjectId(String projectId) { this.projectId = projectId; }
     public String getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(String submittedAt) { this.submittedAt = submittedAt; }
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
     public LocalDate getEarliestAssignmentDate() { return earliestAssignmentDate; }
     public void setEarliestAssignmentDate(LocalDate earliestAssignmentDate) { this.earliestAssignmentDate = earliestAssignmentDate; }
     public List<ProjectRowDTO> getProjectRows() { return projectRows; }

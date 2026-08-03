@@ -121,6 +121,14 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                             <div className="flex items-center gap-3"><span className="text-brand-text/40 font-semibold w-24">Status</span><StatusPill status={status} /></div>
                         </div>
 
+                        {/* Why this week was rejected — the record of the decision. */}
+                        {status === "REJECTED" && detail.rejectionReason && (
+                            <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-red-600">Rejection reason</p>
+                                <p className="mt-1 text-sm text-red-700 leading-relaxed">{detail.rejectionReason}</p>
+                            </div>
+                        )}
+
                         {/* Project table (read-only) */}
                         <div className="border border-[#E3E8EF] rounded-xl overflow-hidden">
                             <table className="w-full text-left border-collapse table-fixed">
