@@ -92,6 +92,21 @@ export async function generateTimesheetExcel({
 
             const worksheet = workbook.addWorksheet(sheetName);
 
+            // Group this employee's entries by date up front. A date with several project
+            // rows must emit several Excel rows — the row index can no longer be derived
+            // from the date index alone, or the extra projects have nowhere to go.
+            const entriesByDate = {};
+            dateFilteredEntries.forEach((e) => {
+                if (e.employeeId !== empId && String(e.employeeId) !== String(empId)) return;
+                const key = e.date ? String(e.date).split("T")[0] : "";
+                if (!key) return;
+                if (!entriesByDate[key]) entriesByDate[key] = [];
+                entriesByDate[key].push(e);
+            });
+            // Dates with no entries still occupy one row (Week Off / Holiday / blank day).
+            const plannedDataRows = monthDates.reduce(
+                (n, ds) => n + Math.max(1, (entriesByDate[ds] || []).length), 0);
+
             // Title date range calculation
             const firstMonthDs = monthDates[0];
             const lastMonthDs = monthDates[monthDates.length - 1];
@@ -125,8 +140,10 @@ export async function generateTimesheetExcel({
                 { state: "frozen", xSplit: 0, ySplit: 8, topLeftCell: "A9", activeCell: "A9" }
             ];
 
-            // Set default row height = 20px for all rows except Row 1 & 2
-            for (let r = 1; r <= 100; r++) {
+            // Set default row height = 20px for all rows except Row 1 & 2. Bound follows the
+            // real row count, which now exceeds one-per-date when projects overlap.
+            const lastStyledRow = Math.max(100, 9 + plannedDataRows + 5);
+            for (let r = 1; r <= lastStyledRow; r++) {
                 worksheet.getRow(r).height = (r === 1 || r === 2) ? 22 : 20;
             }
 
@@ -264,11 +281,10 @@ export async function generateTimesheetExcel({
 
             const GREY_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
 
-            monthDates.forEach((ds, idx) => {
-                const rowIdx = 9 + idx;
-                const r = worksheet.getRow(rowIdx);
-                r.height = 20;
+            // Running cursor instead of "9 + dateIndex": one row per (date × project entry).
+            let rowIdx = 8; // last header row — the first data row is 9
 
+            monthDates.forEach((ds) => {
                 const d = parseLocalDate(ds);
                 const dayNumStr = String(d.getDate()).padStart(2, "0");
                 const monthAbbr = d.toLocaleDateString("en-US", { month: "short" });
@@ -276,10 +292,8 @@ export async function generateTimesheetExcel({
                 const dayAbbr = d.toLocaleDateString("en-US", { weekday: "short" }); // Mon, Tue, etc.
                 const isWeekend = d.getDay() === 0 || d.getDay() === 6;
 
-                // Find entries for employee & date
-                const dayEntries = dateFilteredEntries.filter(
-                    (e) => (e.employeeId === empId || String(e.employeeId) === String(empId)) && e.date === ds
-                );
+                // Every entry logged by this employee on this date — all of them, not just one.
+                const dayEntries = entriesByDate[ds] || [];
 
                 // Find matching Holiday or Leave
                 const matchingHoliday = allHolidays.find((h) => {
@@ -295,25 +309,40 @@ export async function generateTimesheetExcel({
                     return ds >= lStart && ds <= lEnd;
                 });
 
-                // Determine Day Type & Entry attributes
-                let dayType = isWeekend ? "Week Off" : "Working Day";
-                let projectName = "";
-                let projectId = "";
-                let onOff = "";
-                let billType = "";
-                let totalHours = 0;
+                // Day Type applies to the whole date, whatever it holds.
+                let baseDayType = isWeekend ? "Week Off" : "Working Day";
+                let holidayLabel = "";
 
                 if (matchingHoliday) {
-                    dayType = "Public Holiday";
-                    projectName = matchingHoliday.holidayName || "Public Holiday";
+                    baseDayType = "Public Holiday";
+                    holidayLabel = matchingHoliday.holidayName || "Public Holiday";
                 } else if (matchingLeave) {
-                    dayType = matchingLeave.leaveType || "Leave";
+                    baseDayType = matchingLeave.leaveType || "Leave";
                 }
 
+                // "Days logged" counts DATES, not rows — two projects on one day is one day.
                 if (dayEntries.length > 0) {
-                    dayEntries.forEach((entry) => {
-                        const h = Number(entry.totalHours || 0);
-                        totalHours += h;
+                    daysLoggedCount++;
+                }
+
+                // One row per entry; a date with no entries still gets a single placeholder
+                // row so Week Off / Holiday / empty working days remain visible.
+                const rowSources = dayEntries.length > 0 ? dayEntries : [null];
+
+                rowSources.forEach((entry) => {
+                    rowIdx++;
+                    const r = worksheet.getRow(rowIdx);
+                    r.height = 20;
+
+                    let dayType = baseDayType;
+                    let projectName = holidayLabel;
+                    let projectId = "";
+                    let onOff = "";
+                    let billType = "";
+                    let totalHours = 0;
+
+                    if (entry) {
+                        totalHours = Number(entry.totalHours || 0);
                         if (entry.projectName && entry.projectName !== "-") projectName = entry.projectName;
                         if (entry.projectCode || entry.projectId || entry.project) {
                             projectId = entry.projectCode || entry.projectId || entry.project;
@@ -327,76 +356,69 @@ export async function generateTimesheetExcel({
                             billType = entry.billType;
                         }
                         if (entry.dayType) dayType = entry.dayType;
-                    });
-                } else {
-                    if (isWeekend) {
-                        dayType = "Week Off";
                     }
-                }
 
-                const isWeekOffRow = isWeekend || dayType === "Week Off" || dayType.toLowerCase().includes("week off");
+                    const isWeekOffRow = isWeekend || dayType === "Week Off" || dayType.toLowerCase().includes("week off");
 
-                // Accumulate totals for Monthly Summary
-                if (totalHours > 0 || dayEntries.length > 0) {
-                    daysLoggedCount++;
-                }
+                    // Summary totals accumulate PER ENTRY, so each project's hours are
+                    // classified by its own bill type instead of the last one on the day.
+                    grandTotalHours += totalHours;
 
-                grandTotalHours += totalHours;
-
-                if (isWeekOffRow || dayType === "Public Holiday") {
-                    weekendHolidayHoursTotal += totalHours;
-                } else {
-                    totalRegHoursWorked += totalHours;
-                }
-
-                if (billType.toLowerCase().includes("non-billable") || billType.toLowerCase().includes("non billable")) {
-                    nonBillableHoursTotal += totalHours;
-                } else if (billType.toLowerCase().includes("billable")) {
-                    billableHoursTotal += totalHours;
-                } else if (totalHours > 0) {
-                    billableHoursTotal += totalHours;
-                }
-
-                // Write Cell Values
-                r.getCell(1).value = dateDisplay;
-                r.getCell(2).value = dayAbbr;
-                r.getCell(3).value = dayType;
-                r.getCell(4).value = projectName;
-                r.getCell(5).value = projectId;
-                r.getCell(6).value = onOff;
-                r.getCell(7).value = billType;
-
-                const hCell = r.getCell(8);
-                hCell.value = Number(totalHours);
-                hCell.numFmt = "0.00";
-
-                r.getCell(9).value = ""; // Comments column
-
-                // Cell Formatting (Cols A..I / 1..9)
-                for (let c = 1; c <= 9; c++) {
-                    const cell = r.getCell(c);
-                    cell.font = FONT_DATA_10_REG;
-                    cell.border = thinBorder;
-                    cell.alignment = {
-                        horizontal: c === 8 ? "center" : "left",
-                        vertical: "middle",
-                        wrapText: true
-                    };
-
-                    // Row Highlighting Rule:
-                    // Week Off rows (Saturdays/Sundays or Day Type = "Week Off"/Holiday):
-                    // Day Type cell (c === 3) highlighted yellow (#FFF2CC)
-                    // All other cells (A, B, D, E, F, G, H, I) filled with light grey (#D9D9D9)
                     if (isWeekOffRow || dayType === "Public Holiday") {
-                        if (c === 3) {
-                            cell.fill = GOLD_TINT_FILL;
-                        } else {
-                            cell.fill = GREY_FILL;
-                        }
+                        weekendHolidayHoursTotal += totalHours;
                     } else {
-                        cell.fill = { type: "pattern", pattern: "none" };
+                        totalRegHoursWorked += totalHours;
                     }
-                }
+
+                    if (billType.toLowerCase().includes("non-billable") || billType.toLowerCase().includes("non billable")) {
+                        nonBillableHoursTotal += totalHours;
+                    } else if (billType.toLowerCase().includes("billable")) {
+                        billableHoursTotal += totalHours;
+                    } else if (totalHours > 0) {
+                        billableHoursTotal += totalHours;
+                    }
+
+                    // Write Cell Values — Date/Day repeat on each of a date's project rows.
+                    r.getCell(1).value = dateDisplay;
+                    r.getCell(2).value = dayAbbr;
+                    r.getCell(3).value = dayType;
+                    r.getCell(4).value = projectName;
+                    r.getCell(5).value = projectId;
+                    r.getCell(6).value = onOff;
+                    r.getCell(7).value = billType;
+
+                    const hCell = r.getCell(8);
+                    hCell.value = Number(totalHours);
+                    hCell.numFmt = "0.00";
+
+                    r.getCell(9).value = ""; // Comments column
+
+                    // Cell Formatting (Cols A..I / 1..9)
+                    for (let c = 1; c <= 9; c++) {
+                        const cell = r.getCell(c);
+                        cell.font = FONT_DATA_10_REG;
+                        cell.border = thinBorder;
+                        cell.alignment = {
+                            horizontal: c === 8 ? "center" : "left",
+                            vertical: "middle",
+                            wrapText: true
+                        };
+
+                        // Row Highlighting Rule:
+                        // Week Off rows (Saturdays/Sundays or Day Type = "Week Off"/Holiday):
+                        // Day Type cell (c === 3) highlighted yellow (#FFF2CC)
+                        // All other cells (A, B, D, E, F, G, H, I) filled with light grey (#D9D9D9)
+                        if (isWeekOffRow || dayType === "Public Holiday") {
+                            if (c === 3) {
+                                cell.fill = GOLD_TINT_FILL;
+                            } else {
+                                cell.fill = GREY_FILL;
+                            }
+                        } else {
+                            cell.fill = { type: "pattern", pattern: "none" };
+                        }
+                    }
+                });
             });
 
             // --- SUMMARY PANEL (K2:N8) POPULATION ---
@@ -441,7 +463,8 @@ export async function generateTimesheetExcel({
             });
 
             // --- TOTAL FOOTER ROW (Last data row + 1) ---
-            const totalRowIdx = 9 + monthDates.length;
+            // Follows the cursor, not the date count: a date can now span several rows.
+            const totalRowIdx = rowIdx + 1;
             const totalRow = worksheet.getRow(totalRowIdx);
             totalRow.height = 20;
 

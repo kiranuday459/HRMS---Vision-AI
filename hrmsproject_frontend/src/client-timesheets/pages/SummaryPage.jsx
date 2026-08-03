@@ -89,14 +89,13 @@ export default function ClientTimesheetSummary() {
     return (
         <div className="flex flex-col h-full overflow-hidden">
             <main className="flex-1 flex flex-col h-full overflow-hidden">
-                <header className="bg-white py-4 px-4 md:px-8 border-b border-[#E3E8EF] shadow-sm">
-                    <h1 className="text-2xl font-black text-brand-text tracking-tight">Timesheets</h1>
-                </header>
-
+                {/* No separate page header: the top bar already carries the "Client Timesheets"
+                    branding and the active tab, so a second "Timesheets" title only repeated it.
+                    "Timesheet Summary" below is the single page heading. */}
                 <div className="flex-1 overflow-y-auto p-4 md:p-8">
                     {/* Section heading + search row */}
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-                        <h2 className="text-xl font-bold text-brand-text">Timesheet Summary</h2>
+                        <h1 className="text-2xl font-black text-brand-text tracking-tight">Timesheet Summary</h1>
                         <div className="flex items-center gap-3">
                             <label className="text-sm font-bold text-brand-text/60 whitespace-nowrap">Search By</label>
                             <select

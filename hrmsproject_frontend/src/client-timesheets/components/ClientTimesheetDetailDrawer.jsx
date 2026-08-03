@@ -3,7 +3,7 @@ import { X, Check, MessageSquare } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
-import ConfirmActionModal from "../../components/ConfirmActionModal";
+import ClientTimesheetConfirmModal from "./ClientTimesheetConfirmModal";
 
 const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -234,7 +234,7 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                 )}
             </div>
 
-            <ConfirmActionModal
+            <ClientTimesheetConfirmModal
                 isOpen={confirmingApprove}
                 onClose={() => setConfirmingApprove(false)}
                 onConfirm={handleApprove}
