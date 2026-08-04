@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Logo from '../assets/visionai-logo.png';
 import useSidebarCollapsed from '../hooks/useSidebarCollapsed';
@@ -8,34 +8,51 @@ import useSidebarCollapsed from '../hooks/useSidebarCollapsed';
 
 const Sidebar = ({ activeTab, setActiveTab, handleLogout, navItems, hideLogout = false }) => {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [collapsed, toggleCollapsed] = useSidebarCollapsed();
 
 	const closeMobile = () => setMobileOpen(false);
-	const NavButton = ({ tab, label, icon, onClick, to }) => (
-		<button
-			type="button"
-			title={collapsed ? label : undefined}
-			aria-label={label}
-			onClick={e => {
-				e.stopPropagation();
-				if (to) {
-					navigate(to);
-				} else if (onClick) {
-					onClick();
-				} else {
-					setActiveTab(tab);
-				}
-			}}
-			className={`btn-sidebar w-full flex items-center mb-1 ${collapsed ? 'justify-center px-0!' : 'gap-3'} ${activeTab === tab
-				? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone rounded-lg px-5 py-3'
-				: 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8] transition-colors'
-				}`}
-		>
-			<span className={`flex items-center justify-center transition-transform ${collapsed ? 'scale-125' : ''}`}>{icon}</span>
-			{!collapsed && <span className="font-semibold whitespace-nowrap">{label}</span>}
-		</button>
-	);
+
+	const isItemActive = (item) => {
+		if (activeTab && item.tab) {
+			return activeTab === item.tab;
+		}
+		if (item.to) {
+			const currentPath = location.pathname;
+			const cleanTo = item.to.split('?')[0];
+			return currentPath === cleanTo || (cleanTo !== '/' && currentPath.startsWith(cleanTo));
+		}
+		return false;
+	};
+
+	const NavButton = ({ tab, label, icon, onClick, to, item }) => {
+		const isActive = isItemActive(item || { tab, to });
+		return (
+			<button
+				type="button"
+				title={collapsed ? label : undefined}
+				aria-label={label}
+				onClick={e => {
+					e.stopPropagation();
+					if (to) {
+						navigate(to);
+					} else if (onClick) {
+						onClick();
+					} else if (setActiveTab) {
+						setActiveTab(tab);
+					}
+				}}
+				className={`btn-sidebar w-full flex items-center mb-1 ${collapsed ? 'justify-center px-0!' : 'gap-3'} ${isActive
+					? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone rounded-lg px-5 py-3 font-bold'
+					: 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8] transition-colors'
+					}`}
+			>
+				<span className={`flex items-center justify-center transition-transform ${collapsed ? 'scale-125' : ''}`}>{icon}</span>
+				{!collapsed && <span className="font-semibold whitespace-nowrap">{label}</span>}
+			</button>
+		);
+	};
 
 	return (
 		<>
@@ -67,9 +84,9 @@ const Sidebar = ({ activeTab, setActiveTab, handleLogout, navItems, hideLogout =
 										</div>
 									);
 								}
-								const isActive = activeTab === item.tab;
+								const isActive = isItemActive(item);
 								return (
-									<button key={item.tab || index} onClick={() => { closeMobile(); if (item.to) navigate(item.to); else setActiveTab(item.tab); }} className={`w-full flex items-center gap-3 mb-1 transition-all duration-200 py-3 px-4 rounded-lg ${isActive ? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone' : 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8]'}`}>
+									<button key={item.tab || index} onClick={() => { closeMobile(); if (item.to) navigate(item.to); else if (setActiveTab) setActiveTab(item.tab); }} className={`w-full flex items-center gap-3 mb-1 transition-all duration-200 py-3 px-4 rounded-lg ${isActive ? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone font-bold' : 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8]'}`}>
 										{item.icon}
 										<span className="font-semibold">{item.label}</span>
 									</button>
@@ -114,6 +131,7 @@ const Sidebar = ({ activeTab, setActiveTab, handleLogout, navItems, hideLogout =
 					return (
 						<NavButton
 							key={item.tab || index}
+							item={item}
 							tab={item.tab}
 							label={item.label}
 							icon={item.icon}
@@ -158,8 +176,9 @@ const Sidebar = ({ activeTab, setActiveTab, handleLogout, navItems, hideLogout =
 				<nav className="flex-1 flex flex-col items-center gap-2 overflow-y-auto">
 					{navItems.map((item, index) => {
 						if (item.type === 'heading') return null;
+						const isActive = isItemActive(item);
 						return (
-							<button key={item.tab || index} type="button" onClick={e => { e.stopPropagation(); if (item.to) { navigate(item.to); } else { setActiveTab(item.tab); } }} className={`w-12 h-12 flex items-center justify-center rounded-lg transition-all duration-200 ${activeTab === item.tab ? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone' : 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8] hover:-translate-y-0.5'}`}>
+							<button key={item.tab || index} type="button" onClick={e => { e.stopPropagation(); if (item.to) { navigate(item.to); } else if (setActiveTab) { setActiveTab(item.tab); } }} className={`w-12 h-12 flex items-center justify-center rounded-lg transition-all duration-200 ${isActive ? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone font-bold' : 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8] hover:-translate-y-0.5'}`}>
 								{item.icon}
 							</button>
 						);

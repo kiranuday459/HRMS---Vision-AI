@@ -319,8 +319,8 @@ export default function AdminTimesheets() {
     return (
         <div className="flex min-h-screen bg-bg-slate font-brand text-brand-text">
             <AdminSidebar
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
+                activeTab="timesheets"
+                setActiveTab={() => {}}
                 onLogout={handleLogout}
             />
 

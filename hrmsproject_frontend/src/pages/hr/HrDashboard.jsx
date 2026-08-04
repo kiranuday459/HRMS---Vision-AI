@@ -59,10 +59,21 @@ const HrDashboard = () => {
 	}, []);
 
 	useEffect(() => {
-		const params = new URLSearchParams(location.search);
-		const tab = params.get('tab');
-		if (tab) {
-			setActiveTab(tab);
+		const path = location.pathname;
+		if (path.includes("/hr/timesheet")) {
+			setActiveTab("timesheet");
+		} else if (path.includes("/hr/leave")) {
+			setActiveTab("leave");
+		} else if (path.includes("/hr/profile")) {
+			setActiveTab("profile");
+		} else {
+			const params = new URLSearchParams(location.search);
+			const tab = params.get('tab');
+			if (tab) {
+				setActiveTab(tab);
+			} else {
+				setActiveTab("dashboard");
+			}
 		}
 	}, [location]);
 

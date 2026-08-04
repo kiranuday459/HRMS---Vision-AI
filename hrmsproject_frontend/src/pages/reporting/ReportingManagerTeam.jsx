@@ -60,14 +60,25 @@ export default function ReportingManagerTeam() {
 
 
     useEffect(() => {
-        const params = new URLSearchParams(location.search);
-        const viewParam = params.get('view');
-        if (viewParam && ['team', 'timesheets', 'leaves'].includes(viewParam)) {
-            setView(viewParam);
-            if (viewParam === 'timesheets' && managerId) fetchTeamTimesheets(managerId);
-            if (viewParam === 'leaves' && managerId) fetchLeaves(managerId);
+        const path = location.pathname;
+        let v = 'team';
+        if (path.includes("/manager/timesheets")) {
+            v = 'timesheets';
+        } else if (path.includes("/manager/leaves")) {
+            v = 'leaves';
+        } else if (path.includes("/manager/team")) {
+            v = 'team';
+        } else {
+            const params = new URLSearchParams(location.search);
+            const viewParam = params.get('view');
+            if (viewParam && ['team', 'timesheets', 'leaves'].includes(viewParam)) {
+                v = viewParam;
+            }
         }
-    }, [location.search, managerId]);
+        setView(v);
+        if (v === 'timesheets' && managerId) fetchTeamTimesheets(managerId);
+        if (v === 'leaves' && managerId) fetchLeaves(managerId);
+    }, [location, managerId]);
 
     useEffect(() => {
         if (managerId) {

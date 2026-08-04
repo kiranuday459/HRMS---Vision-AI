@@ -37,12 +37,23 @@ const ReportingManagerDashboard = () => {
   const { clientAssigned, clientVerified, clientProject, refresh: refreshClientAccess } = useClientAccess();
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const tabParam = params.get("tab");
-    if (tabParam && ["dashboard", "team", "timesheet", "leave", "profile"].includes(tabParam)) {
-      setActiveTab(tabParam);
+    const path = location.pathname;
+    if (path.includes("/manager/timesheet")) {
+      setActiveTab("timesheet");
+    } else if (path.includes("/manager/leave")) {
+      setActiveTab("leave");
+    } else if (path.includes("/manager/profile")) {
+      setActiveTab("profile");
+    } else {
+      const params = new URLSearchParams(location.search);
+      const tabParam = params.get("tab");
+      if (tabParam && ["dashboard", "team", "timesheet", "leave", "profile"].includes(tabParam)) {
+        setActiveTab(tabParam);
+      } else {
+        setActiveTab("dashboard");
+      }
     }
-  }, [location.search]);
+  }, [location]);
 
   // Sync user data from localStorage when switching tabs
   useEffect(() => {

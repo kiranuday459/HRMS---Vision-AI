@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Logo from '../assets/visionai-logo.png';
 import {
   LayoutDashboard,
@@ -20,6 +20,7 @@ import { clientTimesheetDashboardPath } from '../utils/clientTimesheetNav';
 
 export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { switchToClientWorkspace } = useWorkspace();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, toggleCollapsed] = useSidebarCollapsed();
@@ -29,15 +30,28 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
 
   const handleTabClick = (tab) => {
     if (setActiveTab) setActiveTab(tab);
-    if (tab === "dashboard" || tab === "hr-team" || tab === "leave-requests") {
-      navigate(isManager ? "/manager" : "/admin", { state: { tab } });
-    }
-    else if (tab === "candidates" || tab === "team") navigate(isManager ? "/reporting-team" : "/admin/candidates");
-    else if (tab === "reporting-managers") navigate("/admin/reporting-managers");
+    if (tab === "dashboard") navigate(isManager ? "/manager/dashboard" : "/admin/dashboard");
+    else if (tab === "hr-team") navigate("/admin/hr-team");
+    else if (tab === "leave-requests") navigate("/admin/leaves");
+    else if (tab === "candidates" || tab === "employees") navigate(isManager ? "/manager/team" : "/admin/employees");
+    else if (tab === "team") navigate("/manager/team");
+    else if (tab === "reporting-managers" || tab === "managers") navigate("/admin/managers");
     else if (tab === "timesheets") navigate("/admin/timesheets");
     else if (tab === "client-timesheets") switchToClientWorkspace(navigate, clientTimesheetDashboardPath());
     setMobileOpen(false);
   };
+
+  const getActiveTabFromLocation = (pathname) => {
+    if (pathname.startsWith("/admin/employees") || pathname.startsWith("/admin/candidates")) return "candidates";
+    if (pathname.startsWith("/admin/managers") || pathname.startsWith("/admin/reporting-managers")) return "reporting-managers";
+    if (pathname.startsWith("/admin/hr-team")) return "hr-team";
+    if (pathname.startsWith("/admin/leaves")) return "leave-requests";
+    if (pathname.startsWith("/admin/timesheets")) return "timesheets";
+    if (pathname.startsWith("/admin")) return "dashboard";
+    return "dashboard";
+  };
+
+  const currentActiveTab = activeTab || getActiveTabFromLocation(location.pathname);
 
   const navLinks = isManager
     ? [
@@ -93,14 +107,14 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
                   {hasSeparator && <div className="my-2 border-t border-[#E3E8EF]" />}
                   <div
                     onClick={() => handleTabClick(id)}
-                    className={`btn-sidebar flex items-center gap-3 transition-all duration-200 cursor-pointer ${activeTab === id
+                    className={`btn-sidebar flex items-center gap-3 transition-all duration-200 cursor-pointer ${currentActiveTab === id
                       ? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone rounded-lg px-5 py-3 font-bold'
                       : isBold
                         ? 'text-[#185FA5] font-extrabold hover:text-[#13507f] hover:bg-[#F1EFE8] rounded-lg px-5 py-3'
                         : 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8] hover:-translate-y-0.5'
                       }`}
                   >
-                    <Icon size={18} className={activeTab === id ? 'text-[#2C2C2A]' : isBold ? 'text-[#185FA5]' : 'inherit'} />
+                    <Icon size={18} className={currentActiveTab === id ? 'text-[#2C2C2A]' : isBold ? 'text-[#185FA5]' : 'inherit'} />
                     <span className={isBold ? "font-extrabold" : "font-semibold"}>{label}</span>
                   </div>
                 </React.Fragment>
@@ -156,14 +170,14 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
                 onClick={() => handleTabClick(id)}
                 title={collapsed ? label : undefined}
                 aria-label={label}
-                className={`btn-sidebar flex items-center transition-colors cursor-pointer ${collapsed ? 'justify-center px-0!' : 'gap-3'} ${activeTab === id
+                className={`btn-sidebar flex items-center transition-colors cursor-pointer ${collapsed ? 'justify-center px-0!' : 'gap-3'} ${currentActiveTab === id
                   ? 'bg-[#F1EFE8] text-[#2C2C2A] border-l-[3px] border-brand-stone rounded-lg px-5 py-3 font-bold'
                   : isBold
                     ? 'text-[#185FA5] font-extrabold hover:text-[#13507f] hover:bg-[#F1EFE8] rounded-lg px-5 py-3'
                     : 'text-[#5F5E5A] hover:text-[#2C2C2A] hover:bg-[#F1EFE8]'
                   }`}
               >
-                <Icon size={collapsed ? 24 : 18} className={activeTab === id ? 'text-[#2C2C2A]' : isBold ? 'text-[#185FA5]' : 'inherit'} />
+                <Icon size={collapsed ? 24 : 18} className={currentActiveTab === id ? 'text-[#2C2C2A]' : isBold ? 'text-[#185FA5]' : 'inherit'} />
                 {!collapsed && <span className={`tracking-tight whitespace-nowrap ${isBold ? 'font-extrabold text-[14px]' : 'font-semibold'}`}>{label}</span>}
               </div>
             </React.Fragment>

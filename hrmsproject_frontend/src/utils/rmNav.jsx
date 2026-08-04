@@ -16,19 +16,19 @@ export const getRmNavItems = (activeTab) => [
     {
         tab: "dashboard",
         label: "Dashboard",
-        to: "/manager?tab=dashboard",
+        to: "/manager/dashboard",
         icon: <LayoutDashboard className="w-5 h-5" />
     },
     {
         tab: "timesheet",
         label: "My Timesheet",
-        to: "/manager?tab=timesheet",
+        to: "/manager/timesheet",
         icon: <Clock className="w-5 h-5" />
     },
     {
         tab: "leave",
         label: "Leave Request",
-        to: "/manager?tab=leave",
+        to: "/manager/leave",
         icon: <CalendarDays className="w-5 h-5" />
     },
     {
@@ -38,19 +38,19 @@ export const getRmNavItems = (activeTab) => [
     {
         tab: "team",
         label: "Team Members",
-        to: "/reporting-team?view=team",
+        to: "/manager/team",
         icon: <Users className="w-5 h-5" />
     },
     {
         tab: "team-timesheets",
         label: "Team Timesheets",
-        to: "/reporting-team?view=timesheets",
+        to: "/manager/timesheets",
         icon: <FileText className="w-5 h-5" />
     },
     {
         tab: "team-leaves",
         label: "Team Leaves",
-        to: "/reporting-team?view=leaves",
+        to: "/manager/leaves",
         icon: <History className="w-5 h-5" />
     }
 ];
