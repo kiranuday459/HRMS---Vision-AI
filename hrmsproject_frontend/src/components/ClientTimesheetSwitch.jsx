@@ -70,7 +70,10 @@ export default function ClientTimesheetSwitch({ onVerifyClick }) {
                     <ShieldCheck size={14} />
                     Verify Your Account
                 </button>
-                <span className="text-xs text-[#5F5E5A]">
+                {/* Hidden on narrow viewports so the prompt can't crowd the header icons it
+                    now sits beside; the button itself always shows, and the modal repeats
+                    this instruction in full. */}
+                <span className="hidden xl:inline text-xs text-[#5F5E5A]">
                     Enter the OTP emailed to you to unlock Client Timesheet.
                 </span>
             </div>

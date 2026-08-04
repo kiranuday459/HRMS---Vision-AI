@@ -9,6 +9,8 @@ const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const TIMEOFF_LABELS = { SICK: "Paid Sick Leave", HOLIDAY: "Holiday (Public/National)", PTO: "Paid Time Off", LOP: "Unpaid Leave (LOP)", EARNED: "Leave (Earned)" };
 const TIMEOFF_ORDER = ["SICK", "HOLIDAY", "PTO", "LOP", "EARNED"];
+// Daily regular capacity shared by leave and worked hours; anything past it is overtime.
+const REGULAR_HOURS_PER_DAY = 8;
 
 const parseLocal = (ymd) => { const [y, m, d] = String(ymd).split("T")[0].split("-").map(Number); return new Date(y, m - 1, d); };
 const fmtRange = (ymd) => { if (!ymd) return ""; const [y, m, d] = String(ymd).split("T")[0].split("-").map(Number); return `${String(d).padStart(2, "0")}-${MON[m - 1]}-${y}`; };
@@ -60,7 +62,11 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
     const days = useMemo(() => {
         if (!detail?.weekStartDate) return [];
         const start = parseLocal(detail.weekStartDate);
-        return Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return { dom: d.getDate(), wd: WD[d.getDay()] }; });
+        return Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(start); d.setDate(start.getDate() + i);
+            const g = d.getDay();
+            return { dom: d.getDate(), wd: WD[g], isWeekend: g === 0 || g === 6 };
+        });
     }, [detail]);
 
     const handleApprove = async () => {
@@ -86,6 +92,20 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
     const timeOffRows = TIMEOFF_ORDER.map((type) => (detail?.timeOffRows || []).find((t) => (t.type || "").toUpperCase() === type) || { type, days: [] });
     const dayHours = (row) => days.map((_, i) => (row.days && row.days[i] ? Number(row.days[i].hours) || 0 : 0));
     const rowTotal = (row) => dayHours(row).reduce((s, h) => s + h, 0);
+
+    // Per-day OT, derived from the same saved day hours the employee's Time Entry page uses
+    // — only the week-level total is stored, so both sides compute the daily split the same
+    // way. Rule (mirrors EntryPage.dayBreakdown and the server's applyRegularAndOvertime):
+    // full-day leave (>= 8h) earns no OT; otherwise OT is the worked hours beyond the day's
+    // remaining regular capacity. Weekends never carry OT. Read-only here, as everywhere.
+    const hoursAt = (rows, i) => rows.reduce((s, r) => s + (r.days && r.days[i] ? Number(r.days[i].hours) || 0 : 0), 0);
+    const otByDay = days.map((d, i) => {
+        if (d.isWeekend) return 0;
+        const leave = hoursAt(timeOffRows, i);
+        if (leave >= REGULAR_HOURS_PER_DAY) return 0;
+        return Math.max(0, hoursAt(projectRows, i) - (REGULAR_HOURS_PER_DAY - leave));
+    });
+    const totalOt = otByDay.reduce((s, h) => s + h, 0);
 
     return (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6">
@@ -174,6 +194,39 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                             </table>
                         </div>
 
+                        {/* OT hours (read-only) — same position and shape as the employee's
+                            Time Entry page, between the project table and Holiday/Time off. */}
+                        <div className="mt-6 border border-[#E3E8EF] rounded-xl overflow-hidden">
+                            <div className="px-4 py-2.5 border-b border-[#E3E8EF] flex items-baseline gap-3">
+                                <h3 className="text-xs font-black text-brand-text uppercase tracking-wide">OT Hours</h3>
+                                <span className="text-[10px] text-brand-text/40">
+                                    Calculated — hours beyond the 8h daily regular capacity (leave included)
+                                </span>
+                            </div>
+                            <table className="w-full border-collapse table-fixed">
+                                <thead>
+                                    <tr className="text-[9px] text-brand-text/40 uppercase">
+                                        <th className="px-3 py-2 text-right font-bold w-[22%]"></th>
+                                        {days.map((d, i) => (<th key={i} className="px-0.5 py-2 font-bold text-center w-[9%]"><div className="text-brand-text/70">{d.dom}</div><div className="text-[7px]">{d.wd}</div></th>))}
+                                        <th className="px-1 py-2 font-bold text-center w-[8%]">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr className="border-b border-[#E3E8EF] text-[10px]">
+                                        <td className="px-3 py-1.5 text-right font-semibold text-brand-text/70">Overtime (&gt;8h/day)</td>
+                                        {otByDay.map((h, i) => (
+                                            <td key={i} className="px-0.5 py-1.5 text-center">
+                                                <span className={h > 0 ? "font-bold text-amber-700" : "text-brand-text/30"}>
+                                                    {h > 0 ? h.toFixed(2) : "—"}
+                                                </span>
+                                            </td>
+                                        ))}
+                                        <td className="px-1 py-1.5 text-center font-bold text-amber-600">{totalOt.toFixed(2)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
                         {/* Holiday / Time off (read-only) */}
                         <div className="mt-6 border border-[#E3E8EF] rounded-xl overflow-hidden">
                             <div className="px-4 py-2.5 border-b border-[#E3E8EF]"><h3 className="text-xs font-black text-brand-text uppercase tracking-wide">Holiday/Time off</h3></div>
@@ -201,6 +254,10 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                         <div className="mt-5 flex flex-col gap-1 text-sm items-end">
                             <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Project Related Hours:</span><span className="font-black text-brand-text w-16 text-right">{(detail.totalBillableHours + detail.totalNonBillableHours).toFixed(2)}</span></div>
                             <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Holiday/Time off Hours:</span><span className="font-black text-brand-text w-16 text-right">{(detail.totalTimeOffHours || 0).toFixed(2)}</span></div>
+                            {/* Server-computed 8h/day split, so the reviewer sees what the
+                                employee saw on the entry page. */}
+                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Regular Hours:</span><span className="font-black text-brand-text w-16 text-right">{(detail.totalRegularHours || 0).toFixed(2)}</span></div>
+                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total OT Hours:</span><span className="font-black text-amber-600 w-16 text-right">{(detail.totalOtHours || 0).toFixed(2)}</span></div>
                             <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Grand Total:</span><span className="font-black text-brand-text w-16 text-right">{(detail.grandTotal || 0).toFixed(2)}</span></div>
                         </div>
                     </div>

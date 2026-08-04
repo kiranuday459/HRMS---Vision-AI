@@ -32,6 +32,8 @@ public class ClientTimesheetWeekService {
     // Time-off row types, in display order.
     private static final List<String> TIMEOFF_TYPES = List.of("SICK", "HOLIDAY", "PTO", "LOP", "EARNED");
     private static final int MAX_WEEKS = 104; // cap the generated summary list (~2 years)
+    // Daily Regular-hours capacity, shared between leave taken and project hours worked.
+    private static final double REGULAR_HOURS_PER_DAY = 8.0;
 
     @Autowired
     private ClientTimesheetRepository lineRepository;
@@ -404,6 +406,61 @@ public class ClientTimesheetWeekService {
         dto.setTotalNonBillableHours(nonBillable);
         dto.setTotalTimeOffHours(timeOff);
         dto.setGrandTotal(billable + nonBillable + timeOff);
+        applyRegularAndOvertime(dto);
+    }
+
+    /**
+     * Splits the week into Regular and Overtime using the daily 8-hour regular capacity,
+     * which leave and worked project hours share:
+     * <ul>
+     *   <li>full-day leave (>= 8h) → Regular 8, OT 0 for that day, whatever else is entered</li>
+     *   <li>otherwise → Regular = leave + min(worked, 8 - leave); OT = the worked remainder</li>
+     * </ul>
+     * Weekends carry no Regular or Overtime (they are locked for entry).
+     *
+     * Always recomputed here, so whatever the client sent is overwritten — the approval
+     * queue reads these figures and must not be able to be told what they are.
+     * Mirrors the client-side dayBreakdown in EntryPage.jsx; keep the two in step.
+     */
+    private void applyRegularAndOvertime(ClientTimesheetWeekDTO dto) {
+        Map<LocalDate, Double> workedByDay = new HashMap<>();
+        Map<LocalDate, Double> leaveByDay = new HashMap<>();
+
+        for (ClientTimesheetWeekDTO.ProjectRowDTO r : dto.getProjectRows()) {
+            for (ClientTimesheetWeekDTO.DayHourDTO d : r.getDays()) {
+                if (d.getDate() == null) continue;
+                workedByDay.merge(d.getDate(), d.getHours() != null ? d.getHours() : 0, Double::sum);
+            }
+        }
+        for (ClientTimesheetWeekDTO.TimeOffRowDTO r : dto.getTimeOffRows()) {
+            for (ClientTimesheetWeekDTO.DayHourDTO d : r.getDays()) {
+                if (d.getDate() == null) continue;
+                leaveByDay.merge(d.getDate(), d.getHours() != null ? d.getHours() : 0, Double::sum);
+            }
+        }
+
+        Set<LocalDate> allDays = new HashSet<>(workedByDay.keySet());
+        allDays.addAll(leaveByDay.keySet());
+
+        double regular = 0, overtime = 0;
+        for (LocalDate day : allDays) {
+            DayOfWeek dow = day.getDayOfWeek();
+            if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) continue;
+
+            double worked = workedByDay.getOrDefault(day, 0.0);
+            double leave = leaveByDay.getOrDefault(day, 0.0);
+
+            if (leave >= REGULAR_HOURS_PER_DAY) {
+                regular += REGULAR_HOURS_PER_DAY;
+                continue; // full-day leave earns no overtime
+            }
+            double capacity = REGULAR_HOURS_PER_DAY - leave;
+            regular += leave + Math.min(worked, capacity);
+            overtime += Math.max(0, worked - capacity);
+        }
+
+        dto.setTotalRegularHours(regular);
+        dto.setTotalOtHours(overtime);
     }
 
     // =====================================================================
@@ -516,6 +573,9 @@ public class ClientTimesheetWeekService {
         header.setTotalBillableHours(payload.getTotalBillableHours());
         header.setTotalNonBillableHours(payload.getTotalNonBillableHours());
         header.setTotalTimeoffHours(payload.getTotalTimeOffHours());
+        // applyTotals() has just recomputed these from the payload's day hours.
+        header.setTotalRegularHours(payload.getTotalRegularHours());
+        header.setTotalOtHours(payload.getTotalOtHours());
         header.setGrandTotal(payload.getGrandTotal());
         if (submit) header.setSubmittedAt(LocalDateTime.now());
         ClientTimesheetWeek savedHeader = weekRepository.save(header);
