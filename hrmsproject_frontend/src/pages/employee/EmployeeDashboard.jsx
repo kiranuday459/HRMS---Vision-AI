@@ -49,14 +49,6 @@ const EmployeeDashboard = () => {
 	const ribbonRoleLabel = ROLE_LABELS[ribbonUser.role] || ribbonUser.role || "";
 	const ribbonName = ribbonUser.fullName || `${ribbonUser.firstName || ""} ${ribbonUser.lastName || ""}`.trim();
 
-	useEffect(() => {
-		const params = new URLSearchParams(location.search);
-		const tabParam = params.get("tab");
-		if (tabParam && ["dashboard", "timesheet", "leave", "profile"].includes(tabParam)) {
-			setActiveTab(tabParam);
-		}
-	}, [location.search]);
-
 	// Sync user data from localStorage when switching back to dashboard
 	useEffect(() => {
 		const userData = JSON.parse(localStorage.getItem("user")) || {};
@@ -327,10 +319,36 @@ const EmployeeDashboard = () => {
 		return `${h12}:${m} ${ampm}`;
 	};
 
+	useEffect(() => {
+		const path = location.pathname;
+		if (path.includes("/employee/timesheet")) {
+			setActiveTab("timesheet");
+		} else if (path.includes("/employee/leave")) {
+			setActiveTab("leave");
+		} else if (path.includes("/employee/profile")) {
+			setActiveTab("profile");
+		} else {
+			const params = new URLSearchParams(location.search);
+			const tabParam = params.get("tab");
+			if (tabParam && ["dashboard", "timesheet", "leave", "profile"].includes(tabParam)) {
+				setActiveTab(tabParam);
+			} else {
+				setActiveTab("dashboard");
+			}
+		}
+	}, [location]);
+
+	// Sync user data from localStorage when switching back to dashboard
+	useEffect(() => {
+		const userData = JSON.parse(localStorage.getItem("user")) || {};
+		setUser(userData);
+	}, [activeTab]);
+
 	const navItems = [
 		{
 			tab: "dashboard",
 			label: "Dashboard",
+			to: "/employee/dashboard",
 			icon: (
 				<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 					<rect x="3" y="3" width="7" height="7"></rect>
@@ -343,6 +361,7 @@ const EmployeeDashboard = () => {
 		{
 			tab: "timesheet",
 			label: "Timesheet",
+			to: "/employee/timesheet",
 			icon: (
 				<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 					<circle cx="12" cy="12" r="10"></circle>
@@ -353,6 +372,7 @@ const EmployeeDashboard = () => {
 		{
 			tab: "leave",
 			label: "Leave Request",
+			to: "/employee/leave",
 			icon: (
 				<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>

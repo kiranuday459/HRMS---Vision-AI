@@ -86,29 +86,39 @@ function App() {
         {/* Login */}
         <Route path="/login" element={<LoginPage setUser={setUser} />} />
 
-        {/* TEMP TEST ROUTES (work exactly like before) */}
+        {/* Employee Routes */}
+        <Route path="/employee" element={<Navigate to="/employee/dashboard" replace />} />
         <Route
-          path="/employee"
+          path="/employee/dashboard"
           element={authLoading ? null : (user ? <EmployeeDashboard /> : <Navigate to="/login" />)}
         />
         <Route
           path="/employee/profile"
           element={
             user?.role === "REPORTING_MANAGER"
-              ? <Navigate to="/manager?tab=profile" />
+              ? <Navigate to="/manager/profile" />
               : user?.role === "HR"
-                ? <Navigate to="/hr?tab=profile" />
-                : <Navigate to="/employee?tab=profile" />
+                ? <Navigate to="/hr/profile" />
+                : authLoading ? null : (user ? <EmployeeDashboard /> : <Navigate to="/login" />)
           }
         />
         <Route
           path="/employee/timesheet"
           element={
             user?.role === "REPORTING_MANAGER"
-              ? <Navigate to="/manager?tab=timesheet" />
-              : <Navigate to="/employee?tab=timesheet" />
+              ? <Navigate to="/manager/timesheet" />
+              : authLoading ? null : (user ? <EmployeeDashboard /> : <Navigate to="/login" />)
           }
         />
+        <Route
+          path="/employee/leave"
+          element={authLoading ? null : (user ? <EmployeeDashboard /> : <Navigate to="/login" />)}
+        />
+        <Route
+          path="/employee/leaves"
+          element={<Navigate to="/employee/leave" replace />}
+        />
+
         {/* Client Timesheet workspace — unified routes, distinct layout, same auth session. */}
         <Route element={<ClientTimesheetsLayout />}>
           <Route
@@ -130,34 +140,61 @@ function App() {
         <Route path="/reporting-dashboard/client-timesheet" element={<Navigate to={CLIENT_TIMESHEET_DASHBOARD} replace />} />
         <Route path="/reporting-dashboard/client-timesheet/:weekStart" element={<LegacyClientWeekRedirect />} />
         <Route path="/admin/client-timesheets" element={<Navigate to={CLIENT_TIMESHEET_ADMIN} replace />} />
+
+        {/* Admin Routes */}
+        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
         <Route
-          path="/admin"
+          path="/admin/dashboard"
           element={authLoading ? null : (user && user.role === "ADMIN" ? <AdminDashboard /> : <Navigate to="/login" />)}
         />
         <Route
-          path="/admin/candidates"
+          path="/admin/employees"
           element={authLoading ? null : (user && user.role === "ADMIN" ? <CandidatesPage /> : <Navigate to="/login" />)}
         />
+        <Route path="/admin/candidates" element={<Navigate to="/admin/employees" replace />} />
         <Route
-          path="/admin/selected-employees"
-          element={authLoading ? null : (user && user.role === "ADMIN" ? <SelectedEmployees /> : <Navigate to="/login" />)}
+          path="/admin/managers"
+          element={authLoading ? null : (user && user.role === "ADMIN" ? <ReportingManagers /> : <Navigate to="/login" />)}
+        />
+        <Route path="/admin/reporting-managers" element={<Navigate to="/admin/managers" replace />} />
+        <Route
+          path="/admin/hr-team"
+          element={authLoading ? null : (user && user.role === "ADMIN" ? <AdminDashboard /> : <Navigate to="/login" />)}
         />
         <Route
-          path="/admin/reporting-managers"
-          element={authLoading ? null : (user && user.role === "ADMIN" ? <ReportingManagers /> : <Navigate to="/login" />)}
+          path="/admin/leaves"
+          element={authLoading ? null : (user && user.role === "ADMIN" ? <AdminDashboard /> : <Navigate to="/login" />)}
         />
         <Route
           path="/admin/timesheets"
           element={authLoading ? null : (user && user.role === "ADMIN" ? <AdminTimesheets /> : <Navigate to="/login" />)}
         />
         <Route
+          path="/admin/selected-employees"
+          element={authLoading ? null : (user && user.role === "ADMIN" ? <SelectedEmployees /> : <Navigate to="/login" />)}
+        />
+        <Route
           path="/admin/employee/:id"
           element={authLoading ? null : (user && (user.role === "ADMIN" || user.role === "REPORTING_MANAGER" || user.role === "HR") ? <EmployeeProfile /> : <Navigate to="/login" />)}
         />
 
-        {/* <Route path="/admin-dashboard" element={<AdminDashboard />} /> */}
+        {/* HR Routes */}
+        <Route path="/hr" element={<Navigate to="/hr/dashboard" replace />} />
         <Route
-          path="/hr"
+          path="/hr/dashboard"
+          element={authLoading ? null : (user && user.role === "HR" ? <HrDashboard /> : <Navigate to="/login" />)}
+        />
+        <Route
+          path="/hr/timesheet"
+          element={authLoading ? null : (user && user.role === "HR" ? <HrDashboard /> : <Navigate to="/login" />)}
+        />
+        <Route
+          path="/hr/leave"
+          element={authLoading ? null : (user && user.role === "HR" ? <HrDashboard /> : <Navigate to="/login" />)}
+        />
+        <Route path="/hr/leaves" element={<Navigate to="/hr/leave" replace />} />
+        <Route
+          path="/hr/profile"
           element={authLoading ? null : (user && user.role === "HR" ? <HrDashboard /> : <Navigate to="/login" />)}
         />
         <Route
@@ -168,10 +205,12 @@ function App() {
           path="/hr/actions/candidates"
           element={authLoading ? null : (user && user.role === "HR" ? <HrCandidatesPage /> : <Navigate to="/login" />)}
         />
+        <Route path="/hr/employees" element={<Navigate to="/hr/actions/candidates" replace />} />
         <Route
           path="/hr/actions/reporting-managers"
           element={authLoading ? null : (user && user.role === "HR" ? <HrReportingManagersPage /> : <Navigate to="/login" />)}
         />
+        <Route path="/hr/managers" element={<Navigate to="/hr/actions/reporting-managers" replace />} />
         <Route
           path="/hr/actions/leaves"
           element={authLoading ? null : (user && user.role === "HR" ? <HrManagerLeaves /> : <Navigate to="/login" />)}
@@ -180,40 +219,64 @@ function App() {
           path="/hr/actions/timesheet"
           element={authLoading ? null : (user && user.role === "HR" ? <HrManagerTimesheets /> : <Navigate to="/login" />)}
         />
+        <Route path="/hr/timesheets" element={<Navigate to="/hr/actions/timesheet" replace />} />
 
         {/* Reporting Manager Routes */}
+        <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
+        <Route path="/reporting-dashboard" element={<Navigate to="/manager/dashboard" replace />} />
         <Route
-          path="/manager"
+          path="/manager/dashboard"
           element={authLoading ? null : (user && user.role === "REPORTING_MANAGER" ? <ReportingManagerDashboard /> : <Navigate to="/login" />)}
         />
         <Route
-          path="/reporting-dashboard"
+          path="/manager/timesheet"
           element={authLoading ? null : (user && user.role === "REPORTING_MANAGER" ? <ReportingManagerDashboard /> : <Navigate to="/login" />)}
         />
         <Route
-          path="/reporting-team"
+          path="/manager/leave"
+          element={authLoading ? null : (user && user.role === "REPORTING_MANAGER" ? <ReportingManagerDashboard /> : <Navigate to="/login" />)}
+        />
+        <Route path="/manager/leaves" element={<Navigate to="/manager/leave" replace />} />
+        <Route
+          path="/manager/profile"
+          element={authLoading ? null : (user && user.role === "REPORTING_MANAGER" ? <ReportingManagerDashboard /> : <Navigate to="/login" />)}
+        />
+        <Route
+          path="/manager/team"
+          element={authLoading ? null : (user && user.role === "REPORTING_MANAGER" ? <ReportingManagerTeam /> : <Navigate to="/login" />)}
+        />
+        <Route path="/reporting-team" element={<Navigate to="/manager/team" replace />} />
+        <Route
+          path="/manager/timesheets"
+          element={authLoading ? null : (user && user.role === "REPORTING_MANAGER" ? <ReportingManagerTeam /> : <Navigate to="/login" />)}
+        />
+        <Route
+          path="/manager/team-timesheets"
+          element={<Navigate to="/manager/timesheets" replace />}
+        />
+        <Route
+          path="/manager/team-leaves"
           element={authLoading ? null : (user && user.role === "REPORTING_MANAGER" ? <ReportingManagerTeam /> : <Navigate to="/login" />)}
         />
 
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
-
         {/* Default */}
         <Route path="/" element={user ? (
           <Navigate to={
-            user.role === 'ADMIN' ? "/admin" :
-            user.role === 'HR' ? "/hr" :
-            user.role === 'REPORTING_MANAGER' ? "/manager" : "/employee"
-          } />
-        ) : <Navigate to="/login" />} />
+            user.role === 'ADMIN' ? "/admin/dashboard" :
+            user.role === 'HR' ? "/hr/dashboard" :
+            user.role === 'REPORTING_MANAGER' ? "/manager/dashboard" : "/employee/dashboard"
+          } replace />
+        ) : <Navigate to="/login" replace />} />
         
         <Route path="*" element={user ? (
           <Navigate to={
-            user.role === 'ADMIN' ? "/admin" :
-            user.role === 'HR' ? "/hr" :
-            user.role === 'REPORTING_MANAGER' ? "/manager" : "/employee"
-          } />
-        ) : <Navigate to="/login" />} />
+            user.role === 'ADMIN' ? "/admin/dashboard" :
+            user.role === 'HR' ? "/hr/dashboard" :
+            user.role === 'REPORTING_MANAGER' ? "/manager/dashboard" : "/employee/dashboard"
+          } replace />
+        ) : <Navigate to="/login" replace />} />
 
       </Routes>
       </WorkspaceProvider>

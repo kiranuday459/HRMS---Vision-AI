@@ -16,7 +16,7 @@ export const getHrNavItems = () => [
                 <rect x="3" y="14" width="7" height="7"></rect>
             </svg>
         ),
-        to: "/hr?tab=dashboard"
+        to: "/hr/dashboard"
     },
     {
         tab: "timesheet",
@@ -27,7 +27,7 @@ export const getHrNavItems = () => [
                 <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
         ),
-        to: "/hr?tab=timesheet"
+        to: "/hr/timesheet"
     },
     {
         tab: "leave",
@@ -41,7 +41,7 @@ export const getHrNavItems = () => [
                 <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
         ),
-        to: "/hr?tab=leave"
+        to: "/hr/leave"
     },
     {
         type: "heading",

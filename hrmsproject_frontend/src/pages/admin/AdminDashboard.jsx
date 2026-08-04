@@ -134,7 +134,17 @@ function HRTeamDisplay() {
 
 export default function AdminDashboard() {
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState(location.state?.tab || "dashboard");
+  const getTabFromPath = (path) => {
+    if (path.includes("/admin/hr-team")) return "hr-team";
+    if (path.includes("/admin/leaves")) return "leave-requests";
+    return location.state?.tab || "dashboard";
+  };
+  const [activeTab, setActiveTab] = useState(() => getTabFromPath(location.pathname));
+
+  useEffect(() => {
+    setActiveTab(getTabFromPath(location.pathname));
+  }, [location.pathname, location.state]);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [pendingLeaves, setPendingLeaves] = useState([]);
