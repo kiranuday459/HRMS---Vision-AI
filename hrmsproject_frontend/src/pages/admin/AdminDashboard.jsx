@@ -486,6 +486,14 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 md:gap-3">
+                  {/* Sits in the title row rather than its own full-width banner. Wrapped in a
+                      plain div so the component's own `self-start` (meant for the column
+                      layouts on the employee/RM dashboards) doesn't top-align it here. */}
+                  {activeTab === "dashboard" && (
+                    <div>
+                      <ClientTimesheetSwitch />
+                    </div>
+                  )}
                   {activeTab !== "hr-team" && <NotificationComponent />}
                 </div>
               </>
@@ -495,7 +503,6 @@ export default function AdminDashboard() {
           <div className="flex-1 p-4 overflow-y-auto md:overflow-hidden flex flex-col">
             {activeTab === "dashboard" && (
               <div className="flex flex-col gap-4 h-full overflow-visible md:overflow-hidden">
-                <ClientTimesheetSwitch />
                 {/* ROW 1 - Metric Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 shrink-0">
                   <MetricCard

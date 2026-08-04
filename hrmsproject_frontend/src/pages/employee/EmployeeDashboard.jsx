@@ -441,6 +441,12 @@ const EmployeeDashboard = () => {
 							</div>
 						</div>
 						<div className="flex items-center gap-3 relative" id="profile-dropdown-container">
+							{/* Sits in the title row rather than a full-width banner. Plain div wrapper
+							    so the component`s own self-start (meant for the column layouts on the
+							    other dashboards) does not top-align it against the icons. */}
+							<div>
+								<ClientTimesheetSwitch onVerifyClick={() => setOtpModalOpen(true)} />
+							</div>
 							<NotificationComponent />
 							<button
 								onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
@@ -590,8 +596,6 @@ const EmployeeDashboard = () => {
 				<div className={`flex-1 ${activeTab === 'profile' ? 'p-2 md:p-6' : 'p-3 md:p-8'} flex flex-col ${activeTab === 'profile' ? 'gap-2' : 'gap-6 md:gap-8'}`}>
 					{activeTab === 'dashboard' && (
 						<>
-							<ClientTimesheetSwitch onVerifyClick={() => setOtpModalOpen(true)} />
-
 							{error && (
 								<div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium">
 									{error}

@@ -1,9 +1,8 @@
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { Clock, LogOut } from "lucide-react";
 import { useEffect } from "react";
 import "./clientTimesheets.css";
 import { useWorkspace } from "../hooks/useWorkspace";
-import { CLIENT_TIMESHEET_DASHBOARD, CLIENT_TIMESHEET_ADMIN } from "../utils/clientTimesheetNav";
 import ClientTimesheetNotifications from "./components/ClientTimesheetNotifications";
 
 /**
@@ -13,7 +12,6 @@ import ClientTimesheetNotifications from "./components/ClientTimesheetNotificati
  */
 export default function ClientTimesheetsLayout() {
     const navigate = useNavigate();
-    const location = useLocation();
     const { enterClientWorkspace, exitClientWorkspace } = useWorkspace();
     const user = JSON.parse(localStorage.getItem("user")) || {};
     const role = (user.role || "").toUpperCase();
@@ -27,10 +25,9 @@ export default function ClientTimesheetsLayout() {
         exitClientWorkspace(navigate);
     };
 
-    const navItems = isAdmin
-        ? [{ label: "Admin Dashboard", to: CLIENT_TIMESHEET_ADMIN }]
-        : [{ label: "Timesheet Summary", to: CLIENT_TIMESHEET_DASHBOARD }];
-
+    // No tabs in the top bar. The admin's "Admin Dashboard" link lives in the filter row on
+    // the admin page, and the employee's "Timesheet Summary" tab only restated the page
+    // heading directly beneath it — the bar carries the branding alone.
     return (
         <div className="ct-scope flex flex-col h-screen w-screen overflow-hidden">
             <header className="ct-topbar flex items-center justify-between px-4 md:px-6 h-14 shadow-md shrink-0">
@@ -43,21 +40,6 @@ export default function ClientTimesheetsLayout() {
                             {isAdmin ? "Client Timesheet Admin" : "Client Timesheets"}
                         </span>
                     </div>
-                    <nav className="hidden sm:flex items-stretch h-14">
-                        {navItems.map((n) => {
-                            const active = location.pathname === n.to || location.pathname.startsWith(`${n.to}/`);
-                            return (
-                                <button
-                                    key={n.to}
-                                    type="button"
-                                    onClick={() => navigate(n.to)}
-                                    className={`ct-navbtn px-3 h-14 text-[12px] font-bold uppercase tracking-widest ${active ? "is-active" : ""}`}
-                                >
-                                    {n.label}
-                                </button>
-                            );
-                        })}
-                    </nav>
                 </div>
                 <div className="flex items-center gap-2">
                     {/* One bell for both sides — this shell is shared by the admin and

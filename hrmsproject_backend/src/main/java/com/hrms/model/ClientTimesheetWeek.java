@@ -39,6 +39,13 @@ public class ClientTimesheetWeek {
     private Double totalBillableHours = 0.0;
     private Double totalNonBillableHours = 0.0;
     private Double totalTimeoffHours = 0.0;
+
+    // Daily 8h regular capacity is shared between leave taken and project hours worked;
+    // anything beyond it is overtime. Computed server-side in
+    // ClientTimesheetWeekService.applyTotals so the approval queue reads authoritative figures.
+    private Double totalRegularHours = 0.0;
+    private Double totalOtHours = 0.0;
+
     private Double grandTotal = 0.0;
 
     private LocalDateTime submittedAt;
@@ -129,6 +136,22 @@ public class ClientTimesheetWeek {
 
     public void setTotalTimeoffHours(Double totalTimeoffHours) {
         this.totalTimeoffHours = totalTimeoffHours;
+    }
+
+    public Double getTotalRegularHours() {
+        return totalRegularHours;
+    }
+
+    public void setTotalRegularHours(Double totalRegularHours) {
+        this.totalRegularHours = totalRegularHours;
+    }
+
+    public Double getTotalOtHours() {
+        return totalOtHours;
+    }
+
+    public void setTotalOtHours(Double totalOtHours) {
+        this.totalOtHours = totalOtHours;
     }
 
     public Double getGrandTotal() {

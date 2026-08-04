@@ -36,6 +36,11 @@ public class ClientTimesheetWeekDTO {
     private Double totalBillableHours;
     private Double totalNonBillableHours;
     private Double totalTimeOffHours;
+
+    // Daily 8h regular capacity split (leave + worked). Server-computed; any value sent by
+    // the client is overwritten in applyTotals().
+    private Double totalRegularHours;
+    private Double totalOtHours;
     private Double grandTotal;
 
     public static class DayHourDTO {
@@ -134,6 +139,10 @@ public class ClientTimesheetWeekDTO {
     public void setTotalNonBillableHours(Double totalNonBillableHours) { this.totalNonBillableHours = totalNonBillableHours; }
     public Double getTotalTimeOffHours() { return totalTimeOffHours; }
     public void setTotalTimeOffHours(Double totalTimeOffHours) { this.totalTimeOffHours = totalTimeOffHours; }
+    public Double getTotalRegularHours() { return totalRegularHours; }
+    public void setTotalRegularHours(Double totalRegularHours) { this.totalRegularHours = totalRegularHours; }
+    public Double getTotalOtHours() { return totalOtHours; }
+    public void setTotalOtHours(Double totalOtHours) { this.totalOtHours = totalOtHours; }
     public Double getGrandTotal() { return grandTotal; }
     public void setGrandTotal(Double grandTotal) { this.grandTotal = grandTotal; }
 }

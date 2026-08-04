@@ -97,24 +97,20 @@ export default function ClientTimesheetSummary() {
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
                         <h1 className="text-2xl font-black text-brand-text tracking-tight">Timesheet Summary</h1>
                         <div className="flex items-center gap-3">
-                            <label className="text-sm font-bold text-brand-text/60 whitespace-nowrap">Search By</label>
+                            {/* The dropdown labels itself, so the separate "Search By" label and
+                                the Search button are gone — one control for one action. */}
                             <select
                                 value={searchBy}
-                                onChange={(e) => setSearchBy(e.target.value)}
-                                className="min-w-[160px] bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-md px-3 py-2 text-sm font-semibold text-brand-text outline-none transition-all"
+                                onChange={(e) => { setSearchBy(e.target.value); setAppliedFilter(e.target.value); }}
+                                className="min-w-[180px] bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-md px-3 py-2 text-sm font-semibold text-brand-text outline-none transition-all"
+                                aria-label="Filter by status"
                             >
-                                <option value="">— Select —</option>
+                                <option value="">All statuses</option>
                                 <option value="DRAFT">Pending</option>
                                 <option value="PENDING">Submitted for Approval</option>
                                 <option value="APPROVED">Approved</option>
                                 <option value="REJECTED">Rejected</option>
                             </select>
-                            <button
-                                onClick={() => setAppliedFilter(searchBy)}
-                                className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-sm font-bold transition-all active:scale-95"
-                            >
-                                Search
-                            </button>
                             <button
                                 onClick={() => { setSearchBy(""); setAppliedFilter(""); fetchWeeks(); }}
                                 className="w-9 h-9 flex items-center justify-center bg-[#2C2C2A] hover:bg-black text-white rounded-md transition-all active:scale-95"
@@ -125,10 +121,6 @@ export default function ClientTimesheetSummary() {
                             </button>
                         </div>
                     </div>
-
-                    <p className="text-[13px] text-brand-text/50 mb-4">
-                        Please follow basic troubleshooting if you face any discrepancies in accessing the page.
-                    </p>
 
                     {loading ? (
                         <div className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Loading timesheets...</div>

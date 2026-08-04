@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import DownloadClientTimesheetModal from "../components/DownloadClientTimesheetModal";
 import ClientTimesheetDetailDrawer from "../components/ClientTimesheetDetailDrawer";
 import AccessManagementTab from "../components/AccessManagementTab";
@@ -10,6 +10,7 @@ import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { Download, Check, X, Eye, Briefcase } from "lucide-react";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
+import { CLIENT_TIMESHEET_ADMIN } from "../../utils/clientTimesheetNav";
 
 // ── Date helpers (treat YYYY-MM-DD as local, avoid timezone shifts) ──
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -58,6 +59,7 @@ const ADMIN_QUEUE_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED"]);
 
 export default function ClientTimesheets() {
     const location = useLocation();
+    const navigate = useNavigate();
     // Page tab: "timesheets" (approval queue) | "assigned" (assigned members) | "access" (access management).
     const [pageTab, setPageTab] = useState(location.state?.tab === "access" ? "access" : location.state?.tab === "assigned" ? "assigned" : "timesheets");
     const [entries, setEntries] = useState([]);
@@ -305,9 +307,22 @@ export default function ClientTimesheets() {
                             <AssignedMembersTab />
                         </div>
                     ) : (
-                        <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4">
+                        // overflow-hidden (not auto): the filter row stays put and the card
+                        // list below owns the only scrollbar. Two nested scroll containers
+                        // used to fight each other and clip the cards at the viewport edge.
+                        <div className="flex-1 min-h-0 p-4 overflow-hidden flex flex-col gap-4">
                             {/* Filters */}
-                            <div className="flex flex-wrap gap-3 items-center justify-end w-full">
+                            <div className="flex flex-wrap gap-3 items-center justify-between w-full">
+                                {/* Moved down out of the dark top bar; same destination as the
+                                    tab it replaces. mr-auto keeps it left while the filter and
+                                    download controls stay grouped on the right. */}
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(CLIENT_TIMESHEET_ADMIN)}
+                                    className="mr-auto px-1 text-[13px] font-bold uppercase tracking-widest text-brand-text/60 hover:text-brand-blue-dark transition-colors"
+                                >
+                                    Admin Dashboard
+                                </button>
                                 <div className="flex items-center gap-3 ml-auto">
                                     <select
                                         value={statusFilter}
@@ -337,7 +352,10 @@ export default function ClientTimesheets() {
                                 ) : displayedBlocks.length === 0 ? (
                                     <div className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs">No client timesheets found</div>
                                 ) : (
-                                    <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1">
+                                    // flex-1 + min-h-0 give the list a real height to scroll
+                                    // within, so it works the same for 5 cards or 50; pb-1
+                                    // keeps the last card's border/shadow off the clip edge.
+                                    <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1 pb-1">
                                         {displayedBlocks.map((block) => {
                                             const meta = clientTimesheetStatusMeta(block.status);
                                             const isPending = block.status === "PENDING";
