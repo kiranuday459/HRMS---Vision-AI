@@ -13,12 +13,14 @@ import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
 import { getLeaveActionLabel } from "../../utils/leaveStatus";
 import { getWeekStatus } from "../../utils/timesheetStatus";
 import { useClientAccess } from "../../hooks/useClientAccess";
+import useSidebarCollapsed from "../../hooks/useSidebarCollapsed";
 import ClientOtpVerifyModal from "../../components/ClientOtpVerifyModal";
 import ClientTimesheetSwitch from "../../components/ClientTimesheetSwitch";
 
 const EmployeeDashboard = () => {
 	const navigate = useNavigate();
 	const location = useLocation();
+	const [collapsed] = useSidebarCollapsed();
 	const [activeTab, setActiveTab] = useState("dashboard");
 	const [user, setUser] = useState({});
 	const [currentDate, setCurrentDate] = useState("");
@@ -421,7 +423,10 @@ const EmployeeDashboard = () => {
 					onClick={() => setIsMobileMenuOpen(false)}
 				/>
 
-				<div className={`relative w-64 h-full md:h-auto animate-in slide-in-from-left duration-300 md:animate-none`}>
+				<div
+					style={{ width: collapsed ? '80px' : '256px' }}
+					className={`relative h-full md:h-auto animate-in slide-in-from-left duration-300 md:animate-none transition-[width] duration-300 ease-in-out`}
+				>
 					{/* Mobile Close Button */}
 					<button
 						onClick={() => setIsMobileMenuOpen(false)}

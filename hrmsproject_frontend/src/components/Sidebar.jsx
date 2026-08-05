@@ -98,7 +98,10 @@ const Sidebar = ({ activeTab, setActiveTab, handleLogout, navItems, hideLogout =
 			)}
 
 			{/* Desktop full sidebar (visible on lg) */}
-			<aside className={`hidden lg:flex ${collapsed ? 'w-20' : 'w-64'} bg-white text-[#2C2C2A] border-r border-[#E3E8EF] flex-col h-screen sticky top-0 overflow-hidden transition-[width] duration-300 ease-in-out`}>
+			<aside
+				style={{ width: collapsed ? '80px' : '256px' }}
+				className={`hidden lg:flex bg-white text-[#2C2C2A] border-r border-[#E3E8EF] flex-col h-screen sticky top-0 overflow-hidden transition-[width] duration-300 ease-in-out`}
+			>
 
 			{/* Logo + Collapse Toggle */}
 			<div className={`p-4 border-b border-[#E3E8EF] flex items-center ${collapsed ? 'justify-center' : 'justify-between'} gap-2`}>

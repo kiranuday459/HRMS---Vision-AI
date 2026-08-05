@@ -5,7 +5,11 @@ const EVENT = "sidebar-collapsed-change";
 
 const read = () => {
   try {
-    return localStorage.getItem(STORAGE_KEY) === "true";
+    const stored = localStorage.getItem(STORAGE_KEY);
+    // If nothing stored, default to expanded (false)
+    // If stored is "false", use false (expanded)
+    // If stored is "true", use true (collapsed)
+    return stored === "true";
   } catch {
     return false;
   }
