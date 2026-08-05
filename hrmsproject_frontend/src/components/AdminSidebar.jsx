@@ -135,7 +135,10 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
         </div>
       )}
 
-      <aside className={`hidden md:flex ${collapsed ? 'md:w-20' : 'md:w-[277px]'} w-full bg-white text-[#2C2C2A] border-r border-[#E3E8EF] flex-col flex-shrink-0 z-20 h-screen sticky top-0 overflow-hidden transition-[width] duration-300 ease-in-out`}>
+      <aside
+        style={{ width: collapsed ? '80px' : '277px' }}
+        className={`hidden md:flex bg-white text-[#2C2C2A] border-r border-[#E3E8EF] flex-col flex-shrink-0 z-20 h-screen sticky top-0 overflow-hidden transition-[width] duration-300 ease-in-out`}
+      >
         <div className={`border-b border-[#E3E8EF] flex items-center gap-2 ${collapsed ? 'p-4 justify-center' : 'p-6 justify-between'}`}>
           {!collapsed && (
             <div className="flex flex-col items-center text-center min-w-0 flex-1">
