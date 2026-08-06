@@ -1059,7 +1059,7 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                     <input id="profilePhotoInput" ref={fileInputRef} type="file" className="hidden" onChange={handlePhotoUpload} accept="image/jpeg,image/png,image/webp,image/gif" />
                   </div>
                   {photoError && <p className="text-[11px] text-red-500 mt-2">{photoError}</p>}
-                  <h2 className="mt-3 text-[18px] font-medium text-brand-text leading-tight">{employee?.firstName} {employee?.lastName}</h2>
+                  <h2 className="mt-3 text-[18px] font-medium text-brand-text leading-tight break-words">{employee?.firstName} {employee?.lastName}</h2>
                   <p className="text-[13px] text-brand-text/50 mt-0.5">{form.role || employee?.designation || "VisionAi Team"}</p>
                   <span className="mt-2 inline-flex items-center px-2.5 py-1 rounded-full bg-brand-blue/10 text-brand-blue text-[11px] font-semibold">{roleBadgeLabel}</span>
                   {(user.role === "HR" || user.role === "ADMIN") && (
