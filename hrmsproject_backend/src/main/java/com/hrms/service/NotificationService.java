@@ -37,6 +37,7 @@ public class NotificationService {
                     .type(type)
                     .relatedId(relatedId)
                     .isRead(false)
+                    .createdAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC))
                     .build();
             notificationRepository.save(notification);
         }

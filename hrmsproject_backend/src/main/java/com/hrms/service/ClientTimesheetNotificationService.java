@@ -186,6 +186,7 @@ public class ClientTimesheetNotificationService {
         n.setRelatedEmployeeId(employeeId);
         n.setRelatedWeekStart(weekStart);
         n.setRead(false);
+        n.setCreatedAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
         notificationRepository.save(n);
     }
 

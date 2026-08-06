@@ -84,12 +84,33 @@ const NotificationComponent = () => {
         }
     };
 
+    const parseUTCDate = (value) => {
+        if (!value) return null;
+        if (typeof value === 'string') {
+            const isoStr = (!value.endsWith('Z') && !value.includes('+') && !value.includes('-') && value.includes('T'))
+                ? `${value}Z`
+                : value;
+            const d = new Date(isoStr);
+            return Number.isNaN(d.getTime()) ? null : d;
+        }
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? null : d;
+    };
+
     const getTimeAgo = (dateString) => {
-        const diffInSeconds = Math.floor((new Date() - new Date(dateString)) / 1000);
+        const date = parseUTCDate(dateString);
+        if (!date) return '';
+        const diffInSeconds = Math.floor((Date.now() - date.getTime()) / 1000);
         if (diffInSeconds < 60) return 'just now';
         if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
         if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
         return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    };
+
+    const getFormattedTimeHover = (dateString) => {
+        const date = parseUTCDate(dateString);
+        if (!date) return '';
+        return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
     };
 
     const toggleDropdown = () => {
@@ -151,7 +172,7 @@ const NotificationComponent = () => {
                                                 <p className={`text-xs font-bold ${!n.isRead ? 'text-brand-text' : 'text-brand-text/60'}`}>{n.title}</p>
                                                 <p className="text-[11px] text-brand-text/40 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
                                                 <div className="flex items-center gap-2 mt-2">
-                                                    <div className="flex items-center gap-1 text-slate-300">
+                                                    <div className="flex items-center gap-1 text-slate-300" title={getFormattedTimeHover(n.createdAt)}>
                                                         <Clock size={10} />
                                                         <span className="text-[9px] font-bold uppercase tracking-wider">{getTimeAgo(n.createdAt)}</span>
                                                     </div>

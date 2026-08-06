@@ -12,6 +12,8 @@ public class ClientTimesheetNotificationDTO {
     private Long relatedEmployeeId;
     private LocalDate relatedWeekStart;
     private boolean isRead;
+
+    @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
     private LocalDateTime createdAt;
 
     public Long getId() {

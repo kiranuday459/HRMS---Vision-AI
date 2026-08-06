@@ -9,7 +9,15 @@ const BASE = "/api/client-timesheet/notifications";
 /** "just now" / "5 minutes ago" / "1 hour ago" / "3 days ago". */
 function timeAgo(value) {
     if (!value) return "";
-    const then = new Date(value);
+    let then;
+    if (typeof value === "string") {
+        const isoStr = (!value.endsWith("Z") && !value.includes("+") && !value.includes("-") && value.includes("T"))
+            ? `${value}Z`
+            : value;
+        then = new Date(isoStr);
+    } else {
+        then = new Date(value);
+    }
     if (Number.isNaN(then.getTime())) return "";
     const seconds = Math.floor((Date.now() - then.getTime()) / 1000);
     if (seconds < 60) return "just now";
