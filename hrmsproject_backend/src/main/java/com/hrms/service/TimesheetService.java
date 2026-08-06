@@ -23,6 +23,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.stream.Collectors;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -120,11 +122,10 @@ public class TimesheetService {
 
         Timesheet saved = timesheetRepository.save(timesheet);
 
-        // Notify RM and HR about new timesheet (if not a weekly batch, but weekly is
-        // preferred)
-        // For individual entries, we might not want to spam. But the user said "new
-        // timesheet received".
-        // Usually, weekly is what's monitored.
+        // Notify RM and HR about new timesheet
+        if (employee != null && employee.getId() != null && dto.getDate() != null) {
+            sendWeeklyTimesheetNotification(employee.getId(), dto.getDate());
+        }
 
         return convertToDTO(saved);
     }
@@ -231,6 +232,9 @@ public class TimesheetService {
         // Notify Employee on a weekly basis
         notifyWeeklyTimesheetStatus(approved, "Approved");
 
+        // Notify HR when RM approves
+        notifyHrOnRmAction(approved, reviewer, "Approved", null);
+
         return convertToDTO(approved);
     }
 
@@ -271,6 +275,58 @@ public class TimesheetService {
                 null);
     }
 
+    private void notifyHrOnRmAction(Timesheet entry, User reviewer, String action, String reason) {
+        try {
+            if (reviewer == null || reviewer.getRole() != Role.REPORTING_MANAGER) {
+                return;
+            }
+
+            Employee employee = entry.getEmployee();
+            if (employee == null) return;
+
+            String employeeName = (employee.getFirstName() + " " + (employee.getLastName() == null ? "" : employee.getLastName())).trim();
+            String rmName = resolveUserDisplayName(reviewer);
+
+            LocalDate date = entry.getDate();
+            int dayValue = date.getDayOfWeek().getValue();
+            int daysToSubtract = (dayValue == 6) ? 0 : (dayValue == 7 ? 1 : dayValue + 1);
+            LocalDate weekStart = date.minusDays(daysToSubtract);
+
+            String reasonPart = (reason != null && !reason.isBlank()) ? ". Reason: " + reason : ".";
+            String title = "Timesheet " + action + " by RM";
+            String message = "Timesheet for " + employeeName + " (week starting " + weekStart + ") has been "
+                    + action.toLowerCase() + " by Reporting Manager " + rmName + reasonPart;
+
+            Set<Long> hrUserIds = new HashSet<>();
+            EmployeeReporting reporting = employeeReportingRepository.findByEmployee(employee)
+                    .orElseGet(() -> employeeReportingRepository.findByEmployee_Id(employee.getId()).orElse(null));
+
+            if (reporting != null && reporting.getHr() != null && reporting.getHr().getUser() != null) {
+                hrUserIds.add(reporting.getHr().getUser().getId());
+            }
+
+            List<User> hrUsers = userRepository.findByRole(Role.HR);
+            for (User hr : hrUsers) {
+                if (hr.getId() != null) {
+                    hrUserIds.add(hr.getId());
+                }
+            }
+
+            for (Long hrUserId : hrUserIds) {
+                notificationService.createNotification(
+                        hrUserId,
+                        title,
+                        message,
+                        "TIMESHEET",
+                        null
+                );
+                System.out.println("[Notification] ✓ Notified HR userId=" + hrUserId + " that RM " + action.toLowerCase() + " timesheet for " + employeeName);
+            }
+        } catch (Exception e) {
+            System.err.println("[Notification] ✗ Failed to send HR notification on RM action: " + e.getMessage());
+        }
+    }
+
     public TimesheetDTO rejectTimesheet(Long id, Long reviewerId, String reason) {
         if (reason == null || reason.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rejection reason is required.");
@@ -308,6 +364,9 @@ public class TimesheetService {
 
         // Notify Employee on a weekly basis
         notifyWeeklyTimesheetStatus(rejected, "Rejected");
+
+        // Notify HR when RM rejects
+        notifyHrOnRmAction(rejected, reviewer, "Rejected", reason);
 
         return convertToDTO(rejected);
     }

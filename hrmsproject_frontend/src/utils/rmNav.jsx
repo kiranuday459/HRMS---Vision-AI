@@ -50,7 +50,7 @@ export const getRmNavItems = (activeTab) => [
     {
         tab: "team-leaves",
         label: "Team Leaves",
-        to: "/manager/leaves",
+        to: "/manager/team-leaves",
         icon: <History className="w-5 h-5" />
     }
 ];

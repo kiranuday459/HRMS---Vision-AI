@@ -64,7 +64,7 @@ export default function ReportingManagerTeam() {
         let v = 'team';
         if (path.includes("/manager/timesheets")) {
             v = 'timesheets';
-        } else if (path.includes("/manager/leaves")) {
+        } else if (path.includes("/manager/team-leaves") || path.includes("/manager/leaves")) {
             v = 'leaves';
         } else if (path.includes("/manager/team")) {
             v = 'team';

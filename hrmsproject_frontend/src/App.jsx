@@ -236,7 +236,7 @@ function App() {
           path="/manager/leave"
           element={authLoading ? null : (user && user.role === "REPORTING_MANAGER" ? <ReportingManagerDashboard /> : <Navigate to="/login" />)}
         />
-        <Route path="/manager/leaves" element={<Navigate to="/manager/leave" replace />} />
+        <Route path="/manager/leaves" element={<Navigate to="/manager/team-leaves" replace />} />
         <Route
           path="/manager/profile"
           element={authLoading ? null : (user && user.role === "REPORTING_MANAGER" ? <ReportingManagerDashboard /> : <Navigate to="/login" />)}
