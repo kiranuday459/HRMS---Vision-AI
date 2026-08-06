@@ -2,12 +2,20 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Eye, Trash2, Users, X, Briefcase, Search } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
+import DisabledBadge from "../../components/DisabledBadge";
 
 /* ─── helpers ─────────────────────────────────────────── */
 const fmtDate = (d) => {
     if (!d) return "—";
     const dt = new Date(String(d).split("T")[0]);
     return isNaN(dt) ? "—" : dt.toLocaleDateString("en-GB");
+};
+
+// createdAt is a timestamp, not a plain date — keep the time, it is an audit value.
+const fmtDateTime = (d) => {
+    if (!d) return "—";
+    const dt = new Date(d);
+    return isNaN(dt) ? "—" : `${dt.toLocaleDateString("en-GB")} ${dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
 };
 
 function StatusPill({ active }) {
@@ -80,7 +88,17 @@ function AssignmentDetailModal({ assignment, onClose }) {
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-5">
                     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                        <Field label="Employee" value={assignment.employeeName} />
+                        <Field
+                            label="Employee"
+                            value={
+                                <>
+                                    {assignment.employeeName}
+                                    {/* Assignment history is kept for a disabled account; the badge
+                                        explains why they can't be picked for a new project. */}
+                                    {assignment.employeeActive === false && <DisabledBadge className="ml-2 align-middle" />}
+                                </>
+                            }
+                        />
                         <Field label="Status" value={assignment.active ? "Active" : "Ended"} />
                         <Field label="Client" value={assignment.clientName} />
                         <Field label="Project Name" value={assignment.projectName} />
@@ -90,6 +108,10 @@ function AssignmentDetailModal({ assignment, onClose }) {
                         <Field label="Billing" value={assignment.clientBillable} />
                         <Field label="Onsite / Offshore" value={assignment.onsiteOffshore} />
                         <Field label="Billing Location" value={assignment.billingLocation} />
+                        {/* Audit trail — who staffed this project and when the record was created,
+                            as distinct from the assignment's own start date above. */}
+                        <Field label="Assigned By" value={assignment.assignedByName} />
+                        <Field label="Created On" value={fmtDateTime(assignment.createdAt)} />
                     </div>
 
                     {assignment.taskDescription && (
@@ -232,7 +254,12 @@ export default function AssignedMembersTab() {
                                         className="group hover:bg-bg-slate/40 transition-all cursor-pointer"
                                     >
                                         <td className="py-3 px-6">
-                                            <span className="text-sm font-black text-brand-text tracking-tight">{r.employeeName}</span>
+                                            <span className="inline-flex items-center gap-2">
+                                                <span className="text-sm font-black text-brand-text tracking-tight">{r.employeeName}</span>
+                                                {/* Assignment history is kept for a disabled account; the badge
+                                                    explains why they can't be picked for a new project. */}
+                                                {r.employeeActive === false && <DisabledBadge />}
+                                            </span>
                                         </td>
                                         <td className="py-3 px-6">
                                             <span className="text-sm font-bold text-brand-text">{r.projectName || "—"}</span>

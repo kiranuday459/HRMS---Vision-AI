@@ -61,7 +61,10 @@ public class ClientTimesheet {
     @Column(length = 255)
     private String taskId;
 
-    @Column(length = 255)
+    // 256 to match the agreed field limit — see migration_widen_client_timesheet_text_columns.sql.
+    // The column must be at least as wide as the limit, or a value at the maximum would pass
+    // validation and then fail at MySQL.
+    @Column(length = 256)
     private String taskDescription;
 
     private String onsiteOffshore;
@@ -80,6 +83,7 @@ public class ClientTimesheet {
     @Enumerated(EnumType.STRING)
     private ClientTimesheetStatus status = ClientTimesheetStatus.PENDING;
 
+    @Column(length = 256)
     private String rejectionReason;
 
     @ManyToOne

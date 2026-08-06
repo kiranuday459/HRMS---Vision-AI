@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { fitRowHeight, wrap } from "./excelWrap";
 
 /**
  * Standardized Timesheet Excel Generator
@@ -153,14 +154,14 @@ export async function generateTimesheetExcel({
             a1.value = `VISION AI HRMS TIMESHEET - ${dateRangeStr} - ${yearFull}`;
             a1.fill = NAVY_FILL;
             a1.font = FONT_TITLE;
-            a1.alignment = { horizontal: "center", vertical: "middle" };
+            a1.alignment = wrap({ horizontal: "center" });
 
             worksheet.mergeCells("K1:N1");
             const k1 = worksheet.getCell("K1");
             k1.value = "MONTHLY SUMMARY";
             k1.fill = NAVY_FILL;
             k1.font = FONT_TITLE;
-            k1.alignment = { horizontal: "center", vertical: "middle" };
+            k1.alignment = wrap({ horizontal: "center" });
 
             // --- ROW 3: Blank Separator Row (Left side A3:I3 empty) ---
 
@@ -172,7 +173,7 @@ export async function generateTimesheetExcel({
             a4.value = "Employee:";
             a4.fill = BLUE_FILL;
             a4.font = FONT_HEADER_10;
-            a4.alignment = { horizontal: "center", vertical: "middle" };
+            a4.alignment = wrap({ horizontal: "center" });
 
             worksheet.mergeCells("B4:C4");
             const b4 = worksheet.getCell("B4");
@@ -186,7 +187,7 @@ export async function generateTimesheetExcel({
             d4.value = "Designation";
             d4.fill = BLUE_FILL;
             d4.font = FONT_HEADER_10;
-            d4.alignment = { horizontal: "center", vertical: "middle" };
+            d4.alignment = wrap({ horizontal: "center" });
 
             worksheet.mergeCells("E4:F5");
             const e4 = worksheet.getCell("E4");
@@ -199,7 +200,7 @@ export async function generateTimesheetExcel({
             g4.value = "Manager:";
             g4.fill = BLUE_FILL;
             g4.font = FONT_HEADER_10;
-            g4.alignment = { horizontal: "right", vertical: "middle" };
+            g4.alignment = wrap({ horizontal: "right" });
 
             worksheet.mergeCells("H4:I4");
             const h4 = worksheet.getCell("H4");
@@ -213,7 +214,7 @@ export async function generateTimesheetExcel({
             a5.value = "Employee ID:";
             a5.fill = BLUE_FILL;
             a5.font = FONT_HEADER_10;
-            a5.alignment = { horizontal: "center", vertical: "middle" };
+            a5.alignment = wrap({ horizontal: "center" });
 
             worksheet.mergeCells("B5:C5");
             const b5 = worksheet.getCell("B5");
@@ -226,7 +227,7 @@ export async function generateTimesheetExcel({
             g5.value = "Reg Hrs/Day:";
             g5.fill = BLUE_FILL;
             g5.font = FONT_HEADER_10;
-            g5.alignment = { horizontal: "right", vertical: "middle" };
+            g5.alignment = wrap({ horizontal: "right" });
 
             worksheet.mergeCells("H5:I5");
             const h5 = worksheet.getCell("H5");
@@ -242,6 +243,21 @@ export async function generateTimesheetExcel({
                     r.getCell(c).border = thinBorder;
                 }
             });
+
+            // Fit rows 4 and 5 to their wrapped values. These are merged cells, which Excel
+            // never auto-fits, so a long name / designation / manager would otherwise be cut
+            // off at the flat 20pt set by the default-height loop above. Widths are the sums
+            // of the merged columns: B+C = 24, H+I = 32.45. D4:D5 / E4:F5 span both rows, so
+            // the designation is measured against half its lines per row.
+            fitRowHeight(worksheet.getRow(4), [
+                { value: b4.value, width: 24 },
+                { value: h4.value, width: 32.45 },
+                { value: designationVal, width: 31 * 2 },
+            ]);
+            fitRowHeight(worksheet.getRow(5), [
+                { value: b5.value, width: 24 },
+                { value: h5.value, width: 32.45 },
+            ]);
 
             // --- ROW 6: Blank Separator Row (Left side A6:I6 empty) ---
 
@@ -264,7 +280,10 @@ export async function generateTimesheetExcel({
                 cell.value = h.text;
                 cell.fill = h.fill;
                 cell.font = h.font;
-                cell.alignment = { horizontal: "center", vertical: "middle" };
+                // "ONShore/OFFShore" is wider than its column — wrap it rather than let it
+                // spill over the neighbour. The 7:8 merge already gives these two rows' worth
+                // of height, so a two-line header fits without any extra adjustment.
+                cell.alignment = wrap({ horizontal: "center" });
 
                 // Apply border to merged cells in row 7 & 8
                 worksheet.getCell(`${h.colLetter}7`).border = thinBorder;
@@ -332,7 +351,8 @@ export async function generateTimesheetExcel({
                 rowSources.forEach((entry) => {
                     rowIdx++;
                     const r = worksheet.getRow(rowIdx);
-                    r.height = 20;
+                    // Height is set at the end of this block, once the values are written —
+                    // a flat 20pt here was clipping the wrapped Project Name / Comments.
 
                     let dayType = baseDayType;
                     let projectName = holidayLabel;
@@ -418,6 +438,20 @@ export async function generateTimesheetExcel({
                             cell.fill = { type: "pattern", pattern: "none" };
                         }
                     }
+
+                    // Grow the row to fit whatever wrapped. Widths mirror the getColumn()
+                    // settings above; only the free-text columns can realistically wrap,
+                    // but measuring them all keeps this correct if a width changes.
+                    fitRowHeight(r, [
+                        { value: dateDisplay, width: 12.45 },
+                        { value: dayAbbr, width: 10 },
+                        { value: dayType, width: 14 },
+                        { value: projectName, width: 22 },
+                        { value: projectId, width: 15 },
+                        { value: onOff, width: 16 },
+                        { value: billType, width: 14 },
+                        { value: r.getCell(9).value, width: 20 }, // Comments
+                    ]);
                 });
             });
 
@@ -445,7 +479,7 @@ export async function generateTimesheetExcel({
                 lblCell.value = s.label;
                 lblCell.fill = s.fill;
                 lblCell.font = s.row === 8 ? FONT_HEADER_10_BOLD : FONT_HEADER_10;
-                lblCell.alignment = { horizontal: "center", vertical: "middle" };
+                lblCell.alignment = wrap({ horizontal: "center" });
 
                 // Apply borders to K:M merged cells
                 ["K", "L", "M"].forEach((colL) => {
@@ -457,23 +491,27 @@ export async function generateTimesheetExcel({
                 valCell.value = Number(s.value);
                 valCell.fill = s.fill;
                 valCell.font = s.row === 8 ? FONT_HEADER_10_BOLD : FONT_HEADER_10;
-                valCell.alignment = { horizontal: "center", vertical: "middle" };
+                valCell.alignment = wrap({ horizontal: "center" });
                 valCell.border = thinBorder;
                 valCell.numFmt = s.isCount ? "0" : "0.00";
+
+                // The label is a K:M merge (14+14+14 = 42 chars) — Excel won't auto-fit it,
+                // and "Total weekends & Holiday hours worked" is close to that width.
+                // fitRowHeight only grows, so this can't undo the employee block's rows 4-5.
+                fitRowHeight(worksheet.getRow(s.row), [{ value: s.label, width: 42 }]);
             });
 
             // --- TOTAL FOOTER ROW (Last data row + 1) ---
             // Follows the cursor, not the date count: a date can now span several rows.
             const totalRowIdx = rowIdx + 1;
             const totalRow = worksheet.getRow(totalRowIdx);
-            totalRow.height = 20;
 
             worksheet.mergeCells(`A${totalRowIdx}:F${totalRowIdx}`);
             const totLabelCell = worksheet.getCell(`A${totalRowIdx}`);
             totLabelCell.value = `TOTAL - ${monthYearStr}`;
             totLabelCell.fill = BLUE_FILL;
             totLabelCell.font = FONT_HEADER_10;
-            totLabelCell.alignment = { horizontal: "center", vertical: "middle" };
+            totLabelCell.alignment = wrap({ horizontal: "center" });
 
             // Apply fill and border to merged A..F cells
             ["A", "B", "C", "D", "E", "F"].forEach((colL) => {
@@ -487,7 +525,7 @@ export async function generateTimesheetExcel({
             gTotCell.numFmt = "0";
             gTotCell.fill = BLUE_FILL;
             gTotCell.font = FONT_HEADER_10;
-            gTotCell.alignment = { horizontal: "center", vertical: "middle" };
+            gTotCell.alignment = wrap({ horizontal: "center" });
             gTotCell.border = thinBorder;
 
             const hTotCell = worksheet.getCell(`H${totalRowIdx}`);
@@ -495,13 +533,18 @@ export async function generateTimesheetExcel({
             hTotCell.numFmt = grandTotalHours === 0 ? "0" : "0.00";
             hTotCell.fill = BLUE_FILL;
             hTotCell.font = FONT_HEADER_10;
-            hTotCell.alignment = { horizontal: "center", vertical: "middle" };
+            hTotCell.alignment = wrap({ horizontal: "center" });
             hTotCell.border = thinBorder;
 
             const iTotCell = worksheet.getCell(`I${totalRowIdx}`);
             iTotCell.value = "";
             iTotCell.fill = BLUE_FILL;
+            iTotCell.alignment = wrap({ horizontal: "left" });
             iTotCell.border = thinBorder;
+
+            // A..F is a merge (12.45+10+14+22+15+16 = 89.45 chars), so it needs an explicit
+            // height like every other merged cell here.
+            fitRowHeight(totalRow, [{ value: totLabelCell.value, width: 89.45 }]);
         });
     });
 

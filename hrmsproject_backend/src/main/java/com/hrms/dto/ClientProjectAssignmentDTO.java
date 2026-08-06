@@ -23,6 +23,14 @@ public class ClientProjectAssignmentDTO {
     private String billingLocation;
     private LocalDate assignmentStartDate;
     private Boolean active;
+    // Audit trail: who created the assignment and when. Both are stored on the entity but
+    // were never exposed, so the detail view couldn't show who staffed the project.
+    private String assignedByName;
+    private String createdAt;
+    // Whether the EMPLOYEE is still active in HRMS (distinct from `active` above, which is
+    // the assignment's own state). A disabled employee keeps their assignment history on
+    // screen, flagged, but can never be picked for a new one.
+    private Boolean employeeActive;
 
     // Create-only: the modal assigns one client/project to many employees at once.
     private List<Long> employeeIds;
@@ -129,6 +137,30 @@ public class ClientProjectAssignmentDTO {
 
     public void setActive(Boolean active) {
         this.active = active;
+    }
+
+    public Boolean getEmployeeActive() {
+        return employeeActive;
+    }
+
+    public void setEmployeeActive(Boolean employeeActive) {
+        this.employeeActive = employeeActive;
+    }
+
+    public String getAssignedByName() {
+        return assignedByName;
+    }
+
+    public void setAssignedByName(String assignedByName) {
+        this.assignedByName = assignedByName;
+    }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
     }
 
     public List<Long> getEmployeeIds() {

@@ -3,7 +3,9 @@ package com.hrms.service;
 import com.hrms.dto.AssignedEmployeeDTO;
 import com.hrms.dto.ClientAccessStatusDTO;
 import com.hrms.dto.VerificationSummaryDTO;
+import com.hrms.model.CompanyDetail;
 import com.hrms.model.Employee;
+import com.hrms.repository.CompanyDetailRepository;
 import com.hrms.repository.EmployeeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -35,6 +38,9 @@ public class ClientVerificationService {
     private EmployeeRepository employeeRepository;
 
     @Autowired
+    private CompanyDetailRepository companyDetailRepository;
+
+    @Autowired
     private EmailService emailService;
 
     @Autowired
@@ -46,8 +52,24 @@ public class ClientVerificationService {
     // ---------- Admin views ----------
 
     public List<AssignedEmployeeDTO> getAssignedEmployees() {
-        return employeeRepository.findByClientAssignedTrue().stream()
-                .map(this::toDTO)
+        List<Employee> assigned = employeeRepository.findByClientAssignedTrue();
+
+        // The HRMS employee ID lives on company_details, not on the employee row. Loaded in
+        // one batch keyed by employee id — a per-row lookup would be an N+1 on a table the
+        // admin auto-refreshes every 30 seconds.
+        Map<Long, String> oryfolksIdByEmployee = companyDetailRepository
+                .findByEmployee_IdIn(assigned.stream().map(Employee::getId).collect(Collectors.toList()))
+                .stream()
+                .filter(cd -> cd.getEmployee() != null && cd.getOryfolksId() != null)
+                .collect(Collectors.toMap(cd -> cd.getEmployee().getId(), CompanyDetail::getOryfolksId,
+                        (a, b) -> a));
+
+        return assigned.stream()
+                .map(e -> {
+                    AssignedEmployeeDTO dto = toDTO(e);
+                    dto.setOryfolksId(oryfolksIdByEmployee.get(e.getId()));
+                    return dto;
+                })
                 .sorted((a, b) -> {
                     // Newest assignment first; nulls last.
                     if (a.getAssignmentDate() == null) return 1;
@@ -189,9 +211,31 @@ public class ClientVerificationService {
 
     // ---------- helpers ----------
 
+    /**
+     * Recipient for the activation OTP: the employee's Corporate Email.
+     *
+     * That field lives on company_details.oryfolks_mail_id — EmployeeService writes the
+     * profile's "Corporate Email" there and reads it back from there to render Personal
+     * Details. The employees.corporate_email column is a separate one that is never
+     * populated, so reading it always returned null and the code fell through to
+     * employee.email — the Personal Email. That fallthrough is why the OTP was landing in
+     * personal inboxes.
+     *
+     * There is deliberately no personal-email fallback: this address is only ever a
+     * corporate one. Null means no corporate address on file, and issueAndSendOtp already
+     * skips the send in that case rather than guessing a recipient.
+     */
     private String resolveEmail(Employee employee) {
-        return employee.getCorporateEmail() != null && !employee.getCorporateEmail().isBlank()
-                ? employee.getCorporateEmail() : employee.getEmail();
+        String corporate = companyDetailRepository.findByEmployee_Id(employee.getId())
+                .map(CompanyDetail::getOryfolksMailId)
+                .filter(mail -> !mail.isBlank())
+                .orElse(null);
+        if (corporate != null) {
+            return corporate;
+        }
+        // Legacy column — still a corporate address, never the personal one.
+        String legacy = employee.getCorporateEmail();
+        return legacy != null && !legacy.isBlank() ? legacy : null;
     }
 
     private AssignedEmployeeDTO toDTO(Employee e) {
@@ -204,6 +248,8 @@ public class ClientVerificationService {
         dto.setProjectId(e.getClientProjectId());
         dto.setAssignmentDate(e.getClientAssignmentDate());
         dto.setClientVerified(Boolean.TRUE.equals(e.getClientVerified()));
+        // Null-safe: the column defaults to true, but older rows may predate it.
+        dto.setEmployeeActive(!Boolean.FALSE.equals(e.getActive()));
         return dto;
     }
 }

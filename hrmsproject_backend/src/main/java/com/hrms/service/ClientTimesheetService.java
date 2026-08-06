@@ -44,6 +44,9 @@ public class ClientTimesheetService {
     @Autowired
     private ClientTimesheetNotificationService notificationService;
 
+    @Autowired
+    private UserDisplayNameResolver userDisplayNameResolver;
+
     public List<ClientTimesheetDTO> getAll(Long employeeId, String clientName, String status,
             LocalDate fromDate, LocalDate toDate) {
         ClientTimesheetStatus statusEnum = (status != null && !status.isBlank())
@@ -111,7 +114,20 @@ public class ClientTimesheetService {
         return result;
     }
 
+    /**
+     * Agreed limit for the admin's rejection reason. Enforced server-side because the
+     * textarea's maxLength is bypassed by a direct API call, and the backing column is
+     * VARCHAR(256) — an overrun would otherwise surface as a raw 500 from MySQL.
+     * Mirrored in the frontend by utils/fieldLimits.js.
+     */
+    private static final int MAX_REJECTION_REASON = 256;
+
     public ClientTimesheetDTO reject(Long id, Long reviewerId, String reason) {
+        if (reason != null && reason.length() > MAX_REJECTION_REASON) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Rejection Reason must be " + MAX_REJECTION_REASON
+                            + " characters or fewer (currently " + reason.length() + ").");
+        }
         ClientTimesheet entry = clientTimesheetRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Client timesheet not found"));
         User reviewer = userRepository.findById(reviewerId)
@@ -135,6 +151,8 @@ public class ClientTimesheetService {
             String fullName = (employee.getFirstName() + " "
                     + (employee.getLastName() == null ? "" : employee.getLastName())).trim();
             dto.setEmployeeName(fullName);
+            // Null-safe: the column defaults to true, but older rows may predate it.
+            dto.setEmployeeActive(!Boolean.FALSE.equals(employee.getActive()));
         }
         dto.setDate(entry.getDate());
         dto.setClientName(entry.getClientName());
@@ -155,16 +173,10 @@ public class ClientTimesheetService {
     }
 
     /**
-     * Human-readable name for the approver: the linked Employee's full name, falling
-     * back to the username. Mirrors the internal timesheet display convention.
+     * Human-readable name for the approver. Delegates to the shared resolver so the same
+     * person is spelled identically here, on the week detail view and on an assignment.
      */
     private String resolveUserDisplayName(User user) {
-        if (user == null) {
-            return null;
-        }
-        return employeeRepository.findByUser(user)
-                .map(e -> (e.getFirstName() + " " + (e.getLastName() == null ? "" : e.getLastName())).trim())
-                .filter(name -> !name.isEmpty())
-                .orElse(user.getUsername());
+        return userDisplayNameResolver.resolve(user);
     }
 }

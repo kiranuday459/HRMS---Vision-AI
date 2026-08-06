@@ -13,6 +13,9 @@ public class ClientTimesheetWeekDTO {
 
     private Long employeeId;
     private String employeeName;
+    // Whether the employee is still active in HRMS, so the read-only detail view can flag a
+    // disabled employee's retained history.
+    private Boolean employeeActive;
     private LocalDate weekStartDate;
     private LocalDate weekEndDate;
     private String status;
@@ -22,6 +25,11 @@ public class ClientTimesheetWeekDTO {
     private String projectName;
     private String projectId;
     private String submittedAt;
+    // Who took the approve/reject decision and when. Present on the line record but never
+    // surfaced on the week detail, so the admin could see *that* a week was reviewed without
+    // seeing by whom.
+    private String approvedByName;
+    private String reviewedAt;
 
     // Most recent rejection reason for the week, so both the employee (what to fix before
     // resubmitting) and the admin (why it was rejected) can see it. Null unless rejected.
@@ -111,6 +119,8 @@ public class ClientTimesheetWeekDTO {
     public void setEmployeeId(Long employeeId) { this.employeeId = employeeId; }
     public String getEmployeeName() { return employeeName; }
     public void setEmployeeName(String employeeName) { this.employeeName = employeeName; }
+    public Boolean getEmployeeActive() { return employeeActive; }
+    public void setEmployeeActive(Boolean employeeActive) { this.employeeActive = employeeActive; }
     public LocalDate getWeekStartDate() { return weekStartDate; }
     public void setWeekStartDate(LocalDate weekStartDate) { this.weekStartDate = weekStartDate; }
     public LocalDate getWeekEndDate() { return weekEndDate; }
@@ -125,6 +135,10 @@ public class ClientTimesheetWeekDTO {
     public void setProjectId(String projectId) { this.projectId = projectId; }
     public String getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(String submittedAt) { this.submittedAt = submittedAt; }
+    public String getApprovedByName() { return approvedByName; }
+    public void setApprovedByName(String approvedByName) { this.approvedByName = approvedByName; }
+    public String getReviewedAt() { return reviewedAt; }
+    public void setReviewedAt(String reviewedAt) { this.reviewedAt = reviewedAt; }
     public String getRejectionReason() { return rejectionReason; }
     public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
     public LocalDate getEarliestAssignmentDate() { return earliestAssignmentDate; }

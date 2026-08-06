@@ -3,6 +3,7 @@ package com.hrms.service;
 import com.hrms.dto.ClientProjectAssignmentDTO;
 import com.hrms.model.ClientProjectAssignment;
 import com.hrms.model.Employee;
+import com.hrms.model.Role;
 import com.hrms.model.User;
 import com.hrms.repository.ClientProjectAssignmentRepository;
 import com.hrms.repository.EmployeeRepository;
@@ -15,8 +16,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -41,6 +44,23 @@ public class ClientProjectAssignmentService {
     @Autowired
     private ClientTimesheetNotificationService notificationService;
 
+    @Autowired
+    private UserDisplayNameResolver userDisplayNameResolver;
+
+    // Agreed field character limits, enforced server-side so a direct API call can't get
+    // past the admin modal's maxLength. Mirrored in the frontend by utils/fieldLimits.js.
+    private static final int MAX_PROJECT_ID = 25;
+    private static final int MAX_PROJECT_NAME = 50;
+    private static final int MAX_TASK_ID = 25;
+    private static final int MAX_TASK_DESCRIPTION = 256;
+
+    private void requireMaxLength(String value, int max, String fieldLabel) {
+        if (value != null && value.length() > max) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    fieldLabel + " must be " + max + " characters or fewer (currently " + value.length() + ").");
+        }
+    }
+
     /**
      * Creates one assignment per employee in the payload (the admin modal assigns one
      * client/project to a set of employees). Returns the created assignments.
@@ -59,6 +79,12 @@ public class ClientProjectAssignmentService {
         if (dto.getAssignmentStartDate() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "assignmentStartDate is required");
         }
+        // The assignment is where Project ID/Name enter the system — the timesheet only ever
+        // copies them — so the limits have to be enforced at this door too, not just on save.
+        requireMaxLength(dto.getProjectId(), MAX_PROJECT_ID, "Project ID");
+        requireMaxLength(dto.getProjectName(), MAX_PROJECT_NAME, "Project Name");
+        requireMaxLength(dto.getTaskId(), MAX_TASK_ID, "Task/Activity ID");
+        requireMaxLength(dto.getTaskDescription(), MAX_TASK_DESCRIPTION, "Task/Activity Description");
 
         User assignedBy = createdByUserId != null
                 ? userRepository.findById(createdByUserId).orElse(null)
@@ -69,6 +95,11 @@ public class ClientProjectAssignmentService {
             Employee employee = employeeRepository.findById(employeeId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                             "Employee not found: " + employeeId));
+
+            // The picker already filters these out; re-checking here is what makes it a rule
+            // rather than a UI convenience. A direct API call, a stale modal left open while
+            // someone else assigns, or two admins submitting at once all land here.
+            requireAssignable(employee);
 
             ClientProjectAssignment a = new ClientProjectAssignment();
             a.setEmployee(employee);
@@ -109,6 +140,45 @@ public class ClientProjectAssignmentService {
         return created;
     }
 
+    /** Roles that may hold a client project assignment. Admins and HR never do. */
+    private static final Set<Role> ASSIGNABLE_ROLES = EnumSet.of(Role.EMPLOYEE, Role.REPORTING_MANAGER);
+
+    private String displayName(Employee e) {
+        return (e.getFirstName() + " " + (e.getLastName() == null ? "" : e.getLastName())).trim();
+    }
+
+    /**
+     * Guards the three ways an employee can be ineligible for a new client project
+     * assignment. Each throws with a message naming the employee, because the admin assigns
+     * in batches — "one of these 12 people is already assigned" would be useless.
+     *
+     * Ordering matters only for which message wins; all three are hard rejections.
+     */
+    private void requireAssignable(Employee employee) {
+        Role role = employee.getUser() != null ? employee.getUser().getRole() : null;
+        if (role != null && !ASSIGNABLE_ROLES.contains(role)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    displayName(employee) + " has the " + role.name()
+                            + " role and cannot be assigned to a client project.");
+        }
+        if (Boolean.FALSE.equals(employee.getActive())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    displayName(employee) + " is disabled in HRMS and cannot be assigned to a client project.");
+        }
+        // One active project per employee. Checked against the assignments table rather than
+        // employee.clientAssigned so an ended assignment frees the employee up again.
+        List<ClientProjectAssignment> active = assignmentRepository.findByEmployeeIdAndActiveTrue(employee.getId());
+        if (!active.isEmpty()) {
+            String current = active.get(0).getProjectName();
+            // 409, not 400: nothing is wrong with the request — the world changed under it.
+            // This is the branch a second racing assign request lands in.
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    displayName(employee) + " is already assigned to "
+                            + (current == null || current.isBlank() ? "a client project" : current)
+                            + ". End that assignment before assigning a new one.");
+        }
+    }
+
     public List<ClientProjectAssignmentDTO> getActiveForEmployee(Long employeeId) {
         return assignmentRepository.findByEmployeeIdAndActiveTrue(employeeId)
                 .stream().map(this::toDTO).collect(Collectors.toList());
@@ -147,9 +217,9 @@ public class ClientProjectAssignmentService {
         dto.setId(a.getId());
         if (a.getEmployee() != null) {
             dto.setEmployeeId(a.getEmployee().getId());
-            String name = (a.getEmployee().getFirstName() + " "
-                    + (a.getEmployee().getLastName() == null ? "" : a.getEmployee().getLastName())).trim();
-            dto.setEmployeeName(name);
+            dto.setEmployeeName(displayName(a.getEmployee()));
+            // Null-safe: the column defaults to true, but older rows may predate it.
+            dto.setEmployeeActive(!Boolean.FALSE.equals(a.getEmployee().getActive()));
         }
         dto.setClientName(a.getClientName());
         dto.setProjectId(a.getProjectId());
@@ -161,6 +231,8 @@ public class ClientProjectAssignmentService {
         dto.setBillingLocation(a.getBillingLocation());
         dto.setAssignmentStartDate(a.getAssignmentStartDate());
         dto.setActive(a.getActive());
+        dto.setAssignedByName(userDisplayNameResolver.resolve(a.getAssignedBy()));
+        dto.setCreatedAt(a.getCreatedAt() != null ? a.getCreatedAt().toString() : null);
         return dto;
     }
 }

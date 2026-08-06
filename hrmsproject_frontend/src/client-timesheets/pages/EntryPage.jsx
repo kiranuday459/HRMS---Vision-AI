@@ -5,6 +5,9 @@ import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
 import { clientTimesheetBase, roleDashboardPath } from "../../utils/clientTimesheetNav";
+import RowCommentsPanel from "../components/RowCommentsPanel";
+import CharCounter from "../../components/CharCounter";
+import { FIELD_LIMITS } from "../../utils/fieldLimits";
 
 const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const TIMEOFF_LABELS = {
@@ -16,15 +19,57 @@ const TIMEOFF_LABELS = {
 };
 const TIMEOFF_ORDER = ["SICK", "HOLIDAY", "PTO", "LOP", "EARNED"];
 
-// Must match the client_timesheets column widths (and the server-side check in
-// ClientTimesheetWeekService.validateEntries) — without these caps a long paste
-// reached MySQL and came back as a raw "Data too long for column" 500 on Save.
-const MAX_TASK_ID = 255;
-const MAX_TASK_DESCRIPTION = 255;
+// Field caps. Mirrored by the server-side check in ClientTimesheetWeekService.validateEntries
+// — without these a long paste reached MySQL and came back as a raw "Data too long for
+// column" 500 on Save. The shared limits live in utils/fieldLimits so every screen that
+// writes these fields caps them identically.
+const MAX_TASK_ID = FIELD_LIMITS.TASK_ID;
+const MAX_TASK_DESCRIPTION = FIELD_LIMITS.TASK_DESCRIPTION;
+const MAX_COMMENT = FIELD_LIMITS.COMMENT;
+// Not part of the agreed limits table; unchanged, and still matches its VARCHAR(64) column.
 const MAX_BILLING_LOCATION = 64;
 
 // Leave booked on a date that fills the day's whole regular capacity.
 const FULL_DAY_LEAVE_HOURS = 8;
+
+// Hour caps. A calendar day cannot hold more than 24 hours however the rows are split, and
+// a leave entry cannot exceed a standard working day. Enforced three ways: the cell clamps
+// as you type, the daily totals are checked before submit, and the server re-checks both in
+// ClientTimesheetWeekService.validateEntries — the input cap is a convenience, not the rule.
+const MAX_HOURS_PER_DAY = 24;
+const MAX_LEAVE_HOURS_PER_DAY = FULL_DAY_LEAVE_HOURS;
+
+// Every project row must carry all of these before the week can be submitted. Kept in one
+// place so the validator, the red highlighting and the error text can't drift apart.
+// Project ID / Project Name are not typed — they come from the employee's client project
+// assignment (picked from the dropdown on a newly added row), but they are required all the
+// same: a row with no project can't be grouped or approved.
+const REQUIRED_ROW_FIELDS = [
+    { key: "projectId", label: "Project ID" },
+    { key: "projectName", label: "Project Name" },
+    { key: "taskId", label: "Task/Activity ID" },
+    { key: "taskDescription", label: "Task/Activity Description" },
+    { key: "onsiteOffshore", label: "Onsite/Offshore" },
+    { key: "clientBillable", label: "Client Billable" },
+    { key: "billingLocation", label: "Billing Location" },
+];
+
+// Shared column geometry for the three hour grids (Regular / OT / Leave).
+//
+// They are separate tables with different headers and row shapes, and nothing made their day
+// columns line up: the project grid was min-w-1100 over seven content-sized description
+// columns, while OT and Leave were min-w-900 over a single 280px label. The same weekday
+// therefore landed at a different x in each block and the page read as three staggered grids.
+// Driving all three from one colgroup puts a given day in the same place in every block, so
+// the sheet reads straight down a day as well as left-to-right along a row.
+const GRID_IDENTITY_COLS = [84, 128, 116, 190, 108, 106, 100]; // the project grid's 7 descriptive columns
+const GRID_LEAD_W = GRID_IDENTITY_COLS.reduce((a, b) => a + b, 0);
+const GRID_DAY_W = 78;
+const GRID_TOTAL_W = 88;
+const GRID_COMMENT_W = 92;
+const GRID_ACTIONS_W = 64;
+// Every grid declares the same minimum, so they scroll as one shape rather than drifting apart.
+const GRID_MIN_W = GRID_LEAD_W + GRID_DAY_W * 7 + GRID_TOTAL_W + GRID_COMMENT_W + GRID_ACTIONS_W;
 
 const parseLocal = (ymd) => {
     const [y, m, d] = String(ymd).split("T")[0].split("-").map(Number);
@@ -39,6 +84,32 @@ const newRowId = () => (typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
 
+// A newly added row starts with every field blank/unselected and is immediately mandatory —
+// nothing is carried over from the row it was added beneath.
+const makeBlankRow = (dayList) => ({
+    rowId: newRowId(),
+    // Marks a row the employee added here rather than one that came back from the server, so
+    // its project stays re-pickable for as long as it is being edited. Local only — never
+    // part of the save payload.
+    isNew: true,
+    projectId: "",
+    projectName: "",
+    taskId: "",
+    taskDescription: "",
+    onsiteOffshore: "",
+    clientBillable: "",
+    billingLocation: "",
+    comment: "",
+    assignmentStartDate: null,
+    days: dayList.map((d) => ({ date: d.ymd, hours: "" })),
+});
+
+// Shared input styling, with the red invalid state applied in one place.
+const fieldClass = (invalid, extra = "") =>
+    `text-xs border rounded px-1 py-1 outline-none disabled:bg-gray-100 disabled:text-gray-400 ${extra} ${invalid
+        ? "border-red-500 bg-red-50 focus:border-red-500"
+        : "border-[#E3E8EF] focus:border-brand-yellow"}`;
+
 const formatHourDisplay = (h) => {
     if (h == null || h === "") return "";
     const n = Number(h);
@@ -47,6 +118,15 @@ const formatHourDisplay = (h) => {
 };
 
 const sanitizeHourDigits = (raw) => String(raw ?? "").replace(/\D/g, "").slice(0, 2);
+
+// Digits only, then clamped to the cell's cap. Returns `clamped` so the caller can tell
+// "typed 8" apart from "typed 80 and had it cut to 24" — only the latter earns an error.
+const clampHours = (raw, max) => {
+    const digits = sanitizeHourDigits(raw);
+    if (digits === "") return { hours: "", clamped: false };
+    const n = parseInt(digits, 10);
+    return n > max ? { hours: String(max), clamped: true } : { hours: digits, clamped: false };
+};
 
 const hourInputAllowedKeys = new Set(["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End"]);
 
@@ -73,10 +153,20 @@ export default function ClientTimesheetEntry() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [meta, setMeta] = useState({ employeeName: "", weekStartDate: weekStart, weekEndDate: "", status: "DRAFT", earliestAssignmentDate: null, rejectionReason: null });
+    const [meta, setMeta] = useState({ employeeName: "", weekStartDate: weekStart, weekEndDate: "", status: "DRAFT", earliestAssignmentDate: null, rejectionReason: null, hasProjectContext: false });
     const [projectRows, setProjectRows] = useState([]);
     const [timeOffRows, setTimeOffRows] = useState([]);
     const [commentModal, setCommentModal] = useState({ open: false, rowId: null, text: "" });
+    // Projects the employee may log against — the options for the Project ID cell on a newly
+    // added row. Project ID/Name are owned by the assignment, never typed.
+    const [assignmentOptions, setAssignmentOptions] = useState([]);
+    // Field-level errors stay hidden until the first Submit attempt, so a half-filled row
+    // isn't screaming red while it is still being typed. Drafts are never gated.
+    const [showErrors, setShowErrors] = useState(false);
+    // Per-cell "you hit the cap" messages, keyed by cell. Shown as soon as a value is
+    // clamped (not gated on Submit) — the number visibly changed under the user, so the
+    // reason has to appear immediately. Cleared as soon as that cell takes a valid value.
+    const [capNotices, setCapNotices] = useState({});
 
     const todayYMD = toYMD(new Date());
 
@@ -98,6 +188,28 @@ export default function ClientTimesheetEntry() {
     }, [meta.weekStartDate, weekStart]);
 
     const applyDetail = (dto) => {
+        const mapDays = (arr) => (arr || []).map((d) => ({
+            date: String(d.date).split("T")[0],
+            hours: formatHourDisplay(d.hours),
+        }));
+        const serverRows = (dto.projectRows || []).map((r) => ({
+            rowId: r.rowId || newRowId(),
+            projectId: r.projectId || "",
+            projectName: r.projectName || "",
+            taskId: r.taskId || "",
+            taskDescription: r.taskDescription || "",
+            // Left blank rather than defaulted when the assignment carries nothing, so a
+            // missing value is something the employee has to choose, not a silent guess.
+            onsiteOffshore: r.onsiteOffshore || "",
+            clientBillable: r.clientBillable || "",
+            billingLocation: r.billingLocation && r.billingLocation !== "DFLT" ? r.billingLocation : "",
+            comment: r.comment || "",
+            assignmentStartDate: r.assignmentStartDate ? String(r.assignmentStartDate).split("T")[0] : null,
+            days: mapDays(r.days),
+        }));
+        // Whether this employee has anything to log against at all — an active assignment, or
+        // rows already saved under an assignment that has since ended.
+        const hasProjectContext = Boolean(dto.earliestAssignmentDate) || serverRows.length > 0;
         setMeta({
             employeeName: dto.employeeName || "",
             weekStartDate: String(dto.weekStartDate).split("T")[0],
@@ -105,24 +217,13 @@ export default function ClientTimesheetEntry() {
             status: dto.status || "DRAFT",
             earliestAssignmentDate: dto.earliestAssignmentDate ? String(dto.earliestAssignmentDate).split("T")[0] : null,
             rejectionReason: dto.rejectionReason || null,
+            // Drives the "no client project" empty state, which can no longer be inferred from
+            // the row count now that an empty sheet is seeded with a blank row.
+            hasProjectContext,
         });
-        const mapDays = (arr) => (arr || []).map((d) => ({
-            date: String(d.date).split("T")[0],
-            hours: formatHourDisplay(d.hours),
-        }));
-        setProjectRows((dto.projectRows || []).map((r) => ({
-            rowId: r.rowId || newRowId(),
-            projectId: r.projectId || "",
-            projectName: r.projectName || "",
-            taskId: r.taskId || "",
-            taskDescription: r.taskDescription || "",
-            onsiteOffshore: r.onsiteOffshore || "ONSITE",
-            clientBillable: r.clientBillable || "BILLABLE",
-            billingLocation: r.billingLocation && r.billingLocation !== "DFLT" ? r.billingLocation : "",
-            comment: r.comment || "",
-            assignmentStartDate: r.assignmentStartDate ? String(r.assignmentStartDate).split("T")[0] : null,
-            days: mapDays(r.days),
-        })));
+        // The sheet always holds at least one project row (never zero) — but only for an
+        // employee who actually has a project to log against.
+        setProjectRows(serverRows.length === 0 && hasProjectContext ? [makeBlankRow(days)] : serverRows);
         setTimeOffRows(TIMEOFF_ORDER.map((type) => {
             const found = (dto.timeOffRows || []).find((t) => (t.type || "").toUpperCase() === type);
             return { type, days: found ? mapDays(found.days) : days.map((d) => ({ date: d.ymd, hours: "" })) };
@@ -147,6 +248,29 @@ export default function ClientTimesheetEntry() {
     }, [weekStart]);
 
     useEffect(() => { fetchDetail(); }, [fetchDetail]);
+
+    // Active client project assignments — the pick list for a newly added row.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await api("/api/client-project-assignments/my");
+                if (!res.ok || cancelled) return;
+                const json = await res.json().catch(() => ({}));
+                if (cancelled) return;
+                // An employee can hold more than one assignment to the same project; the
+                // dropdown lists each project once.
+                const byProject = new Map();
+                (Array.isArray(json.data) ? json.data : []).forEach((a) => {
+                    if (a.projectId && !byProject.has(a.projectId)) byProject.set(a.projectId, a);
+                });
+                setAssignmentOptions([...byProject.values()]);
+            } catch (err) {
+                console.error(err);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     // A week stays editable until the admin takes a final decision. DRAFT, PENDING (submitted,
     // awaiting review) and REJECTED all remain open, so the employee can revise and resubmit as
@@ -177,14 +301,34 @@ export default function ClientTimesheetEntry() {
     const isProjectDayEditable = (ymd, rowGate) =>
         isDayEditable(ymd, rowGate) && !isFullLeaveDay(ymd);
 
+    // Cell keys for capNotices — project cells are identified by row, leave cells by type.
+    const projectCellKey = (rowId, date) => `p:${rowId}:${date}`;
+    const leaveCellKey = (type, date) => `t:${type}:${date}`;
+    // Passing null clears the notice, so every keystroke either raises or retires it.
+    const noteCap = (key, message) => setCapNotices((prev) => {
+        if (!message) {
+            if (!(key in prev)) return prev; // no state churn on the common path
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        }
+        return { ...prev, [key]: message };
+    });
+
     const setProjectDay = (rowId, dayIdx, value) => {
-        const hours = sanitizeHourDigits(value);
+        const { hours, clamped } = clampHours(value, MAX_HOURS_PER_DAY);
+        const date = projectRows.find((r) => r.rowId === rowId)?.days?.[dayIdx]?.date;
         setProjectRows((prev) => prev.map((r) => r.rowId !== rowId ? r : {
             ...r, days: r.days.map((d, j) => j !== dayIdx ? d : { ...d, hours }),
         }));
+        noteCap(projectCellKey(rowId, date), clamped ? `Max ${MAX_HOURS_PER_DAY} hrs/day` : null);
     };
     const setTimeOffDay = (rowIdx, dayIdx, value) => {
-        const hours = sanitizeHourDigits(value);
+        const { hours, clamped } = clampHours(value, MAX_LEAVE_HOURS_PER_DAY);
+        noteCap(
+            leaveCellKey(timeOffRows[rowIdx]?.type, timeOffRows[rowIdx]?.days?.[dayIdx]?.date),
+            clamped ? `Max ${MAX_LEAVE_HOURS_PER_DAY} hrs/day for leave` : null
+        );
         const nextRows = timeOffRows.map((r, i) => i !== rowIdx ? r : {
             ...r, days: r.days.map((d, j) => j !== dayIdx ? d : { ...d, hours }),
         });
@@ -206,24 +350,32 @@ export default function ClientTimesheetEntry() {
         setProjectRows((prev) => prev.map((r) => r.rowId !== rowId ? r : { ...r, [field]: value }));
     };
 
+    // Picking the project also stamps the row's own day gate. Without it the row would fall
+    // back to the employee's earliest assignment date and open day cells this project can't
+    // be logged against — which the server then rejects on save.
+    const selectProject = (rowId, projectId) => {
+        const a = assignmentOptions.find((o) => o.projectId === projectId);
+        setProjectRows((prev) => prev.map((r) => r.rowId !== rowId ? r : {
+            ...r,
+            projectId: a ? a.projectId : "",
+            projectName: a ? (a.projectName || "") : "",
+            assignmentStartDate: a && a.assignmentStartDate ? String(a.assignmentStartDate).split("T")[0] : null,
+        }));
+    };
+
+    // A new row is blank and unselected throughout — never a copy of the row above it — and
+    // is mandatory from the moment it appears.
     const addRow = (rowIdx) => {
         setProjectRows((prev) => {
-            const base = prev[rowIdx] || prev[0];
-            if (!base) return prev;
-            const clone = {
-                ...base,
-                rowId: newRowId(),
-                taskId: "",
-                taskDescription: "",
-                comment: "",
-                days: days.map((d) => ({ date: d.ymd, hours: "" })),
-            };
             const next = [...prev];
-            next.splice(rowIdx + 1, 0, clone);
+            next.splice(rowIdx + 1, 0, makeBlankRow(days));
             return next;
         });
     };
-    const removeRow = (rowId) => setProjectRows((prev) => prev.filter((r) => r.rowId !== rowId));
+    // The sheet must always keep at least one project row; the last one cannot be deleted.
+    // Guarded here as well as on the disabled button so no other caller can empty the sheet.
+    const removeRow = (rowId) =>
+        setProjectRows((prev) => (prev.length <= 1 ? prev : prev.filter((r) => r.rowId !== rowId)));
 
     // Weekend (Sat/Sun) hours are locked and excluded from every hour total.
     const rowTotal = (row) => row.days.reduce((s, d) => s + (isWeekendYMD(d.date) ? 0 : numOr0(d.hours)), 0);
@@ -297,6 +449,53 @@ export default function ClientTimesheetEntry() {
         return `These dates are incomplete — please fill the remaining hours (regular or OT) before submitting: ${list}.`;
     };
 
+    // ── Daily hour caps ─────────────────────────────────────────────────────────
+    // The per-cell clamp can't catch these: eight project rows of 8h each are individually
+    // legal but add up to 64 hours in one day. Checked as a total per date, so however the
+    // rows are split the day still has to fit in 24 hours (leave included — leave and worked
+    // hours occupy the same day). Mirrored server-side in validateEntries.
+    const dayCapIssues = days
+        .filter((d) => !isWeekendYMD(d.ymd))
+        .map((d) => {
+            const worked = dayHoursFor(projectRows, d.ymd);
+            const leave = dayHoursFor(timeOffRows, d.ymd);
+            return { ...d, worked, leave, total: worked + leave };
+        })
+        .filter((d) => d.total > MAX_HOURS_PER_DAY || d.leave > MAX_LEAVE_HOURS_PER_DAY);
+
+    const dayLabel = (d) => `${parseLocal(d.ymd).toLocaleDateString("en-US", { weekday: "long" })} ${d.dom}`;
+
+    const dayCapMessage = () => {
+        const parts = dayCapIssues.map((d) => d.leave > MAX_LEAVE_HOURS_PER_DAY
+            ? `${dayLabel(d)} has ${d.leave} leave hours (max ${MAX_LEAVE_HOURS_PER_DAY})`
+            : `${dayLabel(d)} totals ${d.total} hours (max ${MAX_HOURS_PER_DAY})`);
+        return `A day cannot exceed its hour limit — ${parts.join(", ")}.`;
+    };
+
+    // ── Row-level required-field validation ─────────────────────────────────────
+    // Every field of every project row is mandatory, plus hours on at least one day.
+    // Recomputed on each render (not memoised) so the red highlighting clears the moment a
+    // field is filled in. Blocks Submit/Resubmit only — a draft is allowed to be incomplete.
+    const rowIssues = {};
+    projectRows.forEach((row) => {
+        const missing = {};
+        REQUIRED_ROW_FIELDS.forEach(({ key }) => {
+            if (!String(row[key] ?? "").trim()) missing[key] = true;
+        });
+        // "at least the hours for the days being logged" — a row with an identity but no
+        // hours anywhere is incomplete. Skipped when the row has no enterable day at all
+        // (every weekday gated out or filled by full-day leave): the grid forbids the input,
+        // so requiring it would leave the employee with no way to submit.
+        const gate = row.assignmentStartDate || meta.earliestAssignmentDate;
+        const anyDayOpen = row.days.some((d) => isProjectDayEditable(d.date, gate));
+        const anyHours = row.days.some((d) => !isWeekendYMD(d.date) && numOr0(d.hours) > 0);
+        if (anyDayOpen && !anyHours) missing.hours = true;
+        if (Object.keys(missing).length > 0) rowIssues[row.rowId] = missing;
+    });
+    const incompleteRowCount = Object.keys(rowIssues).length;
+    // Errors are only painted after a Submit attempt.
+    const issueFor = (rowId, key) => showErrors && Boolean(rowIssues[rowId]?.[key]);
+
     // A project row is "empty" when it has no identity and no hours — never persist these
     // (keeps blank/duplicate rows out of the saved draft).
     const isEmptyProjectRow = (r) =>
@@ -354,6 +553,21 @@ export default function ClientTimesheetEntry() {
     const handleSubmit = async () => {
         // Blocks Submit/Resubmit only — drafts stay work-in-progress and are never gated.
         // Checked before the request so the week is never written with a submitted status.
+
+        // Reveal the field-level errors from here on, whatever the outcome below.
+        setShowErrors(true);
+        // Checked before the required-field pass: an over-24h day is a hard data error, and
+        // saying so is more useful than "fill in the blanks".
+        if (dayCapIssues.length > 0) {
+            toast.error(dayCapMessage());
+            return;
+        }
+        if (incompleteRowCount > 0) {
+            toast.error(incompleteRowCount === 1
+                ? "A project row is incomplete — fill the highlighted fields before submitting."
+                : `${incompleteRowCount} project rows are incomplete — fill the highlighted fields before submitting.`);
+            return;
+        }
         if (incompleteLeaveDays.length > 0) {
             toast.error(incompleteLeaveMessage());
             return;
@@ -372,6 +586,7 @@ export default function ClientTimesheetEntry() {
             const savedStatus = String(json.data?.status || "").toUpperCase();
             const submitted = savedStatus && savedStatus !== "DRAFT" && savedStatus !== "NOT_STARTED";
             if (submitted) {
+                setShowErrors(false);
                 toast.success("Submitted for approval.");
             } else {
                 // The request succeeded but the week did not actually leave draft — never
@@ -397,31 +612,55 @@ export default function ClientTimesheetEntry() {
     };
 
     const statusMeta = clientTimesheetStatusMeta(meta.status);
-    const noAssignment = !meta.earliestAssignmentDate && projectRows.length === 0;
+    const noAssignment = !meta.hasProjectContext;
 
-    const dayCell = (ymd, value, editable, onChange, lockedByFullLeave = false) => (
+    // One day's hour box. Used by both the project (regular hours) and the Holiday/Time off
+    // (leave hours) grids, so the unit reads identically on every entry cell.
+    // "hrs" sits in the placeholder: it names the unit on an empty box without eating any of
+    // the two digits the field accepts, and the typed number replaces it. aria-label carries
+    // the unit for screen readers, which don't reliably announce a placeholder.
+    // `max` is the cell's hour cap (24 for worked hours, 8 for leave). The clamp lives in the
+    // onChange handlers so it applies to typing and pasting alike — the max attribute alone
+    // does nothing on a text input, it is here for assistive tech and for the record.
+    const dayCell = (ymd, value, editable, onChange, lockedByFullLeave = false, invalid = false, max = MAX_HOURS_PER_DAY, capNotice = null) => (
+        <>
         <input
             type="text"
             inputMode="numeric"
             autoComplete="off"
             maxLength={2}
+            max={max}
             value={value}
             disabled={!editable}
+            placeholder="hrs"
+            aria-label={`Hours for ${ymd} (maximum ${max})`}
             onKeyDown={handleHourKeyDown}
-            onChange={(e) => onChange(sanitizeHourDigits(e.target.value))}
+            onChange={(e) => onChange(e.target.value)}
             onPaste={(e) => {
                 e.preventDefault();
-                onChange(sanitizeHourDigits(e.clipboardData.getData("text")));
+                onChange(e.clipboardData.getData("text"));
             }}
             title={editable
                 ? undefined
                 : lockedByFullLeave
                     ? "Not available — full-day leave is booked for this date"
                     : "Not available — you were not assigned before this date"}
-            className={`w-14 text-center text-xs font-semibold rounded border px-1 py-1.5 outline-none transition-all ${editable
-                ? "bg-white border-[#E3E8EF] focus:border-brand-yellow text-brand-text"
-                : "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"}`}
+            className={`w-14 text-center text-xs font-semibold rounded border px-1 py-1.5 outline-none transition-all placeholder:font-medium placeholder:text-brand-text/35 ${!editable
+                ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                : invalid
+                    ? "bg-red-50 border-red-500 focus:border-red-500 text-brand-text"
+                    : "bg-white border-[#E3E8EF] focus:border-brand-yellow text-brand-text"}`}
         />
+        {/* Raised the moment a value is clamped, so the user sees why the number they typed
+            changed. role="alert" because it appears in response to their keystroke. Allowed
+            to wrap: the day columns are a fixed width now, and "Max 8 hrs/day for leave" is
+            wider than one. */}
+        {capNotice && (
+            <p role="alert" className="mt-1 text-[9px] font-bold text-red-600 leading-tight">
+                {capNotice}
+            </p>
+        )}
+        </>
     );
 
     return (
@@ -466,16 +705,26 @@ export default function ClientTimesheetEntry() {
                                 <>
                                     {/* Project table */}
                                     <div className="bg-white rounded-xl border border-[#E3E8EF] shadow-sm overflow-x-auto">
-                                        <table className="w-full text-left border-collapse min-w-[1100px]">
+                                        <table className="w-full text-left border-collapse table-fixed" style={{ minWidth: GRID_MIN_W }}>
+                                            {/* Same widths as the OT and Leave grids below — see GRID_* */}
+                                            <colgroup>
+                                                {GRID_IDENTITY_COLS.map((w, i) => <col key={`ident-${i}`} style={{ width: w }} />)}
+                                                {days.map((d) => <col key={d.ymd} style={{ width: GRID_DAY_W }} />)}
+                                                <col style={{ width: GRID_TOTAL_W }} />
+                                                <col style={{ width: GRID_COMMENT_W }} />
+                                                <col style={{ width: GRID_ACTIONS_W }} />
+                                            </colgroup>
                                             <thead>
                                                 <tr className="bg-brand-blue-dark text-white text-[11px] uppercase tracking-wide">
-                                                    <th className="px-3 py-3 font-bold">Project ID</th>
-                                                    <th className="px-3 py-3 font-bold">Project Name</th>
-                                                    <th className="px-3 py-3 font-bold">Task/Activity ID</th>
-                                                    <th className="px-3 py-3 font-bold">Task/Activity Description</th>
-                                                    <th className="px-3 py-3 font-bold">Onsite/Offshore</th>
-                                                    <th className="px-3 py-3 font-bold">Client Billable</th>
-                                                    <th className="px-3 py-3 font-bold">Billing Location</th>
+                                                    {/* Every project column is mandatory — marked so the employee
+                                                        knows before Submit rather than after it is blocked. */}
+                                                    <th className="px-3 py-3 font-bold">Project ID <span className="text-red-300">*</span></th>
+                                                    <th className="px-3 py-3 font-bold">Project Name <span className="text-red-300">*</span></th>
+                                                    <th className="px-3 py-3 font-bold">Task/Activity ID <span className="text-red-300">*</span></th>
+                                                    <th className="px-3 py-3 font-bold">Task/Activity Description <span className="text-red-300">*</span></th>
+                                                    <th className="px-3 py-3 font-bold">Onsite/Offshore <span className="text-red-300">*</span></th>
+                                                    <th className="px-3 py-3 font-bold">Client Billable <span className="text-red-300">*</span></th>
+                                                    <th className="px-3 py-3 font-bold">Billing Location <span className="text-red-300">*</span></th>
                                                     {days.map((d) => (
                                                         <th key={d.ymd} className="px-1 py-3 font-bold text-center">
                                                             <div>{d.dom}</div><div className="text-[9px] opacity-80">{d.wd}</div>
@@ -490,52 +739,130 @@ export default function ClientTimesheetEntry() {
                                                 {projectRows.map((r, rowIdx) => {
                                                     const gate = r.assignmentStartDate || meta.earliestAssignmentDate;
                                                     return (
-                                                        <tr key={r.rowId} className="border-b border-[#E3E8EF]">
-                                                            <td className="px-3 py-2 text-xs font-semibold text-brand-text">{r.projectId || "—"}</td>
-                                                            <td className="px-3 py-2 text-xs text-brand-text/80 max-w-[150px]">{r.projectName || "—"}</td>
-                                                            <td className="px-2 py-2">
-                                                                <input disabled={!weekEditable} maxLength={MAX_TASK_ID} value={r.taskId} onChange={(e) => setRowField(r.rowId, "taskId", e.target.value)} placeholder="—" className="w-24 text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none focus:border-brand-yellow disabled:bg-gray-100 disabled:text-gray-400" />
+                                                        <tr key={r.rowId} className="border-b border-[#E3E8EF] align-top">
+                                                            <td className="px-3 py-2">
+                                                                {/* Project ID/Name belong to the client project assignment, so they are
+                                                                    chosen rather than typed. A row that already carries a project (saved
+                                                                    or templated from an assignment) shows it read-only, as before. */}
+                                                                {!r.isNew || !weekEditable ? (
+                                                                    <span className="text-xs font-semibold text-brand-text">{r.projectId || "—"}</span>
+                                                                ) : (
+                                                                    <select
+                                                                        value={r.projectId}
+                                                                        onChange={(e) => selectProject(r.rowId, e.target.value)}
+                                                                        disabled={assignmentOptions.length === 0}
+                                                                        className={fieldClass(issueFor(r.rowId, "projectId"), "w-28")}
+                                                                    >
+                                                                        <option value="">
+                                                                            {assignmentOptions.length === 0 ? "No projects assigned" : "Select project"}
+                                                                        </option>
+                                                                        {assignmentOptions.map((a) => (
+                                                                            <option key={a.projectId} value={a.projectId}>{a.projectId}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                )}
+                                                                {issueFor(r.rowId, "projectId") && (
+                                                                    <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">
+                                                                        {assignmentOptions.length === 0 ? "No active project assignment — remove this row" : "Project ID is required"}
+                                                                    </p>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-2 max-w-[150px]">
+                                                                <span className="text-xs text-brand-text/80">{r.projectName || "—"}</span>
+                                                                {issueFor(r.rowId, "projectName") && !issueFor(r.rowId, "projectId") && (
+                                                                    <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">Project Name is required</p>
+                                                                )}
                                                             </td>
                                                             <td className="px-2 py-2">
-                                                                <input disabled={!weekEditable} maxLength={MAX_TASK_DESCRIPTION} value={r.taskDescription} onChange={(e) => setRowField(r.rowId, "taskDescription", e.target.value)} placeholder="—" title={r.taskDescription || undefined} className="w-40 text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none focus:border-brand-yellow disabled:bg-gray-100 disabled:text-gray-400" />
+                                                                <input disabled={!weekEditable} maxLength={MAX_TASK_ID} value={r.taskId} onChange={(e) => setRowField(r.rowId, "taskId", e.target.value)} placeholder="Enter task ID" className={fieldClass(issueFor(r.rowId, "taskId"), "w-24")} />
+                                                                {weekEditable && <CharCounter value={r.taskId} max={MAX_TASK_ID} />}
+                                                                {issueFor(r.rowId, "taskId") && (
+                                                                    <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">Task/Activity ID is required</p>
+                                                                )}
                                                             </td>
                                                             <td className="px-2 py-2">
-                                                                <select disabled={!weekEditable} value={r.onsiteOffshore} onChange={(e) => setRowField(r.rowId, "onsiteOffshore", e.target.value)} className="text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none disabled:bg-gray-100 disabled:text-gray-400">
+                                                                <input disabled={!weekEditable} maxLength={MAX_TASK_DESCRIPTION} value={r.taskDescription} onChange={(e) => setRowField(r.rowId, "taskDescription", e.target.value)} placeholder="Enter description" title={r.taskDescription || undefined} className={fieldClass(issueFor(r.rowId, "taskDescription"), "w-40")} />
+                                                                {weekEditable && <CharCounter value={r.taskDescription} max={MAX_TASK_DESCRIPTION} />}
+                                                                {issueFor(r.rowId, "taskDescription") && (
+                                                                    <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">Description is required</p>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-2 py-2">
+                                                                <select disabled={!weekEditable} value={r.onsiteOffshore} onChange={(e) => setRowField(r.rowId, "onsiteOffshore", e.target.value)} className={fieldClass(issueFor(r.rowId, "onsiteOffshore"))}>
+                                                                    <option value="">Select</option>
                                                                     <option value="ONSITE">Onsite</option>
                                                                     <option value="OFFSHORE">Offshore</option>
                                                                 </select>
+                                                                {issueFor(r.rowId, "onsiteOffshore") && (
+                                                                    <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">Select Onsite or Offshore</p>
+                                                                )}
                                                             </td>
                                                             <td className="px-2 py-2">
-                                                                <select disabled={!weekEditable} value={r.clientBillable} onChange={(e) => setRowField(r.rowId, "clientBillable", e.target.value)} className="text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none disabled:bg-gray-100 disabled:text-gray-400">
+                                                                <select disabled={!weekEditable} value={r.clientBillable} onChange={(e) => setRowField(r.rowId, "clientBillable", e.target.value)} className={fieldClass(issueFor(r.rowId, "clientBillable"))}>
+                                                                    <option value="">Select</option>
                                                                     <option value="BILLABLE">Billable</option>
                                                                     <option value="NON_BILLABLE">Non-Billable</option>
                                                                 </select>
+                                                                {issueFor(r.rowId, "clientBillable") && (
+                                                                    <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">Select a billable type</p>
+                                                                )}
                                                             </td>
                                                             <td className="px-2 py-2">
-                                                                <input disabled={!weekEditable} maxLength={MAX_BILLING_LOCATION} value={r.billingLocation} onChange={(e) => setRowField(r.rowId, "billingLocation", e.target.value)} className="w-16 text-xs border border-[#E3E8EF] rounded px-1 py-1 outline-none disabled:bg-gray-100 disabled:text-gray-400" />
+                                                                <input disabled={!weekEditable} maxLength={MAX_BILLING_LOCATION} value={r.billingLocation} onChange={(e) => setRowField(r.rowId, "billingLocation", e.target.value)} className={fieldClass(issueFor(r.rowId, "billingLocation"), "w-16")} />
+                                                                {issueFor(r.rowId, "billingLocation") && (
+                                                                    <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">Billing Location is required</p>
+                                                                )}
                                                             </td>
                                                             {r.days.map((d, dayIdx) => (
                                                                 <td key={d.date} className="px-1 py-2 text-center">
-                                                                    {dayCell(d.date, d.hours, isProjectDayEditable(d.date, gate), (v) => setProjectDay(r.rowId, dayIdx, v), isFullLeaveDay(d.date))}
+                                                                    {dayCell(d.date, d.hours, isProjectDayEditable(d.date, gate), (v) => setProjectDay(r.rowId, dayIdx, v), isFullLeaveDay(d.date), issueFor(r.rowId, "hours"), MAX_HOURS_PER_DAY, capNotices[projectCellKey(r.rowId, d.date)])}
                                                                 </td>
                                                             ))}
-                                                            <td className="px-2 py-2 text-center text-xs font-bold text-brand-text">{rowTotal(r).toFixed(2)}</td>
-                                                            <td className="px-2 py-2 text-center">
-                                                                <button onClick={() => openComment(r.rowId)} className={`p-1.5 rounded transition-all ${r.comment ? "text-emerald-600 bg-emerald-50" : "text-brand-text/40 hover:bg-bg-slate"}`} title="Comment" aria-label="Comment">
-                                                                    <MessageSquare size={16} />
-                                                                </button>
+                                                            <td className="px-2 py-2 text-center text-xs font-bold text-brand-text">
+                                                                {rowTotal(r).toFixed(2)}
+                                                                {issueFor(r.rowId, "hours") && (
+                                                                    <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">Enter hours for at least one day</p>
+                                                                )}
+                                                            </td>
+                                                            {/* The comment text is shown next to the button, not hidden
+                                                                behind it — the same text the admin sees on their review
+                                                                screen. Full text is in the Row Comments panel below. */}
+                                                            <td className="px-2 py-2">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <button onClick={() => openComment(r.rowId)} className={`shrink-0 p-1.5 rounded transition-all ${r.comment ? "text-emerald-600 bg-emerald-50" : "text-brand-text/40 hover:bg-bg-slate"}`} title={weekEditable ? "Add or edit comment" : "View comment"} aria-label="Comment">
+                                                                        <MessageSquare size={16} />
+                                                                    </button>
+                                                                    {r.comment
+                                                                        ? <span className="block max-w-[120px] truncate text-[11px] text-brand-text/70" title={r.comment}>{r.comment}</span>
+                                                                        : <span className="text-[11px] text-brand-text/30">—</span>}
+                                                                </div>
                                                             </td>
                                                             <td className="px-2 py-2 whitespace-nowrap">
                                                                 <div className="flex items-center gap-1">
                                                                     <button onClick={() => addRow(rowIdx)} disabled={!weekEditable} className="w-6 h-6 flex items-center justify-center rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all disabled:opacity-40" title="Add row"><Plus size={14} /></button>
-                                                                    <button onClick={() => removeRow(r.rowId)} disabled={!weekEditable} className="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all disabled:opacity-40" title="Remove row"><Minus size={14} /></button>
+                                                                    {/* The last remaining row cannot be removed — the sheet always keeps at least one. */}
+                                                                    <button
+                                                                        onClick={() => removeRow(r.rowId)}
+                                                                        disabled={!weekEditable || projectRows.length <= 1}
+                                                                        className="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all disabled:opacity-40 disabled:hover:bg-red-50 disabled:hover:text-red-500 disabled:cursor-not-allowed"
+                                                                        title={projectRows.length <= 1 ? "At least one project row is required" : "Remove row"}
+                                                                    ><Minus size={14} /></button>
                                                                 </div>
                                                             </td>
                                                         </tr>
                                                     );
                                                 })}
+                                                {/* Safety net only — the sheet is seeded with a blank row on load and
+                                                    the last row can't be deleted, so this should not be reachable.
+                                                    The old copy pointed at a “+” that isn't rendered when there are
+                                                    no rows, leaving no way back. */}
                                                 {projectRows.length === 0 && (
-                                                    <tr><td colSpan={7 + days.length + 3} className="px-4 py-8 text-center text-sm text-brand-text/40">No project rows. Use “+” to add one.</td></tr>
+                                                    <tr>
+                                                        <td colSpan={7 + days.length + 3} className="px-4 py-8 text-center text-sm text-brand-text/40">
+                                                            No project rows.
+                                                            <button onClick={() => addRow(-1)} disabled={!weekEditable} className="ml-2 font-bold text-brand-blue-dark underline disabled:opacity-40">Add a row</button>
+                                                        </td>
+                                                    </tr>
                                                 )}
                                             </tbody>
                                             <tfoot>
@@ -548,6 +875,11 @@ export default function ClientTimesheetEntry() {
                                         </table>
                                     </div>
 
+                                    {/* Per-row comments in full, read-only. Same component and position
+                                        as the admin review drawer, so what the employee wrote reads
+                                        identically on both sides after submission. */}
+                                    <RowCommentsPanel rows={projectRows} className="mt-8" />
+
                                     {/* OT hours — derived, never typed. Sits between the project
                                         hours (Regular) and the Holiday/Time off block it reads from. */}
                                     <div className="mt-8 bg-white rounded-xl border border-[#E3E8EF] shadow-sm overflow-x-auto">
@@ -557,16 +889,25 @@ export default function ClientTimesheetEntry() {
                                                 Calculated — hours beyond the 8h daily regular capacity (leave included)
                                             </span>
                                         </div>
-                                        <table className="w-full border-collapse min-w-[900px]">
+                                        <table className="w-full border-collapse table-fixed" style={{ minWidth: GRID_MIN_W }}>
+                                            {/* The label column is exactly as wide as the project grid's seven
+                                                descriptive columns, so day 1 starts at the same x in both. */}
+                                            <colgroup>
+                                                <col style={{ width: GRID_LEAD_W }} />
+                                                {days.map((d) => <col key={d.ymd} style={{ width: GRID_DAY_W }} />)}
+                                                <col style={{ width: GRID_TOTAL_W }} />
+                                                <col style={{ width: GRID_COMMENT_W + GRID_ACTIONS_W }} />
+                                            </colgroup>
                                             <thead>
                                                 <tr className="text-[11px] text-brand-text/40 uppercase">
-                                                    <th className="px-4 py-2 text-right font-bold w-[280px]"></th>
+                                                    <th className="px-4 py-2 text-right font-bold"></th>
                                                     {days.map((d) => (
                                                         <th key={d.ymd} className="px-1 py-2 font-bold text-center">
                                                             <div className="text-brand-text/70">{d.dom}</div><div className="text-[9px]">{d.wd}</div>
                                                         </th>
                                                     ))}
                                                     <th className="px-2 py-2 font-bold text-center">Total</th>
+                                                    <th></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -584,11 +925,17 @@ export default function ClientTimesheetEntry() {
                                                                     ? "Not available — full-day leave is booked for this date"
                                                                     : "Calculated from the hours entered above"}
                                                             >
-                                                                {d.ot > 0 ? d.ot.toFixed(2) : "—"}
+                                                                {/* Derived, so there is no real placeholder to use — an empty
+                                                                    cell shows the unit in the same muted style the entry
+                                                                    boxes use, in place of the old bare em dash. */}
+                                                                {d.ot > 0
+                                                                    ? d.ot.toFixed(2)
+                                                                    : <span className="font-medium text-brand-text/35">hrs</span>}
                                                             </div>
                                                         </td>
                                                     ))}
                                                     <td className="px-2 py-2 text-center text-xs font-bold text-amber-600">{totalOT.toFixed(2)}</td>
+                                                    <td></td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -599,16 +946,24 @@ export default function ClientTimesheetEntry() {
                                         <div className="px-4 py-3 border-b border-[#E3E8EF]">
                                             <h3 className="text-sm font-black text-brand-text uppercase tracking-wide">Holiday/Time off</h3>
                                         </div>
-                                        <table className="w-full border-collapse min-w-[900px]">
+                                        <table className="w-full border-collapse table-fixed" style={{ minWidth: GRID_MIN_W }}>
+                                            {/* Same geometry as the Regular and OT grids above. */}
+                                            <colgroup>
+                                                <col style={{ width: GRID_LEAD_W }} />
+                                                {days.map((d) => <col key={d.ymd} style={{ width: GRID_DAY_W }} />)}
+                                                <col style={{ width: GRID_TOTAL_W }} />
+                                                <col style={{ width: GRID_COMMENT_W + GRID_ACTIONS_W }} />
+                                            </colgroup>
                                             <thead>
                                                 <tr className="text-[11px] text-brand-text/40 uppercase">
-                                                    <th className="px-4 py-2 text-right font-bold w-[280px]"></th>
+                                                    <th className="px-4 py-2 text-right font-bold"></th>
                                                     {days.map((d) => (
                                                         <th key={d.ymd} className="px-1 py-2 font-bold text-center">
                                                             <div className="text-brand-text/70">{d.dom}</div><div className="text-[9px]">{d.wd}</div>
                                                         </th>
                                                     ))}
                                                     <th className="px-2 py-2 font-bold text-center">Total</th>
+                                                    <th></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -619,10 +974,11 @@ export default function ClientTimesheetEntry() {
                                                             <td className="px-4 py-2 text-right text-sm font-semibold text-brand-text/70">{TIMEOFF_LABELS[r.type]}</td>
                                                             {r.days.map((d, dayIdx) => (
                                                                 <td key={d.date} className="px-1 py-2 text-center">
-                                                                    {dayCell(d.date, d.hours, isDayEditable(d.date, gate), (v) => setTimeOffDay(rowIdx, dayIdx, v))}
+                                                                    {dayCell(d.date, d.hours, isDayEditable(d.date, gate), (v) => setTimeOffDay(rowIdx, dayIdx, v), false, false, MAX_LEAVE_HOURS_PER_DAY, capNotices[leaveCellKey(r.type, d.date)])}
                                                                 </td>
                                                             ))}
                                                             <td className="px-2 py-2 text-center text-xs font-bold text-brand-text">{rowTotal(r).toFixed(2)}</td>
+                                                            <td></td>
                                                         </tr>
                                                     );
                                                 })}
@@ -648,6 +1004,25 @@ export default function ClientTimesheetEntry() {
                                             </button>
                                         </div>
                                     </div>
+                                    {/* Not gated on showErrors — an impossible day is worth flagging
+                                        as soon as it exists, without waiting for a Submit attempt. */}
+                                    {dayCapIssues.length > 0 && (
+                                        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                                            <p className="text-xs font-black uppercase tracking-widest text-red-600">Daily hour limit exceeded</p>
+                                            <p className="mt-1 text-sm text-red-700 leading-relaxed">{dayCapMessage()}</p>
+                                        </div>
+                                    )}
+                                    {showErrors && incompleteRowCount > 0 && (
+                                        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                                            <p className="text-xs font-black uppercase tracking-widest text-red-600">Incomplete rows</p>
+                                            <p className="mt-1 text-sm text-red-700 leading-relaxed">
+                                                {incompleteRowCount === 1
+                                                    ? "One project row still has required fields to fill in — see the highlighted fields above."
+                                                    : `${incompleteRowCount} project rows still have required fields to fill in — see the highlighted fields above.`}
+                                                {" "}Remove any row you are not logging against, or complete it.
+                                            </p>
+                                        </div>
+                                    )}
                                     {!weekEditable ? (
                                         <p className="mt-3 text-xs text-brand-text/40">This week is {statusMeta.label.toLowerCase()} and can no longer be edited.</p>
                                     ) : meta.status === "PENDING" ? (
@@ -665,21 +1040,28 @@ export default function ClientTimesheetEntry() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]">
                     <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-bold text-brand-text">Row Comment</h3>
+                            <h3 className="text-lg font-bold text-brand-text">{weekEditable ? "Row Comment" : "Row Comment (read-only)"}</h3>
                             <button onClick={() => setCommentModal({ open: false, rowId: null, text: "" })} className="text-brand-text/40 hover:text-brand-text"><X size={18} /></button>
                         </div>
                         <textarea
                             value={commentModal.text}
                             onChange={(e) => setCommentModal((p) => ({ ...p, text: e.target.value }))}
-                            maxLength={500}
+                            maxLength={MAX_COMMENT}
                             disabled={!weekEditable}
                             placeholder="Add a comment for this project row"
-                            className="w-full p-3 border border-slate-200 rounded-lg mb-4 focus:ring-2 focus:ring-brand-yellow outline-none text-sm disabled:bg-gray-100"
+                            className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-yellow outline-none text-sm disabled:bg-gray-100"
                             rows="4"
                         />
+                        <div className="mb-4">
+                            {weekEditable && <CharCounter value={commentModal.text} max={MAX_COMMENT} />}
+                        </div>
+                        {/* Once the week is approved the comment is history, not an input — a lone
+                            Close beats a Cancel next to a permanently disabled Save. */}
                         <div className="flex gap-3">
-                            <button onClick={() => setCommentModal({ open: false, rowId: null, text: "" })} className="flex-1 bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-bold uppercase text-[10px] tracking-widest hover:bg-slate-200 transition">Cancel</button>
-                            <button onClick={saveComment} disabled={!weekEditable} className="flex-1 bg-brand-blue-dark text-white px-4 py-2 rounded-lg font-bold uppercase text-[10px] tracking-widest hover:brightness-110 transition disabled:opacity-40">Save</button>
+                            <button onClick={() => setCommentModal({ open: false, rowId: null, text: "" })} className="flex-1 bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-bold uppercase text-[10px] tracking-widest hover:bg-slate-200 transition">{weekEditable ? "Cancel" : "Close"}</button>
+                            {weekEditable && (
+                                <button onClick={saveComment} className="flex-1 bg-brand-blue-dark text-white px-4 py-2 rounded-lg font-bold uppercase text-[10px] tracking-widest hover:brightness-110 transition">Save</button>
+                            )}
                         </div>
                     </div>
                 </div>

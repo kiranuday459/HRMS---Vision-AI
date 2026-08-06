@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Search, RefreshCw, Users } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
+import DisabledBadge from "../../components/DisabledBadge";
 
 const fmtDate = (d) => {
     if (!d) return "—";
@@ -35,6 +36,8 @@ export default function AccessManagementTab() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
+    // null = keep the server's newest-assignment-first order; "asc"/"desc" sort by employee ID.
+    const [idSort, setIdSort] = useState(null);
     const [resendingId, setResendingId] = useState(null);
     const firstLoad = useRef(true);
 
@@ -69,12 +72,30 @@ export default function AccessManagementTab() {
             if (q) {
                 return (
                      (r.employeeName || "").toLowerCase().includes(q) ||
-                     (r.projectName || "").toLowerCase().includes(q)
+                     (r.projectName || "").toLowerCase().includes(q) ||
+                     // Searchable now that it is a real identifier rather than a row index.
+                     (r.oryfolksId || "").toLowerCase().includes(q)
                 );
             }
             return true;
         });
     }, [rows, search, statusFilter]);
+
+    const sorted = useMemo(() => {
+        if (!idSort) return filtered;
+        // numeric:true so "001" < "003" < "010" and "EMP9" < "EMP10" — a plain string sort
+        // gets the latter wrong, and the ID format isn't guaranteed to stay zero-padded.
+        // Rows with no ID sort last either way rather than leading with blanks.
+        const dir = idSort === "asc" ? 1 : -1;
+        return [...filtered].sort((a, b) => {
+            const x = a.oryfolksId || "";
+            const y = b.oryfolksId || "";
+            if (!x && !y) return 0;
+            if (!x) return 1;
+            if (!y) return -1;
+            return dir * x.localeCompare(y, undefined, { numeric: true, sensitivity: "base" });
+        });
+    }, [filtered, idSort]);
 
     const handleResend = async (row) => {
         setResendingId(row.employeeId);
@@ -103,7 +124,7 @@ export default function AccessManagementTab() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/30" size={15} />
                         <input
                             type="text"
-                            placeholder="Search by name or project..."
+                            placeholder="Search by employee ID, name or project..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="w-full bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl pl-9 pr-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
@@ -127,7 +148,22 @@ export default function AccessManagementTab() {
                     <table className="w-full text-left border-collapse min-w-[820px]">
                         <thead className="bg-white">
                             <tr className="bg-brand-blue/[0.02]">
-                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 w-12">#</th>
+                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 whitespace-nowrap">
+                                    {/* Cycles ID ascending → descending → back to the server's
+                                        newest-assignment-first default. */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setIdSort((s) => (s === "asc" ? "desc" : s === "desc" ? null : "asc"))}
+                                        className="inline-flex items-center gap-1 uppercase tracking-[0.15em] hover:text-brand-text transition-colors"
+                                        title={idSort === "asc" ? "Sorted by employee ID ascending" : idSort === "desc" ? "Sorted by employee ID descending" : "Sort by employee ID"}
+                                        aria-label="Sort by employee ID"
+                                    >
+                                        Employee ID
+                                        <span aria-hidden="true" className={idSort ? "text-brand-blue-dark" : "text-brand-text/25"}>
+                                            {idSort === "desc" ? "▼" : "▲"}
+                                        </span>
+                                    </button>
+                                </th>
                                 <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Name</th>
                                 <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Role</th>
                                 <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Project</th>
@@ -139,7 +175,7 @@ export default function AccessManagementTab() {
                         <tbody className="divide-y divide-brand-blue/5">
                             {loading ? (
                                 <tr><td colSpan={7} className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Loading...</td></tr>
-                            ) : filtered.length === 0 ? (
+                            ) : sorted.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="py-16 text-center">
                                         <Users className="mx-auto mb-3 text-brand-text/20" size={40} />
@@ -148,10 +184,20 @@ export default function AccessManagementTab() {
                                     </td>
                                 </tr>
                             ) : (
-                                filtered.map((r, idx) => (
+                                sorted.map((r) => (
                                     <tr key={r.employeeId} className="hover:bg-bg-slate/40 transition-all">
-                                        <td className="py-3 px-6 text-sm font-bold text-brand-text/40">{idx + 1}</td>
-                                        <td className="py-3 px-6 text-sm font-black text-brand-text tracking-tight">{r.employeeName}</td>
+                                        {/* The HRMS employee ID, not a row index — it identifies the
+                                            person and stays the same however the list is filtered or
+                                            sorted. Falls back to a dash rather than the internal
+                                            database key, which would mean nothing to the admin. */}
+                                        <td className="py-3 px-6 text-sm font-bold text-brand-text/70 tabular-nums whitespace-nowrap">{r.oryfolksId || "—"}</td>
+                                        <td className="py-3 px-6 text-sm font-black text-brand-text tracking-tight">
+                                            <span className="inline-flex items-center gap-2">
+                                                {r.employeeName}
+                                                {/* Still listed so their access state stays auditable, but flagged. */}
+                                                {r.employeeActive === false && <DisabledBadge />}
+                                            </span>
+                                        </td>
                                         <td className="py-3 px-6 text-[12px] font-bold text-brand-text/70">{roleLabel(r.role)}</td>
                                         <td className="py-3 px-6 text-sm font-bold text-brand-text">{r.projectName || "—"}</td>
                                         <td className="py-3 px-6 text-[12px] font-bold text-brand-text/60">{r.projectId || "—"}</td>

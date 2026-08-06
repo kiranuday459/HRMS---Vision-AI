@@ -1,9 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { X, Check, MessageSquare } from "lucide-react";
+import { X, Check } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
 import ClientTimesheetConfirmModal from "./ClientTimesheetConfirmModal";
+import RowCommentsPanel from "./RowCommentsPanel";
+import CharCounter from "../../components/CharCounter";
+import DisabledBadge from "../../components/DisabledBadge";
+import { FIELD_LIMITS } from "../../utils/fieldLimits";
 
 const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -39,6 +43,9 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
     const [rejecting, setRejecting] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
     const [confirmingApprove, setConfirmingApprove] = useState(false);
+    // Final "are you sure" after the reason is typed. Cancelling returns to the reason box
+    // with the text intact rather than discarding it.
+    const [confirmingReject, setConfirmingReject] = useState(false);
 
     const currentUserId = useMemo(() => { const u = JSON.parse(localStorage.getItem("user")) || {}; return u.id || u.userId; }, []);
 
@@ -83,7 +90,7 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
         setActing(true);
         try {
             const res = await api(`/api/client-timesheets/${timesheetId}/reject`, { method: "POST", body: JSON.stringify({ reviewerId: currentUserId, reason: rejectReason }) });
-            if (res.ok) { toast.success("Client timesheet rejected."); setStatus("REJECTED"); setRejecting(false); setRejectReason(""); onActioned && onActioned(); }
+            if (res.ok) { toast.success("Client timesheet rejected."); setStatus("REJECTED"); setConfirmingReject(false); setRejecting(false); setRejectReason(""); onActioned && onActioned(); }
             else toast.error("Could not reject.");
         } catch (err) { console.error(err); } finally { setActing(false); }
     };
@@ -133,16 +140,37 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                     <div className="flex-1 min-h-0 overflow-y-auto p-5 md:p-6">
                         {/* Meta */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm mb-6">
-                            <Meta label="Employee" value={detail.employeeName} />
+                            <Meta
+                                label="Employee"
+                                value={
+                                    <>
+                                        {detail.employeeName}
+                                        {/* Retained history for a disabled account — flagged so the
+                                            reviewer knows the person is no longer active in HRMS. */}
+                                        {detail.employeeActive === false && <DisabledBadge className="ml-2 align-middle" />}
+                                    </>
+                                }
+                            />
                             <Meta label="Project" value={detail.projectName || "—"} />
                             <Meta label="Project ID" value={detail.projectId || "—"} />
                             <Meta label="Week" value={`${fmtRange(detail.weekStartDate)} to ${fmtRange(detail.weekEndDate)}`} />
                             <Meta label="Submitted" value={fmtSubmitted(detail.submittedAt)} />
                             <div className="flex items-center gap-3"><span className="text-brand-text/40 font-semibold w-24">Status</span><StatusPill status={status} /></div>
+                            {/* The decision itself: who reviewed the week and when. Both were
+                                recorded against the line all along but never shown here. */}
+                            <Meta label="Reviewed by" value={detail.approvedByName || "—"} />
+                            <Meta label="Reviewed on" value={fmtSubmitted(detail.reviewedAt)} />
+                            {/* The date this employee's client work starts — days before it are
+                                locked on the entry grid, which explains any empty leading days. */}
+                            <Meta label="Assigned from" value={fmtRange(detail.earliestAssignmentDate) || "—"} />
                         </div>
 
                         {/* Why this week was rejected — the record of the decision. */}
-                        {status === "REJECTED" && detail.rejectionReason && (
+                        {/* Shown whenever a reason exists, not only while the status is still
+                            REJECTED. A rejected week that the employee has since corrected and
+                            resubmitted reads as PENDING but still carries the reason — hiding it
+                            then left the reviewer with no idea what was wrong last time. */}
+                        {detail.rejectionReason && (
                             <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-red-600">Rejection reason</p>
                                 <p className="mt-1 text-sm text-red-700 leading-relaxed">{detail.rejectionReason}</p>
@@ -163,7 +191,9 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                                         <th className="px-2 py-2 font-bold w-[7%]">Billing Location</th>
                                         {days.map((d, i) => (<th key={i} className="px-0.5 py-2 font-bold text-center w-[4%]"><div>{d.dom}</div><div className="text-[7px] opacity-80">{d.wd}</div></th>))}
                                         <th className="px-1 py-2 font-bold text-center w-[5%]">Total</th>
-                                        <th className="px-1 py-2 font-bold text-center w-[4%]">Comment</th>
+                                        {/* Widened from 4% (icon-only) to fit readable comment text;
+                                            the column widths now total 100%. */}
+                                        <th className="px-1 py-2 font-bold w-[9%]">Comment</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -180,7 +210,16 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                                             <td className="px-2 py-1.5 text-brand-text/70 truncate" title={r.billingLocation || ""}>{r.billingLocation || "—"}</td>
                                             {dayHours(r).map((h, i) => (<td key={i} className="px-0.5 py-1.5 text-center text-brand-text">{hourCell(h)}</td>))}
                                             <td className="px-1 py-1.5 text-center font-bold text-brand-text">{rowTotal(r).toFixed(2)}</td>
-                                            <td className="px-1 py-1.5 text-center">{r.comment ? <MessageSquare size={14} className="inline text-emerald-600" title={r.comment} /> : <span className="text-brand-text/30">—</span>}</td>
+                                            {/* The comment text itself, not just an icon: a `title`
+                                                attribute on an <svg> is not rendered as a tooltip by
+                                                browsers, so the reviewer previously had no way to read
+                                                what the employee wrote. Full text is also listed in the
+                                                Row Comments panel below the table. */}
+                                            <td className="px-1 py-1.5">
+                                                {r.comment
+                                                    ? <span className="block truncate text-brand-text/70" title={r.comment}>{r.comment}</span>
+                                                    : <span className="block text-center text-brand-text/30">—</span>}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -193,6 +232,10 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                                 </tfoot>
                             </table>
                         </div>
+
+                        {/* Per-row comments in full, read-only. Same component and position as the
+                            employee's Time Entry page, so a comment reads identically on both sides. */}
+                        <RowCommentsPanel rows={projectRows} className="mt-6" />
 
                         {/* OT hours (read-only) — same position and shape as the employee's
                             Time Entry page, between the project table and Holiday/Time off. */}
@@ -252,7 +295,12 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
 
                         {/* Totals */}
                         <div className="mt-5 flex flex-col gap-1 text-sm items-end">
-                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Project Related Hours:</span><span className="font-black text-brand-text w-16 text-right">{(detail.totalBillableHours + detail.totalNonBillableHours).toFixed(2)}</span></div>
+                            {/* The billable / non-billable split is what the client is invoiced
+                                on. It was in the payload but only ever rendered as one summed
+                                figure, so the reviewer couldn't see the breakdown they approve. */}
+                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Billable Hours:</span><span className="font-black text-brand-text w-16 text-right">{(detail.totalBillableHours || 0).toFixed(2)}</span></div>
+                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Non-Billable Hours:</span><span className="font-black text-brand-text w-16 text-right">{(detail.totalNonBillableHours || 0).toFixed(2)}</span></div>
+                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Project Related Hours:</span><span className="font-black text-brand-text w-16 text-right">{((detail.totalBillableHours || 0) + (detail.totalNonBillableHours || 0)).toFixed(2)}</span></div>
                             <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Holiday/Time off Hours:</span><span className="font-black text-brand-text w-16 text-right">{(detail.totalTimeOffHours || 0).toFixed(2)}</span></div>
                             {/* Server-computed 8h/day split, so the reviewer sees what the
                                 employee saw on the entry page. */}
@@ -269,10 +317,12 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                         {status === "PENDING" ? (
                             rejecting ? (
                                 <div className="space-y-3">
-                                    <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} maxLength={255} placeholder="Enter reason for rejection" rows="3" className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm" />
+                                    <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} maxLength={FIELD_LIMITS.REJECTION_REASON} placeholder="Enter reason for rejection" rows="3" className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm" />
+                                    <CharCounter value={rejectReason} max={FIELD_LIMITS.REJECTION_REASON} />
                                     <div className="flex justify-end gap-3">
                                         <button onClick={() => { setRejecting(false); setRejectReason(""); }} className="px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-brand-text/50 hover:bg-bg-slate transition">Cancel</button>
-                                        <button onClick={handleReject} disabled={acting || !rejectReason.trim()} title={!rejectReason.trim() ? "Enter a rejection reason first" : undefined} className="px-6 py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-black uppercase tracking-widest transition disabled:opacity-40 disabled:cursor-not-allowed">Confirm Reject</button>
+                                        {/* Opens the final confirmation rather than rejecting outright. */}
+                                        <button onClick={() => setConfirmingReject(true)} disabled={acting || !rejectReason.trim()} title={!rejectReason.trim() ? "Enter a rejection reason first" : undefined} className="px-6 py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-black uppercase tracking-widest transition disabled:opacity-40 disabled:cursor-not-allowed">Reject</button>
                                     </div>
                                 </div>
                             ) : (
@@ -299,6 +349,19 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                 title="Approve Client Timesheet"
                 message={`Are you sure you want to approve this client timesheet for ${detail?.employeeName || "this employee"} (${fmtRange(detail?.weekStartDate)} to ${fmtRange(detail?.weekEndDate)})? Once approved the employee can no longer edit it.`}
                 confirmLabel="Approve"
+            />
+
+            {/* Reject confirmation — the last step, after the reason has been entered.
+                Cancelling returns to the reason box with the text still there. */}
+            <ClientTimesheetConfirmModal
+                isOpen={confirmingReject}
+                onClose={() => setConfirmingReject(false)}
+                onConfirm={handleReject}
+                submitting={acting}
+                destructive
+                title="Reject Client Timesheet"
+                message={`Are you sure you want to reject this client timesheet for ${detail?.employeeName || "this employee"} (${fmtRange(detail?.weekStartDate)} to ${fmtRange(detail?.weekEndDate)})? They will be notified and can correct and resubmit it.`}
+                confirmLabel="Reject"
             />
         </div>
     );

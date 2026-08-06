@@ -7,7 +7,11 @@ import { X } from "lucide-react";
  * systems are kept separate, so this one carries the workspace's own teal/slate chrome
  * rather than the HRMS brand palette. Nothing outside client-timesheets/ should import it.
  *
- * Reject keeps its own dialogs (they additionally require a reason); this covers approve.
+ * Used by both decisions. Approve confirms straight from the queue; reject confirms after the
+ * reason has been typed, as the last step before the call goes out.
+ *
+ * `destructive` turns the confirm button red — rejecting sends a week back to the employee,
+ * and the button shouldn't look like the approve one it sits a few pixels away from.
  */
 export default function ClientTimesheetConfirmModal({
     isOpen,
@@ -17,6 +21,7 @@ export default function ClientTimesheetConfirmModal({
     title = "Confirm",
     message = "Are you sure?",
     confirmLabel = "Confirm",
+    destructive = false,
 }) {
     if (!isOpen) return null;
 
@@ -60,7 +65,9 @@ export default function ClientTimesheetConfirmModal({
                             type="button"
                             onClick={onConfirm}
                             disabled={submitting}
-                            className="px-6 py-2.5 rounded-lg bg-[#0d9488] hover:bg-[#0f766e] text-white text-[10px] font-black uppercase tracking-widest transition shadow-sm active:scale-95 disabled:opacity-40"
+                            className={`px-6 py-2.5 rounded-lg text-white text-[10px] font-black uppercase tracking-widest transition shadow-sm active:scale-95 disabled:opacity-40 ${destructive
+                                ? "bg-red-500 hover:bg-red-600"
+                                : "bg-[#0d9488] hover:bg-[#0f766e]"}`}
                         >
                             {submitting ? "Please wait..." : confirmLabel}
                         </button>

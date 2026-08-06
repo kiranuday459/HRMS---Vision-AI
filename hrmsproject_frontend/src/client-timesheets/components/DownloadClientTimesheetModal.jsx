@@ -6,6 +6,7 @@ import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { projectSuffix } from "../../utils/employeeName";
+import { fitRowHeight, wrap } from "../../utils/excelWrap";
 
 // ── Local date helpers (treat YYYY-MM-DD as local, avoid timezone shifts) ──
 const toYMD = (d) => {
@@ -72,8 +73,12 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
     }, [assignedEmployees]);
 
     // Employee options cross-filtered by the selected project (all when "All projects").
+    // Employees disabled in HRMS are dropped: this is a selection list, and no picker in
+    // Client Timesheet Admin should offer an inactive account. Their already-submitted
+    // timesheets are untouched — an "All employees" export still includes them, and the
+    // admin queue still shows them (flagged), so nothing is lost from the record.
     const employeeOptions = useMemo(() => {
-        const list = assignedEmployees || [];
+        const list = (assignedEmployees || []).filter((e) => e.employeeActive !== false);
         return project ? list.filter((e) => (e.projectName || "").trim() === project) : list;
     }, [assignedEmployees, project]);
 
@@ -261,14 +266,11 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
 
         // Populate a single worksheet with one calendar month of one employee's data.
         const populateSheet = (ws, group, monthDate) => {
-            ws.getColumn(1).width = 8;  // Date
-            ws.getColumn(2).width = 8;  // Day
-            ws.getColumn(3).width = 12; // Category
-            ws.getColumn(4).width = 10; // Clock-in
-            ws.getColumn(5).width = 10; // Clock-out
-            ws.getColumn(6).width = 10; // Break
-            ws.getColumn(7).width = 14; // Working hours
-            ws.getColumn(8).width = 14; // Remarks
+            // Declared once so the row-height fitting below measures against the same widths
+            // the columns actually have — Date, Day, Category, Clock-in, Clock-out, Break,
+            // Working hours, Remarks.
+            const colWidths = [8, 8, 12, 10, 10, 10, 14, 14];
+            colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
             const titleMonth = monthDate.toLocaleString("en-US", { month: "long" });
             const titleYear = monthDate.getFullYear();
@@ -292,18 +294,33 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             const title = ws.getCell(1, 1);
             title.value = `Timesheet_${titleMonth} ${titleYear}`;
             title.font = { name: "Calibri", bold: true, size: 14 };
-            title.alignment = { horizontal: "left", vertical: "middle" };
-            ws.getRow(1).height = 22;
+            title.alignment = wrap({ horizontal: "left" });
+            // Merged across all 8 columns; 22pt fits the single line this always produces.
+            fitRowHeight(ws.getRow(1), [
+                { value: title.value, width: colWidths.reduce((a, b) => a + b, 0) },
+            ], 22);
 
+            // Both value cells are merged spans, which Excel never auto-fits — so the row is
+            // grown to whichever wrapped value is taller. Merged widths: cols 2-4 = 8+12+10 = 30,
+            // cols 7-8 = 14+14 = 28. A long project or employee name used to run under the
+            // neighbouring cell and disappear.
             const metaPair = (rowIdx, leftLabel, leftValue, rightLabel, rightValue) => {
                 ws.getCell(rowIdx, 1).value = leftLabel;
                 ws.getCell(rowIdx, 1).font = { name: "Calibri", bold: true };
+                ws.getCell(rowIdx, 1).alignment = wrap({ horizontal: "left" });
                 ws.mergeCells(rowIdx, 2, rowIdx, 4);
                 ws.getCell(rowIdx, 2).value = leftValue;
+                ws.getCell(rowIdx, 2).alignment = wrap({ horizontal: "left" });
                 ws.getCell(rowIdx, 6).value = rightLabel;
                 ws.getCell(rowIdx, 6).font = { name: "Calibri", bold: true };
+                ws.getCell(rowIdx, 6).alignment = wrap({ horizontal: "left" });
                 ws.mergeCells(rowIdx, 7, rowIdx, 8);
                 ws.getCell(rowIdx, 7).value = rightValue;
+                ws.getCell(rowIdx, 7).alignment = wrap({ horizontal: "left" });
+                fitRowHeight(ws.getRow(rowIdx), [
+                    { value: leftValue, width: 30 },
+                    { value: rightValue, width: 28 },
+                ]);
             };
             metaPair(3, "Employee name:", group.name, "Project name:", projectName);
             metaPair(4, "Department:", dept, "Work location:", workLocation);
@@ -316,10 +333,12 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                 const c = hr.getCell(i + 1);
                 c.value = h;
                 c.font = { name: "Calibri", bold: true };
-                c.alignment = { horizontal: "center", vertical: "middle" };
+                c.alignment = wrap({ horizontal: "center" });
                 c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F2F2" } };
                 c.border = border;
             });
+            // "Working hours" is longer than its 14-char column and wraps to two lines.
+            fitRowHeight(hr, headers.map((h, i) => ({ value: h, width: colWidths[i] })));
 
             // Sum stored working hours per date (multiple entries on one day are added).
             const hoursByDate = {};
@@ -378,13 +397,15 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                 values.forEach((v, i) => {
                     const c = row.getCell(i + 1);
                     c.value = v;
-                    c.alignment = { horizontal: i === 7 ? "left" : "center", vertical: "middle" };
+                    c.alignment = wrap({ horizontal: i === 7 ? "left" : "center" });
                     c.border = border;
                     // Weekend rows: light-yellow highlight to distinguish visually.
                     if (isWeekend) {
                         c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF9C4" } };
                     }
                 });
+                // Remarks is free text and the only cell here that realistically wraps.
+                fitRowHeight(row, values.map((v, i) => ({ value: v, width: colWidths[i] })));
             });
 
             // ---- Total footer (this month only) ----
@@ -394,12 +415,12 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             const label = totalRow.getCell(1);
             label.value = "Total";
             label.font = { name: "Calibri", bold: true };
-            label.alignment = { horizontal: "center", vertical: "middle" };
+            label.alignment = wrap({ horizontal: "center" });
             for (let cc = 1; cc <= 6; cc++) totalRow.getCell(cc).border = totalBorder;
             const totalCell = totalRow.getCell(7);
             totalCell.value = minutesToHMM(totalMinutes);
             totalCell.font = { name: "Calibri", bold: true };
-            totalCell.alignment = { horizontal: "right", vertical: "middle" };
+            totalCell.alignment = wrap({ horizontal: "right" });
             totalCell.border = totalBorder;
             totalRow.getCell(8).border = totalBorder;
         };

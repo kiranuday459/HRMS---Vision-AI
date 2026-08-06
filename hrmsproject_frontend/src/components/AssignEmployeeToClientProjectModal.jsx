@@ -2,9 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Briefcase, X, Search, Check } from "lucide-react";
 import { toast } from "react-toastify";
 import api from "../utils/api";
-import DisabledBadge from "./DisabledBadge";
 import { isDisabled } from "../utils/employeeStatus";
-import { ProjectSuffix } from "../utils/employeeName";
+import CharCounter from "./CharCounter";
+import { FIELD_LIMITS } from "../utils/fieldLimits";
+
+// Roles that may hold a client project assignment. Mirrors ASSIGNABLE_ROLES in
+// ClientProjectAssignmentService — Admin and HR are never assignable.
+const ASSIGNABLE_ROLES = new Set(["EMPLOYEE", "REPORTING_MANAGER"]);
 
 /**
  * Admin tool: assign existing employees to a client / project.
@@ -19,6 +23,8 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
   const [saving, setSaving] = useState(false);
 
   const [employees, setEmployees] = useState([]);
+  // Employee ids holding a live client project assignment — excluded from the picker.
+  const [assignedEmployeeIds, setAssignedEmployeeIds] = useState(new Set());
   const [clientName, setClientName] = useState("");
   const [clientOptions, setClientOptions] = useState([]);
   const [projectId, setProjectId] = useState("");
@@ -53,6 +59,12 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
       const assignList = Array.isArray(assignJson.data) ? assignJson.data : (Array.isArray(assignJson) ? assignJson : []);
       const distinctClients = Array.from(new Set(assignList.map(a => a.clientName).filter(Boolean))).sort();
       setClientOptions(distinctClients);
+      // One active project per employee: anyone holding a live assignment drops out of the
+      // picker. Keyed on the assignment's own `active` flag, so ending an assignment puts
+      // that employee back in the list.
+      setAssignedEmployeeIds(new Set(
+        assignList.filter((a) => a.active).map((a) => a.employeeId).filter((id) => id != null)
+      ));
     } catch (err) {
       console.error("Failed to load data", err);
       toast.error("Failed to load data");
@@ -61,10 +73,19 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
     }
   };
 
-  // Everyone except admins is assignable to a client project.
+  // Who can be assigned to a client project. All three exclusions are re-checked server-side
+  // in ClientProjectAssignmentService.requireAssignable — this list is the convenience, that
+  // is the rule.
+  //   role      — only Employees and Reporting Managers do client work; Admin and HR never do.
+  //   disabled  — an account disabled in HRMS drops out of every picker automatically.
+  //   assigned  — one active project per employee, for now.
   const assignableEmployees = useMemo(
-    () => employees.filter((e) => e.role !== "ADMIN"),
-    [employees]
+    () => employees.filter((e) =>
+      ASSIGNABLE_ROLES.has((e.role || "").toUpperCase()) &&
+      !isDisabled(e) &&
+      !assignedEmployeeIds.has(e.id)
+    ),
+    [employees, assignedEmployeeIds]
   );
 
   const filteredEmployees = useMemo(() => {
@@ -79,7 +100,9 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
     });
   }, [assignableEmployees, search]);
 
-  const selectable = filteredEmployees.filter((e) => !isDisabled(e));
+  // Everything that survives assignableEmployees is selectable — disabled accounts are
+  // filtered out of the list entirely now rather than shown greyed out.
+  const selectable = filteredEmployees;
   const allSelected = selectable.length > 0 && selectable.every((e) => checkedIds.has(e.id));
 
   const toggleCheck = (id) => {
@@ -210,9 +233,11 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
                 type="text"
                 placeholder="e.g. Website Revamp"
                 value={projectName}
+                maxLength={FIELD_LIMITS.PROJECT_NAME}
                 onChange={(e) => setProjectName(e.target.value)}
                 className="w-full px-4 py-3 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-sm font-bold text-brand-text outline-none focus:border-brand-blue-dark/30 transition-all placeholder:text-brand-text/20 placeholder:font-medium"
               />
+              <CharCounter value={projectName} max={FIELD_LIMITS.PROJECT_NAME} />
             </div>
             <div className="space-y-2">
               <label className={sectionHeader}>Project ID</label>
@@ -220,9 +245,11 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
                 type="text"
                 placeholder="e.g. 1000488399"
                 value={projectId}
+                maxLength={FIELD_LIMITS.PROJECT_ID}
                 onChange={(e) => setProjectId(e.target.value)}
                 className="w-full px-4 py-3 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-sm font-bold text-brand-text outline-none focus:border-brand-blue-dark/30 transition-all placeholder:text-brand-text/20 placeholder:font-medium"
               />
+              <CharCounter value={projectId} max={FIELD_LIMITS.PROJECT_ID} />
             </div>
             <div className="space-y-2">
               <label className={sectionHeader}>Assignment start date</label>
@@ -268,15 +295,14 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
                 <p className="text-[12px] text-brand-text/40 italic py-2">No employees found</p>
               ) : (
                 filteredEmployees.map((e) => {
-                  const empDisabled = isDisabled(e);
-                  const checked = !empDisabled && checkedIds.has(e.id);
+                  const checked = checkedIds.has(e.id);
                   return (
                     <label
                       key={e.id}
-                      className={`flex items-center gap-3 border-[0.5px] rounded-lg p-3 transition-all ${empDisabled ? "bg-[#F1EFE8] border-brand-blue/10 cursor-not-allowed" : checked ? "bg-brand-blue/[0.03] border-brand-blue-dark/40 cursor-pointer" : "bg-white border-brand-blue/10 hover:border-brand-blue/20 cursor-pointer"}`}
+                      className={`flex items-center gap-3 border-[0.5px] rounded-lg p-3 transition-all cursor-pointer ${checked ? "bg-brand-blue/[0.03] border-brand-blue-dark/40" : "bg-white border-brand-blue/10 hover:border-brand-blue/20"}`}
                     >
                       <span
-                        className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all shrink-0 ${empDisabled ? "bg-[#D3D1C7] border-[#D3D1C7]" : checked ? "bg-brand-blue-dark border-brand-blue-dark text-white" : "border-brand-blue/20 bg-white"}`}
+                        className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all shrink-0 ${checked ? "bg-brand-blue-dark border-brand-blue-dark text-white" : "border-brand-blue/20 bg-white"}`}
                       >
                         {checked && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
                       </span>
@@ -284,14 +310,13 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
                         type="checkbox"
                         className="hidden"
                         checked={checked}
-                        disabled={empDisabled}
-                        onChange={() => !empDisabled && toggleCheck(e.id)}
+                        onChange={() => toggleCheck(e.id)}
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className={`text-sm font-bold truncate ${empDisabled ? "text-[#5F5E5A]" : "text-brand-text"}`}>{fullName(e)}<ProjectSuffix project={e.clientProject} /></p>
-                          {empDisabled && <DisabledBadge />}
-                        </div>
+                        {/* No project suffix here: by construction nobody in this list holds
+                            an active assignment, and employees.client_project can lag behind
+                            an ended one — so showing it would name a project they've left. */}
+                        <p className="text-sm font-bold truncate text-brand-text">{fullName(e)}</p>
                         <p className="text-[11px] text-brand-text/40 font-medium truncate">
                           {[e.oryfolksId, e.designation].filter(Boolean).join(" · ") || "—"}
                         </p>

@@ -11,6 +11,9 @@ import { toast } from "react-toastify";
 import { Download, Check, X, Eye, Briefcase } from "lucide-react";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
 import { CLIENT_TIMESHEET_ADMIN } from "../../utils/clientTimesheetNav";
+import CharCounter from "../../components/CharCounter";
+import DisabledBadge from "../../components/DisabledBadge";
+import { FIELD_LIMITS } from "../../utils/fieldLimits";
 
 // ── Date helpers (treat YYYY-MM-DD as local, avoid timezone shifts) ──
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -75,6 +78,9 @@ export default function ClientTimesheets() {
     const [approvingBlock, setApprovingBlock] = useState(null);
     // Reject flow — holds the week block being rejected (all its day IDs).
     const [rejectingBlock, setRejectingBlock] = useState(null);
+    // Final "are you sure" after the reason is typed. Cancelling it drops back to the reason
+    // dialog with the text intact rather than throwing the reason away.
+    const [confirmingReject, setConfirmingReject] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
     const [acting, setActing] = useState(false);
 
@@ -143,6 +149,8 @@ export default function ClientTimesheets() {
                     key,
                     employeeId: r.employeeId,
                     employeeName: r.employeeName,
+                    // Same for every row of one employee, so the first row settles it.
+                    employeeActive: r.employeeActive,
                     projectName: r.projectName || "",
                     weekStart: ws,
                     weekEnd: r.weekEndDate ? String(r.weekEndDate).split("T")[0] : addDays(ws, 6),
@@ -229,6 +237,7 @@ export default function ClientTimesheets() {
                 )
             );
             toast.success("Week rejected.");
+            setConfirmingReject(false);
             setRejectingBlock(null);
             setRejectReason("");
             fetchEntries();
@@ -360,15 +369,28 @@ export default function ClientTimesheets() {
                                             const meta = clientTimesheetStatusMeta(block.status);
                                             const isPending = block.status === "PENDING";
                                             return (
+                                                // shrink-0 is what makes the scroll actually work. The
+                                                // list above is a column flex container, so each card is
+                                                // a flex item with the default flex-shrink: 1 — and this
+                                                // card's own overflow-hidden drops its automatic minimum
+                                                // size to 0. Without shrink-0 the cards therefore squash
+                                                // toward zero height to fit the container instead of
+                                                // overflowing it, so the content never exceeds the box,
+                                                // no scrollbar ever appears, and past ~15 rows the cards
+                                                // collapse into unreadable slivers (with 50 the gap-3
+                                                // spacing alone fills the viewport).
                                                 <div
                                                     key={block.key}
-                                                    className="bg-white rounded-xl border border-[#E3E8EF] border-l-4 shadow-sm flex flex-col lg:flex-row lg:items-stretch overflow-hidden"
+                                                    className="shrink-0 bg-white rounded-xl border border-[#E3E8EF] border-l-4 shadow-sm flex flex-col lg:flex-row lg:items-stretch overflow-hidden"
                                                     style={{ borderLeftColor: meta.borderHex }}
                                                 >
                                                     {/* Left: employee, project, week range, status */}
                                                     <div className="flex-1 px-5 py-4 flex flex-col justify-center min-w-[240px] gap-1.5">
                                                         <div className="flex items-baseline gap-2 flex-wrap">
                                                             <span className="text-[14px] font-black text-brand-text tracking-tight">{block.employeeName}</span>
+                                                            {/* Kept in the queue so the work stays reviewable, but flagged —
+                                                                a disabled employee can still have timesheets awaiting a decision. */}
+                                                            {block.employeeActive === false && <DisabledBadge />}
                                                             {block.projectName && (
                                                                 <span className="text-[13px] font-normal text-brand-text/40">· {block.projectName}</span>
                                                             )}
@@ -458,6 +480,21 @@ export default function ClientTimesheets() {
                 confirmLabel="Approve"
             />
 
+            {/* Reject confirmation — the last step, shown once a reason has been entered.
+                Cancelling returns to the reason dialog underneath with the text still there. */}
+            <ClientTimesheetConfirmModal
+                isOpen={confirmingReject}
+                onClose={() => setConfirmingReject(false)}
+                onConfirm={handleRejectConfirm}
+                submitting={acting}
+                destructive
+                title="Reject Client Timesheet"
+                message={rejectingBlock
+                    ? `Are you sure you want to reject this client timesheet for ${rejectingBlock.employeeName} (${fmtRange(rejectingBlock.weekStart)} to ${fmtRange(rejectingBlock.weekEnd)})? They will be notified and can correct and resubmit it.`
+                    : ""}
+                confirmLabel="Reject"
+            />
+
             {/* Reject reason modal */}
             {rejectingBlock != null && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]">
@@ -469,14 +506,18 @@ export default function ClientTimesheets() {
                         <textarea
                             value={rejectReason}
                             onChange={(e) => setRejectReason(e.target.value)}
-                            maxLength={255}
+                            maxLength={FIELD_LIMITS.REJECTION_REASON}
                             placeholder="Enter reason for rejection"
-                            className="w-full p-3 border border-slate-200 rounded-lg mb-4 focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm"
+                            className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 outline-none font-bold text-sm"
                             rows="4"
                         />
+                        <div className="mb-4">
+                            <CharCounter value={rejectReason} max={FIELD_LIMITS.REJECTION_REASON} />
+                        </div>
                         <div className="flex gap-3">
                             <button onClick={() => { setRejectingBlock(null); setRejectReason(""); }} className="flex-1 bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition">Cancel</button>
-                            <button onClick={handleRejectConfirm} disabled={acting || !rejectReason.trim()} title={!rejectReason.trim() ? "Enter a rejection reason first" : undefined} className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-600 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">Reject</button>
+                            {/* Opens the final confirmation rather than rejecting outright. */}
+                            <button onClick={() => setConfirmingReject(true)} disabled={acting || !rejectReason.trim()} title={!rejectReason.trim() ? "Enter a rejection reason first" : undefined} className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-600 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">Reject</button>
                         </div>
                     </div>
                 </div>

@@ -10,6 +10,9 @@ public class ClientTimesheetDTO {
     private Long id;
     private Long employeeId;
     private String employeeName;
+    // A disabled employee keeps their submitted timesheets on screen for the record — the
+    // admin queue flags them rather than hiding the work.
+    private Boolean employeeActive;
     private LocalDate date;
     private String clientName;
     private String projectName;
@@ -64,6 +67,14 @@ public class ClientTimesheetDTO {
 
     public void setClientName(String clientName) {
         this.clientName = clientName;
+    }
+
+    public Boolean getEmployeeActive() {
+        return employeeActive;
+    }
+
+    public void setEmployeeActive(Boolean employeeActive) {
+        this.employeeActive = employeeActive;
     }
 
     public String getProjectName() {

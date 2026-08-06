@@ -34,6 +34,11 @@ public class ClientTimesheetWeekService {
     private static final int MAX_WEEKS = 104; // cap the generated summary list (~2 years)
     // Daily Regular-hours capacity, shared between leave taken and project hours worked.
     private static final double REGULAR_HOURS_PER_DAY = 8.0;
+    // Hour caps, mirrored in the frontend by EntryPage's MAX_HOURS_PER_DAY / MAX_LEAVE_HOURS
+    // _PER_DAY. The cell clamp there is a convenience; these are the rule, and they apply to
+    // a direct API call just the same.
+    private static final double MAX_HOURS_PER_DAY = 24.0;
+    private static final double MAX_LEAVE_HOURS_PER_DAY = REGULAR_HOURS_PER_DAY;
 
     @Autowired
     private ClientTimesheetRepository lineRepository;
@@ -49,6 +54,9 @@ public class ClientTimesheetWeekService {
 
     @Autowired
     private ClientTimesheetNotificationService notificationService;
+
+    @Autowired
+    private UserDisplayNameResolver userDisplayNameResolver;
 
     // ---- Week helpers (Saturday start → Friday end) ----
     private LocalDate weekStartOf(LocalDate date) {
@@ -208,6 +216,8 @@ public class ClientTimesheetWeekService {
         dto.setEmployeeId(employeeId);
         dto.setEmployeeName((employee.getFirstName() + " "
                 + (employee.getLastName() == null ? "" : employee.getLastName())).trim());
+        // Null-safe: the column defaults to true, but older rows may predate it.
+        dto.setEmployeeActive(!Boolean.FALSE.equals(employee.getActive()));
         dto.setWeekStartDate(weekStartDate);
         dto.setWeekEndDate(weekEndDate);
         dto.setEarliestAssignmentDate(assignmentService.earliestAssignmentDate(employeeId));
@@ -318,6 +328,10 @@ public class ClientTimesheetWeekService {
         // Show the clicked row's status (matches the list); approve/reject act on this line.
         dto.setStatus(line.getStatus() != null ? line.getStatus().name() : dto.getStatus());
         dto.setSubmittedAt(line.getSubmittedAt() != null ? line.getSubmittedAt().toString() : null);
+        // The reviewer and the moment of the decision — the record of who approved or
+        // rejected this week, which the detail view previously omitted entirely.
+        dto.setApprovedByName(userDisplayNameResolver.resolve(line.getApprovedBy()));
+        dto.setReviewedAt(line.getReviewedAt() != null ? line.getReviewedAt().toString() : null);
         // Prefer the clicked row's own reason so it stays consistent with the status above;
         // otherwise keep the week-level fallback already set by getWeekDetail.
         if (line.getRejectionReason() != null && !line.getRejectionReason().isBlank()) {
@@ -594,12 +608,17 @@ public class ClientTimesheetWeekService {
         return getWeekDetail(employeeId, weekStartDate);
     }
 
-    // Column widths of the free-text fields the employee types into (see
-    // migration_create_client_timesheets_table.sql / migration_add_client_timesheet_entry_columns.sql).
-    // Overrunning these used to reach MySQL and surface as a raw 500 "Data too long for
-    // column" on Save, so they are rejected here with a message the employee can act on.
-    private static final int MAX_TASK_ID = 255;
-    private static final int MAX_TASK_DESCRIPTION = 255;
+    // Agreed field character limits. Enforced here rather than trusted from the client: the
+    // frontend caps these inputs with maxLength, but a direct API call bypasses that entirely,
+    // so this is the actual contract. Overrunning them used to reach MySQL and surface as a
+    // raw 500 "Data too long for column", so they are rejected with a message instead.
+    // Mirrored in the frontend by utils/fieldLimits.js — keep the two in step.
+    private static final int MAX_PROJECT_ID = 25;
+    private static final int MAX_PROJECT_NAME = 50;
+    private static final int MAX_TASK_ID = 25;
+    private static final int MAX_TASK_DESCRIPTION = 256;
+    private static final int MAX_COMMENT = 256;
+    // Not part of the agreed limits table; unchanged, and still matches its VARCHAR(64) column.
     private static final int MAX_BILLING_LOCATION = 64;
 
     private void requireMaxLength(String value, int max, String fieldLabel) {
@@ -614,15 +633,26 @@ public class ClientTimesheetWeekService {
      * in the future. Project rows use their own assignmentStartDate; time-off rows use the
      * global earliest assignment date.
      */
-    private void validateEntries(ClientTimesheetWeekDTO payload, LocalDate gate, LocalDate today) {
+    // Package-private rather than private so the field-limit rules can be exercised directly
+    // in ClientTimesheetFieldLimitsTest — it takes no repositories, so it tests without a DB.
+    void validateEntries(ClientTimesheetWeekDTO payload, LocalDate gate, LocalDate today) {
+        // Per-date running totals, so the daily caps can be checked across every row once the
+        // individual cells have been vetted.
+        Map<LocalDate, Double> workedByDay = new HashMap<>();
+        Map<LocalDate, Double> leaveByDay = new HashMap<>();
+
         if (payload.getProjectRows() != null) {
             for (ClientTimesheetWeekDTO.ProjectRowDTO r : payload.getProjectRows()) {
+                requireMaxLength(r.getProjectId(), MAX_PROJECT_ID, "Project ID");
+                requireMaxLength(r.getProjectName(), MAX_PROJECT_NAME, "Project Name");
                 requireMaxLength(r.getTaskId(), MAX_TASK_ID, "Task/Activity ID");
                 requireMaxLength(r.getTaskDescription(), MAX_TASK_DESCRIPTION, "Task/Activity Description");
+                requireMaxLength(r.getComment(), MAX_COMMENT, "Comment");
                 requireMaxLength(r.getBillingLocation(), MAX_BILLING_LOCATION, "Billing Location");
                 LocalDate rowGate = r.getAssignmentStartDate() != null ? r.getAssignmentStartDate() : gate;
                 for (ClientTimesheetWeekDTO.DayHourDTO d : r.getDays()) {
                     double h = d.getHours() != null ? d.getHours() : 0;
+                    requireHourRange(h, MAX_HOURS_PER_DAY, "Hours", d.getDate());
                     if (h <= 0) continue;
                     if (rowGate != null && d.getDate().isBefore(rowGate)) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -632,6 +662,7 @@ public class ClientTimesheetWeekService {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                 "Cannot enter hours for future dates.");
                     }
+                    workedByDay.merge(d.getDate(), h, Double::sum);
                 }
             }
         }
@@ -639,6 +670,7 @@ public class ClientTimesheetWeekService {
             for (ClientTimesheetWeekDTO.TimeOffRowDTO r : payload.getTimeOffRows()) {
                 for (ClientTimesheetWeekDTO.DayHourDTO d : r.getDays()) {
                     double h = d.getHours() != null ? d.getHours() : 0;
+                    requireHourRange(h, MAX_LEAVE_HOURS_PER_DAY, "Leave hours", d.getDate());
                     if (h <= 0) continue;
                     if (gate != null && d.getDate().isBefore(gate)) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -648,8 +680,48 @@ public class ClientTimesheetWeekService {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                 "Cannot enter hours for future dates.");
                     }
+                    leaveByDay.merge(d.getDate(), h, Double::sum);
                 }
             }
         }
+
+        // Daily caps across every row. The per-cell checks above cannot catch these: eight
+        // project rows of 8h each are individually legal but add up to 64 hours in one day.
+        Set<LocalDate> dates = new HashSet<>(workedByDay.keySet());
+        dates.addAll(leaveByDay.keySet());
+        for (LocalDate date : dates) {
+            double leave = leaveByDay.getOrDefault(date, 0.0);
+            if (leave > MAX_LEAVE_HOURS_PER_DAY) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Leave on " + date + " totals " + hrs(leave)
+                                + " hours across the leave rows; the daily maximum is "
+                                + hrs(MAX_LEAVE_HOURS_PER_DAY) + ".");
+            }
+            // Leave and worked hours occupy the same calendar day, so they share the 24h cap.
+            double total = workedByDay.getOrDefault(date, 0.0) + leave;
+            if (total > MAX_HOURS_PER_DAY) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        date + " totals " + hrs(total) + " hours across all rows; a day cannot exceed "
+                                + hrs(MAX_HOURS_PER_DAY) + ".");
+            }
+        }
+    }
+
+    /** Rejects a single cell that is negative or over its cap. */
+    private void requireHourRange(double hours, double max, String label, LocalDate date) {
+        if (hours < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    label + " cannot be negative (" + date + " has " + hrs(hours) + ").");
+        }
+        if (hours > max) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    label + " cannot exceed " + hrs(max) + " for a single day (" + date
+                            + " has " + hrs(hours) + ").");
+        }
+    }
+
+    /** Whole hours read better than "24.0" in a message the employee sees. */
+    private static String hrs(double v) {
+        return v == Math.rint(v) ? String.valueOf((long) v) : String.valueOf(v);
     }
 }
