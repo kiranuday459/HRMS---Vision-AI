@@ -455,12 +455,12 @@ const EmployeeDashboard = () => {
 				{/* Conditional Header */}
 				{activeTab === 'dashboard' ? (
 				<header className="bg-white px-4 md:px-8 py-4 flex flex-wrap items-center justify-between shadow-sm z-40 border-b border-[#E3E8EF]">
-					<div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0">
-						<div>
+					<div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0 min-w-0">
+						<div className="min-w-0">
 							<h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight line-clamp-1">
 								{ribbonTitle}
 							</h1>
-							<p className="text-[12px] text-brand-text-secondary mt-0.5">
+							<p className="text-[12px] text-brand-text-secondary mt-0.5 break-words">
 									{ribbonRoleLabel}{ribbonRoleLabel && ribbonName ? " · " : ""}{ribbonName}
 								</p>
 							</div>
@@ -493,7 +493,7 @@ const EmployeeDashboard = () => {
 									<div className="px-4 py-3 space-y-3">
 										<div>
 											<p className="text-[9px] font-black text-brand-text/40 uppercase tracking-[0.15em]">Employee Name</p>
-											<p className="text-sm font-extrabold text-brand-text">{user.fullName || "—"}</p>
+											<p className="text-sm font-extrabold text-brand-text break-words">{user.fullName || "—"}</p>
 										</div>
 										<div>
 											<p className="text-[9px] font-black text-brand-text/40 uppercase tracking-[0.15em]">Reporting Manager</p>
@@ -539,12 +539,12 @@ const EmployeeDashboard = () => {
 					</header>
 				) : (
 					<header className="bg-white px-4 md:px-8 py-4 flex items-center justify-between shadow-sm z-40 border-b border-[#E3E8EF]">
-						<div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0">
-							<div>
+						<div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0 min-w-0">
+							<div className="min-w-0">
 								<h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight line-clamp-1">
 									{ribbonTitle}
 								</h1>
-								<p className="text-[12px] text-brand-text-secondary mt-0.5">
+								<p className="text-[12px] text-brand-text-secondary mt-0.5 break-words">
 									{ribbonRoleLabel}{ribbonRoleLabel && ribbonName ? " · " : ""}{ribbonName}
 								</p>
 							</div>
@@ -571,7 +571,7 @@ const EmployeeDashboard = () => {
 									<div className="px-4 py-3 space-y-3">
 										<div>
 											<p className="text-[9px] font-black text-brand-text/40 uppercase tracking-[0.15em]">Employee Name</p>
-											<p className="text-sm font-extrabold text-brand-text">{user.fullName || "—"}</p>
+											<p className="text-sm font-extrabold text-brand-text break-words">{user.fullName || "—"}</p>
 										</div>
 										<div>
 											<p className="text-[9px] font-black text-brand-text/40 uppercase tracking-[0.15em]">Reporting Manager</p>
