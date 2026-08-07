@@ -350,6 +350,10 @@ export default function EmployeeProfile() {
     } else if (name === 'emergencyRelationship') {
       const validation = validateEmergencyRelationship(value);
       error = validation.error;
+    } else if (name === 'companyId') {
+      if (!value.trim()) {
+        error = 'Employee ID is required';
+      }
     }
 
     setForm((f) => ({ ...f, [name]: validatedValue }));
@@ -396,6 +400,10 @@ export default function EmployeeProfile() {
     } else if (name === 'emergencyRelationship') {
       const validation = validateEmergencyRelationship(value);
       error = validation.error;
+    } else if (name === 'companyId') {
+      if (!value.trim()) {
+        error = 'Employee ID is required';
+      }
     }
 
     setFieldErrors((prev) => ({ ...prev, [name]: error }));
@@ -629,7 +637,20 @@ export default function EmployeeProfile() {
 
         if (!res.ok) {
           const json = await res.json().catch(() => ({}));
-          throw new Error(json.message || "Failed to save");
+          const msg = json.message || json.error || "Failed to save";
+          if (typeof msg === 'string' && (msg.toLowerCase().includes("employee id already exists") || msg.toLowerCase().includes("corporate id already exists") || json.error === "DUPLICATE_EMPLOYEE_ID")) {
+            setFieldErrors((prev) => ({ ...prev, companyId: "Employee ID already exists." }));
+            setTouched((prev) => ({ ...prev, companyId: true }));
+            setActiveSection("personal");
+            return;
+          }
+          if (typeof msg === 'string' && msg.toLowerCase().includes("corporate email already exists")) {
+            setFieldErrors((prev) => ({ ...prev, companyMail: "Corporate email already exists." }));
+            setTouched((prev) => ({ ...prev, companyMail: true }));
+            setActiveSection("personal");
+            return;
+          }
+          throw new Error(msg);
         }
 
         const json = await res.json();

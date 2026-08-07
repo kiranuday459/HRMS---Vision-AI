@@ -134,6 +134,10 @@ public class TimesheetService {
         Timesheet timesheet = timesheetRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Timesheet not found"));
 
+        if (timesheet.getStatus() == TimesheetStatus.APPROVED) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Approved timesheets cannot be edited or resubmitted.");
+        }
+
         // Check if timesheet is in any pending state
         if (timesheet.getStatus() != TimesheetStatus.PENDING_RM_APPROVAL &&
             timesheet.getStatus() != TimesheetStatus.PENDING_HR_APPROVAL &&
@@ -372,7 +376,19 @@ public class TimesheetService {
     }
 
     public void saveWeeklyTimesheet(Long employeeId, LocalDate weekStart, List<TimesheetDTO> entries) {
+        saveWeeklyTimesheet(employeeId, weekStart, entries, Role.EMPLOYEE);
+    }
+
+    public void saveWeeklyTimesheet(Long employeeId, LocalDate weekStart, List<TimesheetDTO> entries, Role callerRole) {
         LocalDate weekEnd = weekStart.plusDays(6);
+
+        List<Timesheet> existingTimesheets = timesheetRepository.findWithFilters(employeeId, null, weekStart, weekEnd, null);
+        boolean wasApproved = existingTimesheets != null && existingTimesheets.stream().anyMatch(t -> t.getStatus() == TimesheetStatus.APPROVED);
+
+        // Server-side guard: reject editing an already-approved week ONLY for employees.
+        if (wasApproved && callerRole == Role.EMPLOYEE) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Approved timesheets cannot be edited or resubmitted by employees.");
+        }
 
         // Server-side guard: reject any entry dated after today or before employee joining date.
         if (entries != null) {
@@ -418,8 +434,12 @@ public class TimesheetService {
                     timesheet.setTask(dto.getTask());
                     timesheet.setNotes(dto.getNotes());
 
-                    // Set initial status + route (handles disabled HR/RM rerouting).
-                    applyInitialRouting(timesheet, employee);
+                    // If previously approved and updated by HR/RM/Admin, keep APPROVED status
+                    if (wasApproved && callerRole != Role.EMPLOYEE) {
+                        timesheet.setStatus(TimesheetStatus.APPROVED);
+                    } else {
+                        applyInitialRouting(timesheet, employee);
+                    }
 
                     timesheet.setOnsiteOffshore(dto.getOnsiteOffshore());
                     timesheet.setBillingLocation(dto.getBillingLocation());

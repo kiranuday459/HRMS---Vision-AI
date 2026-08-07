@@ -191,7 +191,19 @@ public class TimesheetController {
             @RequestBody Map<String, Object> request,
             Authentication authentication) {
         
-        Long employeeId = getEmployeeIdFromAuth(authentication);
+        Long authEmployeeId = getEmployeeIdFromAuth(authentication);
+        Role callerRole = Role.EMPLOYEE;
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal) {
+            callerRole = ((UserPrincipal) authentication.getPrincipal()).getUser().getRole();
+        }
+
+        Long employeeId = authEmployeeId;
+        if (request.get("employeeId") != null && (callerRole == Role.HR || callerRole == Role.REPORTING_MANAGER || callerRole == Role.ADMIN)) {
+            try {
+                employeeId = Long.valueOf(request.get("employeeId").toString());
+            } catch (Exception ignored) {}
+        }
+
         if (employeeId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Employee not found"));
         }
@@ -238,7 +250,7 @@ public class TimesheetController {
         }).collect(Collectors.toList());
 
 
-        timesheetService.saveWeeklyTimesheet(employeeId, weekStart, dtos);
+        timesheetService.saveWeeklyTimesheet(employeeId, weekStart, dtos, callerRole);
         return ResponseEntity.ok(ApiResponse.success("Weekly timesheet saved successfully", null));
     }
 

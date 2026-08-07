@@ -202,6 +202,50 @@ export default function AdminTimesheets() {
     };
 
 
+    const handleSaveWeekly = async (payload) => {
+        if (!selectedWeek) return;
+        const targetEmpId = selectedWeek.employeeId;
+        try {
+            setLoading(true);
+            const formattedEntries = payload.entries.map(entry => {
+                const startTime = "09:00:00";
+                const totalHrs = entry.totalHours || 0;
+                const endHour = Math.floor(totalHrs + 9);
+                const endMin = Math.round((totalHrs % 1) * 60);
+                const endTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}:00`;
+                return { ...entry, employeeId: targetEmpId, startTime, endTime };
+            });
+
+            const weeklyPayload = {
+                employeeId: targetEmpId,
+                weekStart: payload.weekStart,
+                entries: formattedEntries
+            };
+
+            const response = await api("/api/timesheets/save-weekly", {
+                method: 'POST',
+                body: JSON.stringify(weeklyPayload)
+            });
+
+            const result = await response.json().catch(() => null);
+
+            if (!response.ok) {
+                const errMsg = result?.message || `Server error ${response.status}`;
+                toast.error(`Failed to save: ${errMsg}`);
+                return;
+            }
+
+            toast.success("Weekly timesheet saved successfully");
+            setTsSubView('summary');
+            await fetchData();
+        } catch (err) {
+            toast.error("Error saving timesheet");
+            console.error('[Timesheet] Save error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Open the approval confirmation (spec: confirm before approving).
     const handleApproveWeek = (week) => {
         setApproveModal(week);
@@ -513,11 +557,12 @@ export default function AdminTimesheets() {
                                     weekData={selectedWeek}
                                     onBack={() => setTsSubView('summary')}
                                     employeeId={selectedWeek.employeeId}
-                                    readOnly={true}
+                                    readOnly={selectedWeek?.employeeStatus === 'INACTIVE' || selectedWeek?.employeeStatus === 'DISABLED'}
                                     approvedLeaves={[]}
                                     canApprove={['PENDING_RM_APPROVAL', 'PENDING_HR_APPROVAL', 'PENDING_ADMIN_APPROVAL'].includes(selectedWeek?.status)}
                                     canReject={['PENDING_RM_APPROVAL', 'PENDING_HR_APPROVAL', 'PENDING_ADMIN_APPROVAL'].includes(selectedWeek?.status)}
                                     disabledAccount={selectedWeek?.employeeStatus === 'INACTIVE' || selectedWeek?.employeeStatus === 'DISABLED'}
+                                    onSave={handleSaveWeekly}
                                     onApprove={() => handleApproveWeek(selectedWeek)}
                                     onReject={() => handleRejectWeek(selectedWeek)}
                                 />

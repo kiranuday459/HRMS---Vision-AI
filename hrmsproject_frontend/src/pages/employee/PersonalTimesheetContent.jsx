@@ -302,7 +302,7 @@ const PersonalTimesheetContent = ({ employeeId, user, profileResolved = true }) 
                     joiningDate={joiningDate}
                     approvedLeaves={approvedLeaves}
                     holidays={holidays}
-                    readOnly={selectedWeek.status === 'Approved'}
+                    readOnly={selectedWeek.status === 'APPROVED' || selectedWeek.status === 'Approved' || (selectedWeek.statusLabel && selectedWeek.statusLabel.toLowerCase() === 'approved')}
                     onProbation={!!(leaveBalance && leaveBalance.onProbation)}
                     probationEndDate={leaveBalance ? leaveBalance.probationEndDate : null}
                     onBack={() => setView('summary')}

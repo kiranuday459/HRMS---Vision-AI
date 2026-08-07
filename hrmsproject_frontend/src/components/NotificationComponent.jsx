@@ -3,6 +3,35 @@ import { Bell, CheckCircle, Clock, X, CalendarDays } from 'lucide-react';
 import YearlyHolidayCalendar from '../pages/common/YearlyHolidayCalendar';
 import api from '../utils/api';
 
+const parseUTCDate = (value) => {
+    if (!value) return null;
+    if (typeof value === 'string') {
+        const isoStr = (!value.endsWith('Z') && !value.includes('+') && !value.includes('-') && value.includes('T'))
+            ? `${value}Z`
+            : value;
+        const d = new Date(isoStr);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const getTimeAgo = (dateString) => {
+    const date = parseUTCDate(dateString);
+    if (!date) return '';
+    const diffInSeconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+};
+
+const getFormattedTimeHover = (dateString) => {
+    const date = parseUTCDate(dateString);
+    if (!date) return '';
+    return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+};
+
 const NotificationComponent = () => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -82,35 +111,6 @@ const NotificationComponent = () => {
         } catch (error) {
             console.error('Error marking all as read:', error);
         }
-    };
-
-    const parseUTCDate = (value) => {
-        if (!value) return null;
-        if (typeof value === 'string') {
-            const isoStr = (!value.endsWith('Z') && !value.includes('+') && !value.includes('-') && value.includes('T'))
-                ? `${value}Z`
-                : value;
-            const d = new Date(isoStr);
-            return Number.isNaN(d.getTime()) ? null : d;
-        }
-        const d = new Date(value);
-        return Number.isNaN(d.getTime()) ? null : d;
-    };
-
-    const getTimeAgo = (dateString) => {
-        const date = parseUTCDate(dateString);
-        if (!date) return '';
-        const diffInSeconds = Math.floor((Date.now() - date.getTime()) / 1000);
-        if (diffInSeconds < 60) return 'just now';
-        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-        return `${Math.floor(diffInSeconds / 86400)}d ago`;
-    };
-
-    const getFormattedTimeHover = (dateString) => {
-        const date = parseUTCDate(dateString);
-        if (!date) return '';
-        return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
     };
 
     const toggleDropdown = () => {

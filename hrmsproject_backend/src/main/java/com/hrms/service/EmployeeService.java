@@ -17,6 +17,7 @@ import com.hrms.repository.EmployeeExperienceRepository;
 import com.hrms.repository.UserRepository;
 import com.hrms.repository.CompanyDetailRepository;
 import com.hrms.model.CompanyDetail;
+import java.util.Optional;
 import com.hrms.model.Leave;
 import com.hrms.model.LeaveBalance;
 import com.hrms.model.User;
@@ -360,6 +361,26 @@ public class EmployeeService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Phone number already exists");
+        }
+
+        if (dto.getOryfolksId() != null && !dto.getOryfolksId().isBlank()) {
+            Optional<CompanyDetail> existingCompanyDetail = companyDetailRepository.findByOryfolksId(dto.getOryfolksId().trim());
+            if (existingCompanyDetail.isPresent() && existingCompanyDetail.get().getEmployee() != null
+                    && !existingCompanyDetail.get().getEmployee().getId().equals(id)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Employee ID already exists.");
+            }
+        }
+
+        if (dto.getCorporateEmail() != null && !dto.getCorporateEmail().isBlank()) {
+            Optional<CompanyDetail> existingCorpEmail = companyDetailRepository.findByOryfolksMailId(dto.getCorporateEmail().trim());
+            if (existingCorpEmail.isPresent() && existingCorpEmail.get().getEmployee() != null
+                    && !existingCorpEmail.get().getEmployee().getId().equals(id)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Corporate email already exists.");
+            }
         }
 
         employee.setFirstName(dto.getFirstName());

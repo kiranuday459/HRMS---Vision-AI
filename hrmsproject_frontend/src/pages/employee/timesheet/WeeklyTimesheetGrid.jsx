@@ -536,6 +536,14 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                 return null;
             })()}
 
+            {/* Approved banner — shown when timesheet is in approved status */}
+            {readOnly && (weekData?.status === 'APPROVED' || weekData?.status === 'Approved' || (weekData?.statusLabel && weekData.statusLabel.toLowerCase() === 'approved')) && (
+                <div className="mb-3 flex items-center gap-2 bg-emerald-50 text-emerald-800 text-[13px] rounded-xl p-4 border border-emerald-200 font-bold">
+                    <span className="text-emerald-600 font-black text-base">✓</span>
+                    <span>This timesheet has been approved and cannot be edited.</span>
+                </div>
+            )}
+
             <div className="bg-white rounded-xl shadow-xl border border-[#D3D1C7] overflow-hidden flex flex-col flex-1 min-h-0 w-full animate-in fade-in zoom-in duration-300">
                 {/* Header — white background, blue accents only */}
                 <div className="bg-white border-b border-[#D3D1C7] px-4 md:px-8 py-3 shrink-0">
@@ -615,22 +623,22 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                             {projectRows.map((row, index) => (
                                 <tr key={row.id} className="hover:bg-white transition-colors group">
                                     <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <input type="text" value={row.projectId} maxLength={32} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none" />
+                                        <input type="text" value={row.projectId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
                                     </td>
                                     <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <input type="text" value={row.projectName} maxLength={32} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none" />
+                                        <input type="text" value={row.projectName} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
                                     </td>
                                     <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <input type="text" value={row.taskId} maxLength={32} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none" />
+                                        <input type="text" value={row.taskId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
                                     </td>
                                     <td className="p-0.5 border-r border-[#F1EFE8] min-w-[110px]">
-                                        <select value={row.onsite} onChange={(e) => handleRowChange(index, 'onsite', e.target.value)} className="w-full px-2.5 py-1.5 text-[11px] font-medium text-[#0C447C] bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded-md outline-none cursor-pointer transition-all duration-150">
+                                        <select value={row.onsite} disabled={readOnly} onChange={(e) => handleRowChange(index, 'onsite', e.target.value)} className="w-full px-2.5 py-1.5 text-[11px] font-medium text-[#0C447C] bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded-md outline-none cursor-pointer disabled:cursor-not-allowed transition-all duration-150">
                                             <option>Onsite</option>
                                             <option>Offshore</option>
                                         </select>
                                     </td>
                                     <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <select value={row.billable} onChange={(e) => handleRowChange(index, 'billable', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none">
+                                        <select value={row.billable} disabled={readOnly} onChange={(e) => handleRowChange(index, 'billable', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed">
                                             <option>Billable</option>
                                             <option>Non-Billable</option>
                                         </select>
@@ -640,7 +648,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                             value={row.location}
                                             disabled={readOnly}
                                             onChange={(e) => handleRowChange(index, 'location', e.target.value)}
-                                            className="w-full p-2 text-[11px] bg-transparent outline-none"
+                                            className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed"
                                         >
                                             <option value="India">India</option>
                                             <option value="Japan">Japan</option>
@@ -671,7 +679,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                         {calculateRowTotal(row.hours).toFixed(2)}
                                     </td>
                                     <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <input type="text" value={row.comment} maxLength={32} onChange={(e) => handleRowChange(index, 'comment', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none" />
+                                        <input type="text" value={row.comment} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'comment', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed" />
                                     </td>
                                 </tr>
                             ))}
@@ -820,19 +828,19 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Proj ID</label>
-                                        <input type="text" value={row.projectId} maxLength={32} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none" />
+                                        <input type="text" value={row.projectId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Proj Name</label>
-                                        <input type="text" value={row.projectName} maxLength={32} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none" />
+                                        <input type="text" value={row.projectName} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Task ID</label>
-                                        <input type="text" value={row.taskId} maxLength={32} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none" />
+                                        <input type="text" value={row.taskId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location</label>
-                                        <select value={row.location} onChange={(e) => handleRowChange(index, 'location', e.target.value)} className="w-full p-2 text-xs bg-white rounded outline-none border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20">
+                                        <select value={row.location} disabled={readOnly} onChange={(e) => handleRowChange(index, 'location', e.target.value)} className="w-full p-2 text-xs bg-white rounded outline-none border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 disabled:cursor-not-allowed">
                                             <option value="India">India</option>
                                             <option value="Japan">Japan</option>
                                             <option value="Singapore">Singapore</option>
