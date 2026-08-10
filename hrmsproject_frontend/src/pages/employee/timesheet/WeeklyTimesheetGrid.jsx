@@ -266,6 +266,47 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
         return d < jDate;
     };
 
+    const getApprovedLeaveTypeForDay = (dayIdx) => {
+        if (!dates[dayIdx] || !approvedLeaves || !approvedLeaves.length) return null;
+        const gridDate = parseDateLocal(dates[dayIdx]);
+        gridDate.setHours(0, 0, 0, 0);
+        const dateStr = getLocalDateStr(gridDate);
+
+        for (const leave of approvedLeaves) {
+            const start = parseDateLocal(leave.startDate);
+            const end = parseDateLocal(leave.endDate);
+            start.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+
+            if (gridDate >= start && gridDate <= end) {
+                if (leave.sessionData && leave.sessionData[dateStr]) {
+                    const session = String(leave.sessionData[dateStr]).toUpperCase();
+                    if (session === 'MORNING' || session === 'AFTERNOON' || session.includes('HALF')) {
+                        return 'HALF';
+                    } else if (session === 'FULL') {
+                        return 'FULL';
+                    }
+                }
+                if (leave.dayDetails && Array.isArray(leave.dayDetails)) {
+                    const detail = leave.dayDetails.find(d => getLocalDateStr(d.leaveDate) === dateStr);
+                    if (detail && detail.dayType) {
+                        const dt = String(detail.dayType).toUpperCase();
+                        if (dt === 'MORNING' || dt === 'AFTERNOON' || dt.includes('HALF')) {
+                            return 'HALF';
+                        } else if (dt === 'FULL') {
+                            return 'FULL';
+                        }
+                    }
+                }
+                if (leave.halfDay || (leave.dayType && String(leave.dayType).toUpperCase() !== 'FULL')) {
+                    return 'HALF';
+                }
+                return 'FULL';
+            }
+        }
+        return null;
+    };
+
 
 
     // Numeric-only sanitizer for timesheet hour fields:
@@ -368,8 +409,22 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
             // Skip weekends and future days — future days are locked and cannot carry hours,
             // so a week with future weekdays can still be submitted for the available days.
             if (isWeekend(dates[i]) || isFutureDay(dates[i])) continue;
-            let dailyTotal = 0;
-            projectRows.forEach(row => dailyTotal += (parseFloat(row.hours[i].value) || 0));
+            let projectWorkHours = 0;
+            projectRows.forEach(row => {
+                projectWorkHours += (parseFloat(row.hours[i].value) || 0);
+            });
+
+            const leaveType = getApprovedLeaveTypeForDay(i);
+            if (leaveType === 'HALF' && projectWorkHours > 4) {
+                toast.error("Maximum allowed work hours for a Half-Day Leave is 4 hours.");
+                return;
+            }
+            if (leaveType === 'FULL' && projectWorkHours > 0) {
+                toast.error("Work hours are not allowed on a Full-Day Leave date.");
+                return;
+            }
+
+            let dailyTotal = projectWorkHours;
             dailyTotal += (parseFloat(leaveRows.holiday[i].value) || 0);
             dailyTotal += (parseFloat(leaveRows.leaveS[i].value) || 0);
             dailyTotal += (parseFloat(leaveRows.leaveC[i].value) || 0);
@@ -664,8 +719,16 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                         const future = isFutureDay(dates[i]);
                                         const preJoining = isBeforeJoiningDate(dates[i]);
                                         const isDisabled = weekend || readOnly || isHolidayDay(i) || future || preJoining;
+
+                                        let dayProjectTotal = 0;
+                                        projectRows.forEach(r => dayProjectTotal += (parseFloat(r.hours[i].value) || 0));
+                                        const leaveType = getApprovedLeaveTypeForDay(i);
+                                        const isHalfDayExceeded = leaveType === 'HALF' && dayProjectTotal > 4;
+                                        const isFullDayExceeded = leaveType === 'FULL' && dayProjectTotal > 0;
+                                        const isExceeded = isHalfDayExceeded || isFullDayExceeded;
+
                                         return (
-                                            <td key={i} title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined} className={`p-0.5 border-r border-[#F1EFE8] ${future || preJoining ? 'bg-[#F1EFE8]' : ''}`}>
+                                            <td key={i} title={isHalfDayExceeded ? "Maximum allowed work hours for a Half-Day Leave is 4 hours." : isFullDayExceeded ? "Work hours are not allowed on a Full-Day Leave date." : preJoining ? "Timesheet entry is not allowed before your joining date." : undefined} className={`p-0.5 border-r border-[#F1EFE8] ${future || preJoining ? 'bg-[#F1EFE8]' : isExceeded ? 'bg-red-50' : ''}`}>
                                                 <input
                                                     type="text"
                                                     inputMode="decimal"
@@ -674,7 +737,13 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                                     disabled={isDisabled}
                                                     onKeyDown={handleHoursKeyDown}
                                                     onChange={(e) => handleHourChange(index, i, e.target.value)}
-                                                    className={`w-full p-2 text-[11px] text-center rounded outline-none font-bold ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed' : `border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 bg-transparent focus:bg-white ${weekend || isHolidayDay(i) ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700'}`}`}
+                                                    className={`w-full p-2 text-[11px] text-center rounded outline-none font-bold ${
+                                                        isExceeded
+                                                            ? 'border-2 border-red-500 text-red-600 bg-red-50 focus:border-red-600 focus:ring-2 focus:ring-red-500/20'
+                                                            : future || preJoining
+                                                            ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed'
+                                                            : `border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 bg-transparent focus:bg-white ${weekend || isHolidayDay(i) ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700'}`
+                                                    }`}
                                                 />
                                             </td>
                                         );
@@ -858,8 +927,16 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                             const future = isFutureDay(dates[i]);
                                             const preJoining = isBeforeJoiningDate(dates[i]);
                                             const isDisabled = isWeekend(dates[i]) || readOnly || isHolidayDay(i) || future || preJoining;
+
+                                            let dayProjectTotal = 0;
+                                            projectRows.forEach(r => dayProjectTotal += (parseFloat(r.hours[i].value) || 0));
+                                            const leaveType = getApprovedLeaveTypeForDay(i);
+                                            const isHalfDayExceeded = leaveType === 'HALF' && dayProjectTotal > 4;
+                                            const isFullDayExceeded = leaveType === 'FULL' && dayProjectTotal > 0;
+                                            const isExceeded = isHalfDayExceeded || isFullDayExceeded;
+
                                             return (
-                                            <div key={i} className="flex flex-col items-center" title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined}>
+                                            <div key={i} className="flex flex-col items-center" title={isHalfDayExceeded ? "Maximum allowed work hours for a Half-Day Leave is 4 hours." : isFullDayExceeded ? "Work hours are not allowed on a Full-Day Leave date." : preJoining ? "Timesheet entry is not allowed before your joining date." : undefined}>
                                                 <span className={`text-[7px] font-bold mb-1 ${future || preJoining ? 'text-[#D3D1C7]' : 'text-slate-400'}`}>
                                                     {formatDateHeader(dates[i])?.name?.charAt(0) || ''}
                                                 </span>
@@ -871,7 +948,15 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                                     disabled={isDisabled}
                                                     onKeyDown={handleHoursKeyDown}
                                                     onChange={(e) => handleHourChange(index, i, e.target.value)}
-                                                    className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded outline-none ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed' : isWeekend(dates[i]) || isHolidayDay(i) ? 'bg-white text-slate-300' : 'bg-white text-slate-700 border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20'}`}
+                                                    className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded outline-none ${
+                                                        isExceeded
+                                                            ? 'border-2 border-red-500 text-red-600 bg-red-50 focus:border-red-600'
+                                                            : future || preJoining
+                                                            ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed'
+                                                            : isWeekend(dates[i]) || isHolidayDay(i)
+                                                            ? 'bg-white text-slate-300'
+                                                            : 'bg-white text-slate-700 border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20'
+                                                    }`}
                                                 />
                                             </div>
                                             );
@@ -957,6 +1042,18 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                             ? "Timesheet entries are not allowed for dates before your joining date."
                             : "Timesheet entries can only be filled for dates from your joining date up to today."}
                     </span>
+                </div>
+            )}
+
+            {/* Error banner — shown when hours exceed half-day leave limit */}
+            {!readOnly && dates.some((_, i) => {
+                let dayProjectTotal = 0;
+                projectRows.forEach(r => dayProjectTotal += (parseFloat(r.hours[i].value) || 0));
+                return getApprovedLeaveTypeForDay(i) === 'HALF' && dayProjectTotal > 4;
+            }) && (
+                <div className="mx-4 md:mx-8 mb-2 flex items-center gap-2 bg-red-50 text-red-700 text-[13px] rounded-lg px-4 py-2.5 border border-red-200 font-bold shrink-0">
+                    <span className="text-red-500 font-black">⚠</span>
+                    <span>Maximum allowed work hours for a Half-Day Leave is 4 hours.</span>
                 </div>
             )}
 
