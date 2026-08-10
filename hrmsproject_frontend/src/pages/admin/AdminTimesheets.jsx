@@ -557,7 +557,7 @@ export default function AdminTimesheets() {
                                     weekData={selectedWeek}
                                     onBack={() => setTsSubView('summary')}
                                     employeeId={selectedWeek.employeeId}
-                                    readOnly={selectedWeek?.employeeStatus === 'INACTIVE' || selectedWeek?.employeeStatus === 'DISABLED'}
+                                    readOnly={true}
                                     approvedLeaves={[]}
                                     canApprove={['PENDING_RM_APPROVAL', 'PENDING_HR_APPROVAL', 'PENDING_ADMIN_APPROVAL'].includes(selectedWeek?.status)}
                                     canReject={['PENDING_RM_APPROVAL', 'PENDING_HR_APPROVAL', 'PENDING_ADMIN_APPROVAL'].includes(selectedWeek?.status)}

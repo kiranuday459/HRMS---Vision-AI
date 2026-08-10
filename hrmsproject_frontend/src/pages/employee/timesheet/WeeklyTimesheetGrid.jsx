@@ -576,7 +576,11 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                 <button onClick={handleSave} disabled={allDisabledWeek} className={`flex-1 sm:flex-none px-4 md:px-5 py-2 rounded-lg text-[9px] md:text-[10px] font-bold transition-all shadow-sm tracking-widest uppercase ${allDisabledWeek ? 'bg-[#D3D1C7] text-[#8A8880] cursor-not-allowed' : 'bg-[#185FA5] text-white hover:bg-[#0C447C] active:scale-95'}`}>
                                     SUBMIT SHEET
                                 </button>
-                            ) : (canApprove && canReject && onApprove && onReject && !disabledAccount && String(employeeId) !== String(JSON.parse(localStorage.getItem("user"))?.employeeId)) && (
+                            ) : (canApprove && canReject && onApprove && onReject && !disabledAccount && (() => {
+                                const u = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })();
+                                const currentId = u?.employeeId || u?.id || u?.userId;
+                                return !currentId || String(employeeId) !== String(currentId);
+                            })()) && (
                                 <>
                                     <button onClick={() => onApprove(weekData)} className="flex-1 sm:flex-none px-4 md:px-5 py-2 bg-emerald-600 text-white rounded-lg text-[9px] md:text-[10px] font-bold hover:bg-emerald-500 transition-all shadow-sm active:scale-95 tracking-widest uppercase">
                                         APPROVE

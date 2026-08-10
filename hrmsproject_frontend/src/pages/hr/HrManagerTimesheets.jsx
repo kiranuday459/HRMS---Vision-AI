@@ -658,7 +658,7 @@ export default function HrManagerTimesheets() {
                                 <WeeklyTimesheetGrid
                                     weekData={selectedWeek}
                                     employeeId={selectedWeek.employeeId}
-                                    readOnly={selectedWeek?.employeeStatus === 'INACTIVE' || selectedWeek?.employeeStatus === 'DISABLED'}
+                                    readOnly={true}
                                     approvedLeaves={[]}
                                     canApprove={selectedWeek?.status === APPROVAL_STATUS.PENDING_HR_APPROVAL}
                                     canReject={selectedWeek?.status === APPROVAL_STATUS.PENDING_HR_APPROVAL}

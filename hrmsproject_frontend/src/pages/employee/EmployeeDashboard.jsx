@@ -716,7 +716,7 @@ const EmployeeDashboard = () => {
 																onClick={() => setExpandedWeek((w) => (w === week.weekKey ? null : week.weekKey))}
 																className="bg-[#185FA5] hover:bg-[#13507f] text-white text-[12px] font-medium rounded-md px-[14px] py-[5px] transition-colors"
 															>
-																View Details
+																{expandedWeek === week.weekKey ? 'Close' : 'View Details'}
 															</button>
 														</td>
 													</tr>
