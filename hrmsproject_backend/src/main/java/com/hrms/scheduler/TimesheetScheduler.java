@@ -73,9 +73,13 @@ public class TimesheetScheduler {
                 // Check if they have submitted any timesheet entries for this week
                 List<Timesheet> entries = timesheetRepository.findByEmployeeIdAndDateBetween(employee.getId(), weekStart, weekEnd);
                 if (entries == null || entries.isEmpty()) {
-                    // Send reminder email
-                    String toEmail = employee.getCorporateEmail() != null && !employee.getCorporateEmail().isBlank()
-                            ? employee.getCorporateEmail() : employee.getEmail();
+                    // Send reminder email, to the employee's HRMS login address — the same
+                    // corporate-email-only rule the client-timesheet OTP follows.
+                    // This used to read employees.corporate_email with employee.getEmail() as
+                    // the fallback. Nothing ever writes employees.corporate_email, so the
+                    // fallback was not a fallback: every reminder went to the Personal Email.
+                    User account = employee.getUser();
+                    String toEmail = account != null ? account.getEmail() : null;
 
                     if (toEmail != null && !toEmail.isBlank()) {
                         String name = employee.getFirstName() + " " + employee.getLastName();

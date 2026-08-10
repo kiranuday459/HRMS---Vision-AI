@@ -1,6 +1,8 @@
 package com.hrms.controller;
 
 import com.hrms.dto.ApiResponse;
+import com.hrms.dto.AssignmentRemovalEligibilityDTO;
+import com.hrms.dto.ClientProjectAssignmentAuditDTO;
 import com.hrms.dto.ClientProjectAssignmentDTO;
 import com.hrms.dto.EmployeeDTO;
 import com.hrms.model.User;
@@ -94,12 +96,52 @@ public class ClientProjectAssignmentController {
     }
 
     /**
-     * Soft-ends an assignment (sets active = false). Preserves the row for history.
-     * Used by the admin Assigned Members tab remove action.
+     * Whether this assignment can be removed right now, and what is blocking it if not. The
+     * Assigned Members tab calls this before opening its confirmation dialog.
+     */
+    @GetMapping("/{id}/removal-eligibility")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<AssignmentRemovalEligibilityDTO>> removalEligibility(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(assignmentService.removalEligibility(id)));
+    }
+
+    /**
+     * Removes an employee from their project: soft-ends the assignment (active = false) and
+     * revokes their Client Timesheet access with it. Preserves the row, and every timesheet
+     * already submitted under it, for history. Admin Assigned Members tab "Remove" action.
      */
     @PatchMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<ClientProjectAssignmentDTO>> deactivate(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success("Assignment ended", assignmentService.deactivate(id)));
+    public ResponseEntity<ApiResponse<ClientProjectAssignmentDTO>> deactivate(
+            @PathVariable Long id, Authentication authentication) {
+        ClientProjectAssignmentDTO ended = assignmentService.deactivate(id, currentUserId(authentication));
+        return ResponseEntity.ok(ApiResponse.success(
+                ended.getEmployeeName() + " removed from " + ended.getProjectName()
+                        + ". Their Client Timesheet access has been revoked.", ended));
+    }
+
+    /**
+     * Re-adds an employee to a previously removed assignment, restoring access. Held to the
+     * same eligibility rules as a fresh assignment. Admin Assigned Members tab "Re-add".
+     */
+    @PatchMapping("/{id}/reactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ClientProjectAssignmentDTO>> reactivate(
+            @PathVariable Long id, Authentication authentication) {
+        ClientProjectAssignmentDTO restored = assignmentService.reactivate(id, currentUserId(authentication));
+        return ResponseEntity.ok(ApiResponse.success(
+                restored.getEmployeeName() + " re-added to " + restored.getProjectName()
+                        + ". A verification OTP has been sent to their registered email.", restored));
+    }
+
+    /**
+     * Staffing history for the admin's Audit Logs tab: who was assigned, removed or re-added to
+     * which project, by which admin, and when. Newest first. Read-only — there is deliberately
+     * no write, update or delete counterpart.
+     */
+    @GetMapping("/audit")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<ClientProjectAssignmentAuditDTO>>> auditLog() {
+        return ResponseEntity.ok(ApiResponse.success(assignmentService.getAuditLog()));
     }
 }

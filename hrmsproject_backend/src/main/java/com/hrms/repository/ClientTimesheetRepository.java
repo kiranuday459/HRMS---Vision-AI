@@ -34,4 +34,23 @@ public interface ClientTimesheetRepository extends JpaRepository<ClientTimesheet
     List<ClientTimesheet> findByEmployeeIdAndWeekStartDate(Long employeeId, LocalDate weekStartDate);
 
     List<ClientTimesheet> findByEmployeeIdOrderByDateDesc(Long employeeId);
+
+    /**
+     * Lines this employee has sitting in a given status, optionally narrowed to one project.
+     * Backing the "can this assignment be removed yet?" check — an assignment cannot be closed
+     * out while one of its weeks is still awaiting an approve/reject decision.
+     *
+     * Status lives on the line rows rather than the week header: admin approve/reject acts per
+     * row, so the rows are the authority on what is still undecided.
+     *
+     * Derived rather than a @Query on purpose. The distinct-weeks rollup these feed is a couple
+     * of lines of Java, and a hand-written JPQL string is only validated when the application
+     * context starts — a typo in one is an application that does not boot, which no amount of
+     * mocked unit testing would catch. The row counts here are one employee's pending lines,
+     * so there is nothing to gain by projecting in the database.
+     */
+    List<ClientTimesheet> findByEmployeeIdAndStatus(Long employeeId, ClientTimesheetStatus status);
+
+    List<ClientTimesheet> findByEmployeeIdAndStatusAndProjectId(Long employeeId,
+            ClientTimesheetStatus status, String projectId);
 }

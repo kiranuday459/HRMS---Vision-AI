@@ -20,6 +20,10 @@ export const FIELD_LIMITS = {
     PROJECT_ID: 25,
     TASK_DESCRIPTION: 256,
     TASK_ID: 25,
+    // Frontend-only cap: the server still accepts up to its VARCHAR(64) column width, so
+    // values longer than this that were saved from other screens keep loading and saving
+    // fine — this only stops the Client Timesheet entry grid from typing new ones.
+    BILLING_LOCATION: 25,
 };
 
 export default FIELD_LIMITS;

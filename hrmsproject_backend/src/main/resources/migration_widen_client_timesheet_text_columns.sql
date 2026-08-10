@@ -17,6 +17,14 @@
 ALTER TABLE client_timesheets
     MODIFY COLUMN task_description VARCHAR(256) NULL;
 
+-- `task` is the legacy admin-facing column that ClientTimesheetWeekService.persist() mirrors
+-- taskDescription into, so it has to be widened alongside it. Missing it here left the pair
+-- one character apart: a description at the agreed 256 limit fit task_description and then
+-- overflowed task, and the insert failed on this column with "Data too long" — surfacing as
+-- "One or more entries are too long or invalid to save" on an otherwise valid timesheet.
+ALTER TABLE client_timesheets
+    MODIFY COLUMN task VARCHAR(256) NULL;
+
 ALTER TABLE client_timesheets
     MODIFY COLUMN rejection_reason VARCHAR(256) NULL;
 

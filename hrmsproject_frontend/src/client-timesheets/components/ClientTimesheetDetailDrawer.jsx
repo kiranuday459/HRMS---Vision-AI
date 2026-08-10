@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
-import { X, Check } from "lucide-react";
+import { X, Check, MessageSquare, Maximize2 } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
+import { approveWeek, rejectWeek } from "../utils/clientTimesheetReview";
 import ClientTimesheetConfirmModal from "./ClientTimesheetConfirmModal";
-import RowCommentsPanel from "./RowCommentsPanel";
+import RowTextDialog from "./RowTextDialog";
 import CharCounter from "../../components/CharCounter";
 import DisabledBadge from "../../components/DisabledBadge";
 import { FIELD_LIMITS } from "../../utils/fieldLimits";
@@ -35,7 +36,7 @@ function StatusPill({ status }) {
     );
 }
 
-export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onActioned }) {
+export default function ClientTimesheetDetailDrawer({ timesheetId, timesheetIds, onClose, onActioned }) {
     const [detail, setDetail] = useState(null);
     const [loading, setLoading] = useState(true);
     const [status, setStatus] = useState("");
@@ -46,6 +47,10 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
     // Final "are you sure" after the reason is typed. Cancelling returns to the reason box
     // with the text intact rather than discarding it.
     const [confirmingReject, setConfirmingReject] = useState(false);
+    // Which project row's long text is open, as { idx, field } — "comment" or
+    // "taskDescription". Both outgrow their column, so both open the same dialog. Read-only
+    // here: the reviewer never edits what the employee wrote.
+    const [textDialog, setTextDialog] = useState(null);
 
     const currentUserId = useMemo(() => { const u = JSON.parse(localStorage.getItem("user")) || {}; return u.id || u.userId; }, []);
 
@@ -76,23 +81,45 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
         });
     }, [detail]);
 
+    // Every day row of the week under review. These used to post to `timesheetId` alone — the
+    // single day the eye icon was opened on — which approved one line out of seven and left the
+    // admin queue reading "Pending" because any pending line keeps the whole week pending.
+    // Falls back to the opened id so the drawer still does something sane if it is ever
+    // rendered without the list.
+    const weekLineIds = useMemo(
+        () => (timesheetIds && timesheetIds.length ? timesheetIds : [timesheetId]),
+        [timesheetIds, timesheetId]
+    );
+
     const handleApprove = async () => {
         setActing(true);
         try {
-            const res = await api(`/api/client-timesheets/${timesheetId}/approve`, { method: "POST", body: JSON.stringify({ reviewerId: currentUserId }) });
-            if (res.ok) { toast.success("Client timesheet approved."); setStatus("APPROVED"); setConfirmingApprove(false); onActioned && onActioned(); }
-            else toast.error("Could not approve.");
-        } catch (err) { console.error(err); } finally { setActing(false); }
+            await approveWeek(weekLineIds, currentUserId);
+            toast.success("Week approved.");
+            setStatus("APPROVED");
+            setConfirmingApprove(false);
+            onActioned && onActioned();
+        } catch (err) {
+            console.error(err);
+            toast.error("Could not approve.");
+        } finally { setActing(false); }
     };
 
     const handleReject = async () => {
         if (!rejectReason.trim()) return toast.warning("Please provide a reason.");
         setActing(true);
         try {
-            const res = await api(`/api/client-timesheets/${timesheetId}/reject`, { method: "POST", body: JSON.stringify({ reviewerId: currentUserId, reason: rejectReason }) });
-            if (res.ok) { toast.success("Client timesheet rejected."); setStatus("REJECTED"); setConfirmingReject(false); setRejecting(false); setRejectReason(""); onActioned && onActioned(); }
-            else toast.error("Could not reject.");
-        } catch (err) { console.error(err); } finally { setActing(false); }
+            await rejectWeek(weekLineIds, currentUserId, rejectReason);
+            toast.success("Week rejected.");
+            setStatus("REJECTED");
+            setConfirmingReject(false);
+            setRejecting(false);
+            setRejectReason("");
+            onActioned && onActioned();
+        } catch (err) {
+            console.error(err);
+            toast.error("Could not reject.");
+        } finally { setActing(false); }
     };
 
     const projectRows = detail?.projectRows || [];
@@ -186,13 +213,14 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                                         <th className="px-2 py-2 font-bold w-[9%]">Project Name</th>
                                         <th className="px-2 py-2 font-bold w-[7%]">Task ID</th>
                                         <th className="px-2 py-2 font-bold w-[12%]">Task Description</th>
-                                        <th className="px-2 py-2 font-bold w-[8%]">Onsite/Offshore</th>
+                                        <th className="px-2 py-2 font-bold w-[11%]">Onsite/Offshore</th>
                                         <th className="px-2 py-2 font-bold w-[8%]">Client Billable</th>
                                         <th className="px-2 py-2 font-bold w-[7%]">Billing Location</th>
                                         {days.map((d, i) => (<th key={i} className="px-0.5 py-2 font-bold text-center w-[4%]"><div>{d.dom}</div><div className="text-[7px] opacity-80">{d.wd}</div></th>))}
                                         <th className="px-1 py-2 font-bold text-center w-[5%]">Total</th>
-                                        {/* Widened from 4% (icon-only) to fit readable comment text;
-                                            the column widths now total 100%. */}
+                                        {/* Holds only the icon now, but the width stays as it is:
+                                            these percentages total 100% and narrowing this one
+                                            would reflow every column beside it. */}
                                         <th className="px-1 py-2 font-bold w-[9%]">Comment</th>
                                     </tr>
                                 </thead>
@@ -204,21 +232,59 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                                             <td className="px-2 py-1.5 font-semibold text-brand-text truncate" title={r.projectId || ""}>{r.projectId || "—"}</td>
                                             <td className="px-2 py-1.5 text-brand-text/80 truncate" title={r.projectName || ""}>{r.projectName || "—"}</td>
                                             <td className="px-2 py-1.5 text-brand-text/60 truncate" title={r.taskId || ""}>{r.taskId || "—"}</td>
-                                            <td className="px-2 py-1.5 text-brand-text/60 truncate" title={r.taskDescription || ""}>{r.taskDescription || "—"}</td>
+                                            {/* Wraps to two lines rather than clipping at one, then
+                                                the same dialog Comment opens carries the rest.
+                                                Two lines because the cell sits in a table-fixed
+                                                row: letting 256 characters wrap freely would
+                                                stretch every row beside it. The expand icon is
+                                                the employee entry grid's, so the affordance for
+                                                "there is more of this" reads the same on both
+                                                sides. A `title` tooltip alone cannot be selected,
+                                                scrolled or read at 256 characters. */}
+                                            <td className="px-2 py-1.5 align-top text-brand-text/60">
+                                                {r.taskDescription ? (
+                                                    <button
+                                                        id={`ct-desc-${idx}`}
+                                                        onClick={() => setTextDialog({ idx, field: "taskDescription" })}
+                                                        className="flex w-full items-start gap-1 text-left group"
+                                                        title="Open full description"
+                                                        aria-label="Open full task description"
+                                                    >
+                                                        <span className="line-clamp-2 break-words group-hover:text-brand-blue-dark group-hover:underline transition-colors">
+                                                            {r.taskDescription}
+                                                        </span>
+                                                        <Maximize2 size={11} className="mt-0.5 shrink-0 text-brand-blue-dark/70 group-hover:text-brand-blue-dark" />
+                                                    </button>
+                                                ) : "—"}
+                                            </td>
                                             <td className="px-2 py-1.5 text-brand-text/70">{onsiteLabel(r.onsiteOffshore)}</td>
                                             <td className="px-2 py-1.5 text-brand-text/70">{billableLabel(r.clientBillable)}</td>
                                             <td className="px-2 py-1.5 text-brand-text/70 truncate" title={r.billingLocation || ""}>{r.billingLocation || "—"}</td>
                                             {dayHours(r).map((h, i) => (<td key={i} className="px-0.5 py-1.5 text-center text-brand-text">{hourCell(h)}</td>))}
                                             <td className="px-1 py-1.5 text-center font-bold text-brand-text">{rowTotal(r).toFixed(2)}</td>
-                                            {/* The comment text itself, not just an icon: a `title`
-                                                attribute on an <svg> is not rendered as a tooltip by
-                                                browsers, so the reviewer previously had no way to read
-                                                what the employee wrote. Full text is also listed in the
-                                                Row Comments panel below the table. */}
+                                            {/* Icon only, opening the same dialog the employee's Time
+                                                Entry page uses. The text was previously truncated here
+                                                and repeated in full under the table; a truncated cell
+                                                could not be read anyway, and a `title` on an <svg> is
+                                                not rendered as a tooltip by browsers — hence a real
+                                                dialog rather than a hover. */}
                                             <td className="px-1 py-1.5">
-                                                {r.comment
-                                                    ? <span className="block truncate text-brand-text/70" title={r.comment}>{r.comment}</span>
-                                                    : <span className="block text-center text-brand-text/30">—</span>}
+                                                <div className="flex items-center justify-center">
+                                                    <button
+                                                        onClick={() => setTextDialog({ idx, field: "comment" })}
+                                                        disabled={!r.comment}
+                                                        className={`relative p-1 rounded transition-all ${r.comment
+                                                            ? "text-emerald-600 bg-emerald-50 hover:brightness-95"
+                                                            : "text-brand-text/20 cursor-default"}`}
+                                                        title={r.comment ? "View comment" : "No comment on this row"}
+                                                        aria-label={r.comment ? "View comment" : "No comment on this row"}
+                                                    >
+                                                        <MessageSquare size={14} />
+                                                        {r.comment && (
+                                                            <span className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                                                        )}
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -233,25 +299,28 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                             </table>
                         </div>
 
-                        {/* Per-row comments in full, read-only. Same component and position as the
-                            employee's Time Entry page, so a comment reads identically on both sides. */}
-                        <RowCommentsPanel rows={projectRows} className="mt-6" />
-
                         {/* OT hours (read-only) — same position and shape as the employee's
                             Time Entry page, between the project table and Holiday/Time off. */}
                         <div className="mt-6 border border-[#E3E8EF] rounded-xl overflow-hidden">
                             <div className="px-4 py-2.5 border-b border-[#E3E8EF] flex items-baseline gap-3">
                                 <h3 className="text-xs font-black text-brand-text uppercase tracking-wide">OT Hours</h3>
-                                <span className="text-[10px] text-brand-text/40">
+                                {/* <span className="text-[10px] text-brand-text/40">
                                     Calculated — hours beyond the 8h daily regular capacity (leave included)
-                                </span>
+                                </span> */}
                             </div>
                             <table className="w-full border-collapse table-fixed">
                                 <thead>
                                     <tr className="text-[9px] text-brand-text/40 uppercase">
-                                        <th className="px-3 py-2 text-right font-bold w-[22%]"></th>
-                                        {days.map((d, i) => (<th key={i} className="px-0.5 py-2 font-bold text-center w-[9%]"><div className="text-brand-text/70">{d.dom}</div><div className="text-[7px]">{d.wd}</div></th>))}
-                                        <th className="px-1 py-2 font-bold text-center w-[8%]">Total</th>
+                                        {/* 67 + (7 × 4) + 5 = 100. The day and Total widths are the project
+                                            table's above (w-[4%] / w-[5%]), so a day cell is the same size in
+                                            all three blocks; the label column takes the remainder. These were
+                                            w-[9%] days, over twice the project table's, which left each value
+                                            marooned in its column and made the block read far wider than the
+                                            grid above it. Keep the three totalling 100 — table-fixed rescales
+                                            columns proportionally otherwise, re-stretching every day cell. */}
+                                        <th className="px-3 py-2 text-right font-bold w-[67%]"></th>
+                                        {days.map((d, i) => (<th key={i} className="px-0.5 py-2 font-bold text-center w-[4%]"><div className="text-brand-text/70">{d.dom}</div><div className="text-[7px]">{d.wd}</div></th>))}
+                                        <th className="px-1 py-2 font-bold text-center w-[5%]">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -276,9 +345,16 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                             <table className="w-full border-collapse table-fixed">
                                 <thead>
                                     <tr className="text-[9px] text-brand-text/40 uppercase">
-                                        <th className="px-3 py-2 text-right font-bold w-[22%]"></th>
-                                        {days.map((d, i) => (<th key={i} className="px-0.5 py-2 font-bold text-center w-[9%]"><div className="text-brand-text/70">{d.dom}</div><div className="text-[7px]">{d.wd}</div></th>))}
-                                        <th className="px-1 py-2 font-bold text-center w-[8%]">Total</th>
+                                        {/* 67 + (7 × 4) + 5 = 100. The day and Total widths are the project
+                                            table's above (w-[4%] / w-[5%]), so a day cell is the same size in
+                                            all three blocks; the label column takes the remainder. These were
+                                            w-[9%] days, over twice the project table's, which left each value
+                                            marooned in its column and made the block read far wider than the
+                                            grid above it. Keep the three totalling 100 — table-fixed rescales
+                                            columns proportionally otherwise, re-stretching every day cell. */}
+                                        <th className="px-3 py-2 text-right font-bold w-[67%]"></th>
+                                        {days.map((d, i) => (<th key={i} className="px-0.5 py-2 font-bold text-center w-[4%]"><div className="text-brand-text/70">{d.dom}</div><div className="text-[7px]">{d.wd}</div></th>))}
+                                        <th className="px-1 py-2 font-bold text-center w-[5%]">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -363,6 +439,18 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, onClose, onAc
                 message={`Are you sure you want to reject this client timesheet for ${detail?.employeeName || "this employee"} (${fmtRange(detail?.weekStartDate)} to ${fmtRange(detail?.weekEndDate)})? They will be notified and can correct and resubmit it.`}
                 confirmLabel="Reject"
             />
+
+            {/* The only place either long-text field is shown in full on this screen. Same
+                component the employee's Time Entry page uses, read-only here. */}
+            {textDialog && projectRows[textDialog.idx] && (
+                <RowTextDialog
+                    row={projectRows[textDialog.idx]}
+                    value={projectRows[textDialog.idx][textDialog.field]}
+                    label={textDialog.field === "comment" ? "Row Comment" : "Task/Activity Description"}
+                    editable={false}
+                    onClose={() => setTextDialog(null)}
+                />
+            )}
         </div>
     );
 }

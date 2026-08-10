@@ -716,6 +716,15 @@ public class EmployeeService {
             dto.setHrName("N/A");
         }
 
+        // Department name, outbound only. Assigning a department is still Phase 2 work (see the
+        // commented departmentId mapping below and in convertToEntity) — this reads what is
+        // already on the record so the timesheet Excel export has something to print in its
+        // Department header cell. It had no field to read at all before, so that cell was blank
+        // for every employee, not only the ones with no department set.
+        if (employee.getDepartment() != null) {
+            dto.setDepartment(employee.getDepartment().getName());
+        }
+
         /*
          * =========================
          * PHASE 2 FIELDS (COMMENTED)

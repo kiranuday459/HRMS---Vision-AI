@@ -144,7 +144,13 @@ public class DataSeeder implements CommandLineRunner {
         Employee emp = new Employee();
         emp.setUser(user);
         emp.setFirstName(username.substring(0, 1).toUpperCase() + username.substring(1));
-        emp.setLastName("Admin");
+        // No surname. It used to be the literal "Admin", which every screen then rendered after
+        // the first name — "Admin4 Admin" — directly above the ADMIN role badge that already
+        // says it. The name is stored once and read by ~50 call sites, emails and exports
+        // included, so the duplication is dropped here rather than trimmed at each of them.
+        // Empty rather than null: several of those sites concatenate without a null guard and
+        // would spell it "Admin4 null".
+        emp.setLastName("");
         emp.setEmail(email);
         emp.setPhoneNumber("000000000" + username.charAt(username.length()-1));
         emp.setDateOfBirth(LocalDate.of(1990, 1, 1));

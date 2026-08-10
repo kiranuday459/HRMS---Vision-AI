@@ -6,35 +6,46 @@ const PAGE_SIZE = 10;
 const POLL_MS = 30000;
 const BASE = "/api/client-timesheet/notifications";
 
-/** "just now" / "5 minutes ago" / "1 hour ago" / "3 days ago". */
-function timeAgo(value) {
-    if (!value) return "";
-    let then;
-    if (typeof value === "string") {
-        const isoStr = (!value.endsWith("Z") && !value.includes("+") && !value.includes("-") && value.includes("T"))
-            ? `${value}Z`
-            : value;
-        then = new Date(isoStr);
-    } else {
-        then = new Date(value);
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * The instant a notification was created, parsed correctly.
+ *
+ * `createdAt` is a Jackson-serialised LocalDateTime — "2026-08-07T14:37:24.998" with no zone
+ * marker — and the server writes it in UTC (ClientTimesheetNotification.onCreate calls
+ * LocalDateTime.now(ZoneOffset.UTC)). JavaScript parses a zoneless ISO datetime as *local*,
+ * so the string has to be marked UTC before it means anything: left alone, a row written at
+ * 14:37 UTC renders as 14:37 and the panel contradicts the "Time: 20:07:24" printed in its
+ * own message a line above.
+ *
+ * Strings that already carry a zone (trailing Z, or a ±hh:mm offset) are left as they are,
+ * and a bare date with no "T" is left alone too — appending Z to one yields an invalid date.
+ */
+function parseCreatedAt(value) {
+    if (!value) return null;
+    if (typeof value !== "string") {
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? null : d;
     }
-    if (Number.isNaN(then.getTime())) return "";
-    const seconds = Math.floor((Date.now() - then.getTime()) / 1000);
-    if (seconds < 60) return "just now";
-    const units = [
-        { limit: 3600, div: 60, label: "minute" },
-        { limit: 86400, div: 3600, label: "hour" },
-        { limit: 2592000, div: 86400, label: "day" },
-        { limit: 31536000, div: 2592000, label: "month" },
-    ];
-    for (const u of units) {
-        if (seconds < u.limit) {
-            const n = Math.floor(seconds / u.div);
-            return `${n} ${u.label}${n === 1 ? "" : "s"} ago`;
-        }
-    }
-    const years = Math.floor(seconds / 31536000);
-    return `${years} year${years === 1 ? "" : "s"} ago`;
+    const hasZone = /(Z|[+-]\d{2}:?\d{2})$/.test(value);
+    const iso = value.includes("T") && !hasZone ? `${value}Z` : value;
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * "07-Aug-2026, 20:07:24" — the exact local date and time, to the second.
+ *
+ * Matches the "Date: … | Time: …" the server already writes into the message body, so the
+ * two read as the same moment rather than looking like two different ones. Month as a name
+ * rather than a number because 07/08 and 08/07 are the same string to different readers.
+ */
+function formatExact(value) {
+    const d = parseCreatedAt(value);
+    if (!d) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(d.getDate())}-${MONTHS[d.getMonth()]}-${d.getFullYear()}, `
+        + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 /**
@@ -225,7 +236,9 @@ export default function ClientTimesheetNotifications() {
                                         />
                                     </div>
                                     <div className="mt-2 flex items-center justify-between gap-3">
-                                        <span className="text-xs text-[#94a3b8]">{timeAgo(n.createdAt)}</span>
+                                        {/* whitespace-nowrap so the timestamp keeps one line and
+                                            "Mark read" / the close icon stay where they were. */}
+                                        <span className="text-xs text-[#94a3b8] whitespace-nowrap">{formatExact(n.createdAt)}</span>
                                         <div className="flex items-center gap-3 shrink-0">
                                             {!n.isRead && (
                                                 <button

@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MessageSquare, Plus, Minus, ArrowLeft, X } from "lucide-react";
+import { MessageSquare, Plus, Minus, ArrowLeft, Maximize2 } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
 import { clientTimesheetBase, roleDashboardPath } from "../../utils/clientTimesheetNav";
-import RowCommentsPanel from "../components/RowCommentsPanel";
+import RowTextDialog from "../components/RowTextDialog";
 import CharCounter from "../../components/CharCounter";
 import { FIELD_LIMITS } from "../../utils/fieldLimits";
 
@@ -26,8 +26,14 @@ const TIMEOFF_ORDER = ["SICK", "HOLIDAY", "PTO", "LOP", "EARNED"];
 const MAX_TASK_ID = FIELD_LIMITS.TASK_ID;
 const MAX_TASK_DESCRIPTION = FIELD_LIMITS.TASK_DESCRIPTION;
 const MAX_COMMENT = FIELD_LIMITS.COMMENT;
-// Not part of the agreed limits table; unchanged, and still matches its VARCHAR(64) column.
-const MAX_BILLING_LOCATION = 64;
+const MAX_BILLING_LOCATION = FIELD_LIMITS.BILLING_LOCATION;
+
+// Billing Location holds a place name, so it takes letters and spaces only — "New York" is
+// allowed, "Bldg 4" and "St. Louis" are not. Everything else is stripped as it arrives rather
+// than flagged on Submit, which is how the app's other restricted fields behave (sanitizeName
+// in utils/formValidation, the designation field in CompanyDetailsModal): one handler covers
+// typing and pasting alike, since a paste fires onChange with the whole clipboard string.
+const BILLING_LOCATION_DISALLOWED = /[^A-Za-z ]/g;
 
 // Leave booked on a date that fills the day's whole regular capacity.
 const FULL_DAY_LEAVE_HOURS = 8;
@@ -70,6 +76,21 @@ const GRID_COMMENT_W = 92;
 const GRID_ACTIONS_W = 64;
 // Every grid declares the same minimum, so they scroll as one shape rather than drifting apart.
 const GRID_MIN_W = GRID_LEAD_W + GRID_DAY_W * 7 + GRID_TOTAL_W + GRID_COMMENT_W + GRID_ACTIONS_W;
+
+// The OT and Leave blocks carry one label column instead of the project grid's seven
+// descriptive ones, so they cannot use GRID_LEAD_W without becoming as wide as the project
+// table and scrolling like it. They take the day and total widths verbatim and let the label
+// column absorb whatever is left, which keeps a day cell the same size in all three blocks —
+// the point of the exercise — without forcing a scrollbar onto blocks that fit today.
+//
+// They previously sized every column as a percentage, which made a day column ~126px against
+// the project grid's 78px and left each w-14 box floating in ~70px of gap. Fixed day columns
+// are what stop that: a percentage day column grows with the page, a 78px one does not.
+// Only reached on a viewport too narrow for the label to keep absorbing slack; above it the
+// label column is auto and far wider. 200px is the longest label, "Holiday (Public/National)"
+// at text-sm (~168px), plus the cell's px-4.
+const GRID_LABEL_MIN_W = 200;
+const LOWER_GRID_MIN_W = GRID_LABEL_MIN_W + GRID_DAY_W * 7 + GRID_TOTAL_W;
 
 const parseLocal = (ymd) => {
     const [y, m, d] = String(ymd).split("T")[0].split("-").map(Number);
@@ -156,7 +177,9 @@ export default function ClientTimesheetEntry() {
     const [meta, setMeta] = useState({ employeeName: "", weekStartDate: weekStart, weekEndDate: "", status: "DRAFT", earliestAssignmentDate: null, rejectionReason: null, hasProjectContext: false });
     const [projectRows, setProjectRows] = useState([]);
     const [timeOffRows, setTimeOffRows] = useState([]);
-    const [commentModal, setCommentModal] = useState({ open: false, rowId: null, text: "" });
+    // The row-text dialog, shared by Comment and Task/Activity Description. `field` is which of
+    // the two is open, so one dialog and one save path serve both.
+    const [textModal, setTextModal] = useState({ open: false, rowId: null, field: null, text: "" });
     // Projects the employee may log against — the options for the Project ID cell on a newly
     // added row. Project ID/Name are owned by the assignment, never typed.
     const [assignmentOptions, setAssignmentOptions] = useState([]);
@@ -301,9 +324,11 @@ export default function ClientTimesheetEntry() {
     const isProjectDayEditable = (ymd, rowGate) =>
         isDayEditable(ymd, rowGate) && !isFullLeaveDay(ymd);
 
-    // Cell keys for capNotices — project cells are identified by row, leave cells by type.
+    // Cell keys for capNotices — project cells are identified by row, leave cells by type,
+    // and the row's Billing Location box by row.
     const projectCellKey = (rowId, date) => `p:${rowId}:${date}`;
     const leaveCellKey = (type, date) => `t:${type}:${date}`;
+    const billingLocationKey = (rowId) => `bl:${rowId}`;
     // Passing null clears the notice, so every keystroke either raises or retires it.
     const noteCap = (key, message) => setCapNotices((prev) => {
         if (!message) {
@@ -315,6 +340,19 @@ export default function ClientTimesheetEntry() {
         return { ...prev, [key]: message };
     });
 
+    /**
+     * The leave type already holding hours on this date, ignoring one row — or null when the
+     * date is still free. Drives both the guard in setTimeOffDay and the disabled state of the
+     * other four cells in that column, so the block and the reason for it come from one place.
+     */
+    const otherLeaveTypeOn = (date, exceptRowIdx) => {
+        const claimed = timeOffRows.find((r, i) => {
+            if (i === exceptRowIdx) return false;
+            return numOr0(r.days.find((d) => d.date === date)?.hours) > 0;
+        });
+        return claimed ? claimed.type : null;
+    };
+
     const setProjectDay = (rowId, dayIdx, value) => {
         const { hours, clamped } = clampHours(value, MAX_HOURS_PER_DAY);
         const date = projectRows.find((r) => r.rowId === rowId)?.days?.[dayIdx]?.date;
@@ -324,9 +362,22 @@ export default function ClientTimesheetEntry() {
         noteCap(projectCellKey(rowId, date), clamped ? `Max ${MAX_HOURS_PER_DAY} hrs/day` : null);
     };
     const setTimeOffDay = (rowIdx, dayIdx, value) => {
+        const date = timeOffRows[rowIdx]?.days?.[dayIdx]?.date;
+
+        // One leave type per date. A day is taken as sick OR holiday OR PTO — not carved up
+        // between them — so the moment one type carries hours for a date, the other four cells
+        // in that column are disabled. The rule is enforced by the cell being unreachable, not
+        // by complaining after the fact: there is nothing to explain about a box that cannot be
+        // clicked, and an error under a greyed-out field reads as a fault rather than a rule.
+        // This is the guard behind that, for a value arriving any other way. Silent by design.
+        if (otherLeaveTypeOn(date, rowIdx)) {
+            return;
+        }
+
+        // Within the one permitted type, a day still cannot hold more than 8 hours of leave.
         const { hours, clamped } = clampHours(value, MAX_LEAVE_HOURS_PER_DAY);
         noteCap(
-            leaveCellKey(timeOffRows[rowIdx]?.type, timeOffRows[rowIdx]?.days?.[dayIdx]?.date),
+            leaveCellKey(timeOffRows[rowIdx]?.type, date),
             clamped ? `Max ${MAX_LEAVE_HOURS_PER_DAY} hrs/day for leave` : null
         );
         const nextRows = timeOffRows.map((r, i) => i !== rowIdx ? r : {
@@ -334,11 +385,20 @@ export default function ClientTimesheetEntry() {
         });
         setTimeOffRows(nextRows);
 
+        // This date's other four cells just changed state — disabled if this row now holds
+        // hours, released if it was cleared. Either way any notice still sitting under them is
+        // stale: a disabled cell must carry no message at all, and a re-enabled one starts
+        // clean. Their own "Max 8 hrs/day" text, raised before this row claimed the date, is
+        // exactly what would otherwise be stranded there.
+        timeOffRows.forEach((r) => {
+            if (r.type !== timeOffRows[rowIdx]?.type) noteCap(leaveCellKey(r.type, date), null);
+        });
+
         // Once leave fills the day, any project hours already typed for that date are
         // cleared — the cells are about to lock, so leaving a stale value behind would
         // keep counting toward the totals with no way to edit it out.
-        const ymd = timeOffRows[rowIdx]?.days?.[dayIdx]?.date;
-        if (!ymd) return;
+        if (!date) return;
+        const ymd = date;
         if (dayHoursFor(nextRows, ymd) >= FULL_DAY_LEAVE_HOURS) {
             setProjectRows((rows) => rows.map((r) => ({
                 ...r,
@@ -348,6 +408,17 @@ export default function ClientTimesheetEntry() {
     };
     const setRowField = (rowId, field, value) => {
         setProjectRows((prev) => prev.map((r) => r.rowId !== rowId ? r : { ...r, [field]: value }));
+    };
+
+    // Billing Location filters what it accepts instead of taking the keystroke and complaining
+    // later. Dropped characters are called out immediately — the input visibly refused what was
+    // typed or pasted, so leaving that silent reads as a broken field. Hitting the length cap
+    // needs no notice here: CharCounter already says "limit reached".
+    const setBillingLocation = (rowId, value) => {
+        const raw = String(value ?? "");
+        const letters = raw.replace(BILLING_LOCATION_DISALLOWED, "");
+        setRowField(rowId, "billingLocation", letters.slice(0, MAX_BILLING_LOCATION));
+        noteCap(billingLocationKey(rowId), letters !== raw ? "Letters and spaces only" : null);
     };
 
     // Picking the project also stamps the row's own day gate. Without it the row would fall
@@ -383,17 +454,23 @@ export default function ClientTimesheetEntry() {
     const totalNonBillable = projectRows.filter((r) => r.clientBillable === "NON_BILLABLE").reduce((s, r) => s + rowTotal(r), 0);
     const totalProject = totalBillable + totalNonBillable;
     const totalTimeOff = timeOffRows.reduce((s, r) => s + rowTotal(r), 0);
-    const grandTotal = totalProject + totalTimeOff;
 
     // ── Daily Regular / OT split ────────────────────────────────────────────────
     // Every weekday carries 8 hours of Regular capacity, shared between leave taken and
-    // project hours worked:
-    //   full-day leave (>= 8h) → Regular 8, OT 0 for that day, whatever else is entered
-    //   otherwise              → Regular = leave + min(worked, 8 - leave)
+    // project hours worked. Leave consumes the capacity but is NOT itself Regular:
+    //   full-day leave (>= 8h) → Regular 0, OT 0 — the day is spent, nothing can be worked
+    //   otherwise              → Regular = min(worked, 8 - leave)
     //                            OT      = worked beyond that remaining capacity
     // Weekends are locked for entry and are never Regular or OT.
-    // Mirrored server-side in ClientTimesheetWeekService.applyTotals — the saved figures
-    // are the server's, so the two must stay in step.
+    //
+    // Regular used to be `leave + min(worked, capacity)`, which put the leave hours inside
+    // Regular while the summary also reported them as Holiday/Time off. The three category
+    // totals therefore could not be added up — the same leave sat in two of them — which is
+    // why Grand Total never matched the lines above it. Regular is now worked hours only, so
+    // Regular + OT + Time off is a straight sum with nothing counted twice.
+    //
+    // Mirrored server-side in ClientTimesheetWeekService.applyRegularAndOvertime — the saved
+    // figures are the server's, so the two must stay in step.
     const dayBreakdown = days.map((d) => {
         if (isWeekendYMD(d.ymd)) return { ymd: d.ymd, wd: d.wd, dom: d.dom, regular: 0, ot: 0, locked: false };
         const worked = dayHoursFor(projectRows, d.ymd);
@@ -401,37 +478,43 @@ export default function ClientTimesheetEntry() {
         if (leave >= FULL_DAY_LEAVE_HOURS) {
             // Full-day leave fills the day's quota outright; no overtime is earned, and
             // both this cell and the day's project cells are locked.
-            return { ymd: d.ymd, wd: d.wd, dom: d.dom, regular: FULL_DAY_LEAVE_HOURS, ot: 0, locked: true };
+            return { ymd: d.ymd, wd: d.wd, dom: d.dom, regular: 0, ot: 0, locked: true };
         }
         const capacity = FULL_DAY_LEAVE_HOURS - leave;
         return {
             ymd: d.ymd,
             wd: d.wd,
             dom: d.dom,
-            regular: leave + Math.min(worked, capacity),
+            regular: Math.min(worked, capacity),
             ot: Math.max(0, worked - capacity),
             locked: false,
         };
     });
     const totalOT = dayBreakdown.reduce((s, d) => s + d.ot, 0);
     const totalRegular = dayBreakdown.reduce((s, d) => s + d.regular, 0);
+    // Hours actually worked, leave excluded — the figure a client is billed against.
+    const totalWorking = totalRegular + totalOT;
+    // Every hour the week accounts for. A straight sum of the three categories shown above
+    // it, which is only sound because Regular no longer carries the leave hours.
+    const grandTotal = totalWorking + totalTimeOff;
 
-    // A part-day leave has to be topped up to a full 8-hour day before the week can be
-    // submitted: 4h of sick leave and nothing else leaves the day at 4, not 8.
-    // Regular already includes the leave hours, so Regular + OT is the day's whole total —
-    // adding leave again would double-count it.
-    // Only dates carrying leave are checked; a day with no leave at all (not worked, or
-    // partially worked) is a different case and is deliberately left alone. Full-day leave
-    // (>= 8h) is complete by definition and never flagged.
-    const incompleteLeaveDays = dayBreakdown
-        .filter((d) => {
-            const leave = dayHoursFor(timeOffRows, d.ymd);
-            return leave > 0
-                && leave < FULL_DAY_LEAVE_HOURS
-                && (d.regular + d.ot) < FULL_DAY_LEAVE_HOURS;
-        })
+    // Any date the employee has touched has to account for a full 8-hour day before the week
+    // can be submitted. The day's total is Regular + OT + leave — Regular carries worked hours
+    // only now, so the leave has to be added back here; it used to be inside Regular already.
+    // One rule covers every way a day can fall short, in either direction:
+    //   4h of sick leave and nothing else → 4, short by 4
+    //   6h on a project and nothing else  → 6, short by 2
+    //   3h leave + 3h worked              → 6, short by 2
+    // "Touched" means at least one non-zero entry: a date left completely blank (not worked,
+    // no leave claimed) is untouched and deliberately left alone, as before. Full-day leave
+    // (>= 8h) is complete by definition. Days past 8 are overtime, not errors, so the test is
+    // "short of 8" rather than "not exactly 8" — the daily cap is what limits the top end.
+    // Weekends are locked for entry and never counted.
+    const dayLogged = (d) => d.regular + d.ot + dayHoursFor(timeOffRows, d.ymd);
+    const incompleteDays = dayBreakdown
+        .filter((d) => !isWeekendYMD(d.ymd) && dayLogged(d) > 0 && dayLogged(d) < FULL_DAY_LEAVE_HOURS)
         .map((d) => {
-            const logged = d.regular + d.ot;
+            const logged = dayLogged(d);
             return {
                 label: `${parseLocal(d.ymd).toLocaleDateString("en-US", { weekday: "long" })} ${d.dom}`,
                 logged,
@@ -439,14 +522,14 @@ export default function ClientTimesheetEntry() {
             };
         });
 
-    const incompleteLeaveMessage = () => {
-        if (incompleteLeaveDays.length === 1) {
-            const d = incompleteLeaveDays[0];
-            return `${d.label} only has ${d.logged} hours logged — please fill the remaining ${d.missing} hours (regular or OT) before submitting.`;
+    const incompleteDayMessage = () => {
+        if (incompleteDays.length === 1) {
+            const d = incompleteDays[0];
+            return `${d.label} only totals ${d.logged} hours — please add ${d.missing} more hours (regular, OT, or leave) before submitting.`;
         }
         // Every offending date is listed, not just the first one found.
-        const list = incompleteLeaveDays.map((d) => `${d.label} (${d.logged} of ${FULL_DAY_LEAVE_HOURS})`).join(", ");
-        return `These dates are incomplete — please fill the remaining hours (regular or OT) before submitting: ${list}.`;
+        const list = incompleteDays.map((d) => `${d.label} (${d.logged} of ${FULL_DAY_LEAVE_HOURS})`).join(", ");
+        return `These dates don't total ${FULL_DAY_LEAVE_HOURS} hours — please add the missing hours (regular, OT, or leave) before submitting: ${list}.`;
     };
 
     // ── Daily hour caps ─────────────────────────────────────────────────────────
@@ -568,8 +651,8 @@ export default function ClientTimesheetEntry() {
                 : `${incompleteRowCount} project rows are incomplete — fill the highlighted fields before submitting.`);
             return;
         }
-        if (incompleteLeaveDays.length > 0) {
-            toast.error(incompleteLeaveMessage());
+        if (incompleteDays.length > 0) {
+            toast.error(incompleteDayMessage());
             return;
         }
         setSaving(true);
@@ -600,15 +683,22 @@ export default function ClientTimesheetEntry() {
         } finally { setSaving(false); }
     };
 
-    const openComment = (rowId) => {
+    /**
+     * Opens the row-text dialog on one of the two long-text fields. Both outgrow their column
+     * — a 256-character description in a 190px cell reads no better than a comment did — so
+     * they share one dialog, one piece of state and one save path rather than each growing
+     * their own.
+     */
+    const openRowText = (rowId, field) => {
         const row = projectRows.find((r) => r.rowId === rowId);
-        setCommentModal({ open: true, rowId, text: row?.comment || "" });
+        setTextModal({ open: true, rowId, field, text: row?.[field] || "" });
     };
-    const saveComment = () => {
-        if (commentModal.rowId) {
-            setRowField(commentModal.rowId, "comment", commentModal.text);
+    const closeRowText = () => setTextModal({ open: false, rowId: null, field: null, text: "" });
+    const saveRowText = () => {
+        if (textModal.rowId && textModal.field) {
+            setRowField(textModal.rowId, textModal.field, textModal.text);
         }
-        setCommentModal({ open: false, rowId: null, text: "" });
+        closeRowText();
     };
 
     const statusMeta = clientTimesheetStatusMeta(meta.status);
@@ -622,44 +712,48 @@ export default function ClientTimesheetEntry() {
     // `max` is the cell's hour cap (24 for worked hours, 8 for leave). The clamp lives in the
     // onChange handlers so it applies to typing and pasting alike — the max attribute alone
     // does nothing on a text input, it is here for assistive tech and for the record.
-    const dayCell = (ymd, value, editable, onChange, lockedByFullLeave = false, invalid = false, max = MAX_HOURS_PER_DAY, capNotice = null) => (
+    // `lockReason` names a third way a cell can be closed — currently "another leave type
+    // already holds this date" — and wins over the two generic reasons below when given.
+    const dayCell = (ymd, value, editable, onChange, lockedByFullLeave = false, invalid = false, max = MAX_HOURS_PER_DAY, capNotice = null, lockReason = null) => (
         <>
-        <input
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            maxLength={2}
-            max={max}
-            value={value}
-            disabled={!editable}
-            placeholder="hrs"
-            aria-label={`Hours for ${ymd} (maximum ${max})`}
-            onKeyDown={handleHourKeyDown}
-            onChange={(e) => onChange(e.target.value)}
-            onPaste={(e) => {
-                e.preventDefault();
-                onChange(e.clipboardData.getData("text"));
-            }}
-            title={editable
-                ? undefined
-                : lockedByFullLeave
-                    ? "Not available — full-day leave is booked for this date"
-                    : "Not available — you were not assigned before this date"}
-            className={`w-14 text-center text-xs font-semibold rounded border px-1 py-1.5 outline-none transition-all placeholder:font-medium placeholder:text-brand-text/35 ${!editable
-                ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
-                : invalid
-                    ? "bg-red-50 border-red-500 focus:border-red-500 text-brand-text"
-                    : "bg-white border-[#E3E8EF] focus:border-brand-yellow text-brand-text"}`}
-        />
-        {/* Raised the moment a value is clamped, so the user sees why the number they typed
+            <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={2}
+                max={max}
+                value={value}
+                disabled={!editable}
+                placeholder="hrs"
+                aria-label={`Hours for ${ymd} (maximum ${max})`}
+                onKeyDown={handleHourKeyDown}
+                onChange={(e) => onChange(e.target.value)}
+                onPaste={(e) => {
+                    e.preventDefault();
+                    onChange(e.clipboardData.getData("text"));
+                }}
+                title={editable
+                    ? undefined
+                    : lockReason
+                        ? lockReason
+                        : lockedByFullLeave
+                            ? "Not available — full-day leave is booked for this date"
+                            : "Not available — you were not assigned before this date"}
+                className={`w-14 text-center text-xs font-semibold rounded border px-1 py-1.5 outline-none transition-all placeholder:font-medium placeholder:text-brand-text/35 ${!editable
+                    ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                    : invalid
+                        ? "bg-red-50 border-red-500 focus:border-red-500 text-brand-text"
+                        : "bg-white border-[#E3E8EF] focus:border-brand-yellow text-brand-text"}`}
+            />
+            {/* Raised the moment a value is clamped, so the user sees why the number they typed
             changed. role="alert" because it appears in response to their keystroke. Allowed
             to wrap: the day columns are a fixed width now, and "Max 8 hrs/day for leave" is
             wider than one. */}
-        {capNotice && (
-            <p role="alert" className="mt-1 text-[9px] font-bold text-red-600 leading-tight">
-                {capNotice}
-            </p>
-        )}
+            {capNotice && (
+                <p role="alert" className="mt-1 text-[9px] font-bold text-red-600 leading-tight">
+                    {capNotice}
+                </p>
+            )}
         </>
     );
 
@@ -703,7 +797,11 @@ export default function ClientTimesheetEntry() {
                                 </div>
                             ) : (
                                 <>
-                                    {/* Project table */}
+                                    {/* Project table — the only block that scrolls. It carries the
+                                        seven descriptive columns (Project ID through Billing
+                                        Location) on top of the week, so it cannot fit; the OT and
+                                        Holiday blocks below hold nothing but days and therefore
+                                        should never make the employee drag to reach Friday. */}
                                     <div className="bg-white rounded-xl border border-[#E3E8EF] shadow-sm overflow-x-auto">
                                         <table className="w-full text-left border-collapse table-fixed" style={{ minWidth: GRID_MIN_W }}>
                                             {/* Same widths as the OT and Leave grids below — see GRID_* */}
@@ -715,14 +813,24 @@ export default function ClientTimesheetEntry() {
                                                 <col style={{ width: GRID_ACTIONS_W }} />
                                             </colgroup>
                                             <thead>
-                                                <tr className="bg-brand-blue-dark text-white text-[11px] uppercase tracking-wide">
+                                                {/* break-words is the safety net for this row: the table is table-fixed
+                                                    with hard column widths, so a header too wide for its column has
+                                                    nowhere to go and paints over its neighbour instead of being clipped.
+                                                    overflow-wrap inherits, so declaring it once here covers every th. */}
+                                                <tr className="bg-brand-blue-dark text-white text-[11px] uppercase tracking-wide break-words">
                                                     {/* Every project column is mandatory — marked so the employee
                                                         knows before Submit rather than after it is blocked. */}
                                                     <th className="px-3 py-3 font-bold">Project ID <span className="text-red-300">*</span></th>
                                                     <th className="px-3 py-3 font-bold">Project Name <span className="text-red-300">*</span></th>
                                                     <th className="px-3 py-3 font-bold">Task/Activity ID <span className="text-red-300">*</span></th>
                                                     <th className="px-3 py-3 font-bold">Task/Activity Description <span className="text-red-300">*</span></th>
-                                                    <th className="px-3 py-3 font-bold">Onsite/Offshore <span className="text-red-300">*</span></th>
+                                                    {/* The slash is not a line-break opportunity, so "Onsite/Offshore"
+                                                        is one 15-character token that overran this column and ran
+                                                        straight into "Client Billable". <wbr> lets it break after the
+                                                        slash — "ONSITE/" over "OFFSHORE" — which fits the column as it
+                                                        stands, so the widths (and the day-column alignment the OT and
+                                                        Leave grids share through GRID_LEAD_W) stay untouched. */}
+                                                    <th className="px-3 py-3 font-bold">Onsite/<wbr />Offshore <span className="text-red-300">*</span></th>
                                                     <th className="px-3 py-3 font-bold">Client Billable <span className="text-red-300">*</span></th>
                                                     <th className="px-3 py-3 font-bold">Billing Location <span className="text-red-300">*</span></th>
                                                     {days.map((d) => (
@@ -780,8 +888,26 @@ export default function ClientTimesheetEntry() {
                                                                     <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">Task/Activity ID is required</p>
                                                                 )}
                                                             </td>
+                                                            {/* The input stays: a description is typed on every row, and
+                                                                routing that through a dialog would put a click in front
+                                                                of the most-used field on the sheet. What the cell cannot
+                                                                do is show 256 characters — a single-line input clips at
+                                                                w-40 with no way to read past it — so the expand button
+                                                                opens the full text in the same dialog Comment uses,
+                                                                editable while the week is open. */}
                                                             <td className="px-2 py-2">
-                                                                <input disabled={!weekEditable} maxLength={MAX_TASK_DESCRIPTION} value={r.taskDescription} onChange={(e) => setRowField(r.rowId, "taskDescription", e.target.value)} placeholder="Enter description" title={r.taskDescription || undefined} className={fieldClass(issueFor(r.rowId, "taskDescription"), "w-40")} />
+                                                                <div className="flex items-center gap-1">
+                                                                    <input disabled={!weekEditable} maxLength={MAX_TASK_DESCRIPTION} value={r.taskDescription} onChange={(e) => setRowField(r.rowId, "taskDescription", e.target.value)} placeholder="Enter description" title={r.taskDescription || undefined} className={fieldClass(issueFor(r.rowId, "taskDescription"), "w-36")} />
+                                                                    <button
+                                                                        id={`ct-desc-${r.rowId}`}
+                                                                        onClick={() => openRowText(r.rowId, "taskDescription")}
+                                                                        className={`shrink-0 p-1 rounded transition-all ${r.taskDescription ? "text-brand-blue-dark bg-brand-blue/5" : "text-brand-text/40"} hover:bg-brand-blue-dark hover:text-white`}
+                                                                        title={weekEditable ? "Open full description" : "View full description"}
+                                                                        aria-label="Open full task description"
+                                                                    >
+                                                                        <Maximize2 size={13} />
+                                                                    </button>
+                                                                </div>
                                                                 {weekEditable && <CharCounter value={r.taskDescription} max={MAX_TASK_DESCRIPTION} />}
                                                                 {issueFor(r.rowId, "taskDescription") && (
                                                                     <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">Description is required</p>
@@ -808,7 +934,11 @@ export default function ClientTimesheetEntry() {
                                                                 )}
                                                             </td>
                                                             <td className="px-2 py-2">
-                                                                <input disabled={!weekEditable} maxLength={MAX_BILLING_LOCATION} value={r.billingLocation} onChange={(e) => setRowField(r.rowId, "billingLocation", e.target.value)} className={fieldClass(issueFor(r.rowId, "billingLocation"), "w-16")} />
+                                                                <input disabled={!weekEditable} maxLength={MAX_BILLING_LOCATION} value={r.billingLocation} onChange={(e) => setBillingLocation(r.rowId, e.target.value)} aria-label={`Billing Location (letters and spaces, maximum ${MAX_BILLING_LOCATION} characters)`} className={fieldClass(issueFor(r.rowId, "billingLocation"), "w-16")} />
+                                                                {weekEditable && <CharCounter value={r.billingLocation} max={MAX_BILLING_LOCATION} />}
+                                                                {weekEditable && capNotices[billingLocationKey(r.rowId)] && (
+                                                                    <p className="mt-1 text-[10px] font-semibold text-amber-600 leading-tight">{capNotices[billingLocationKey(r.rowId)]}</p>
+                                                                )}
                                                                 {issueFor(r.rowId, "billingLocation") && (
                                                                     <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">Billing Location is required</p>
                                                                 )}
@@ -824,17 +954,25 @@ export default function ClientTimesheetEntry() {
                                                                     <p className="mt-1 text-[10px] font-semibold text-red-600 leading-tight">Enter hours for at least one day</p>
                                                                 )}
                                                             </td>
-                                                            {/* The comment text is shown next to the button, not hidden
-                                                                behind it — the same text the admin sees on their review
-                                                                screen. Full text is in the Row Comments panel below. */}
+                                                            {/* Icon only. The comment text lives in the dialog this opens
+                                                                and nowhere else — it used to be previewed here and
+                                                                repeated in full below the table.
+                                                                A row that carries a comment gets the filled emerald
+                                                                treatment plus a dot, so "has a comment" is legible
+                                                                without putting any of the text on the row. */}
                                                             <td className="px-2 py-2">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <button onClick={() => openComment(r.rowId)} className={`shrink-0 p-1.5 rounded transition-all ${r.comment ? "text-emerald-600 bg-emerald-50" : "text-brand-text/40 hover:bg-bg-slate"}`} title={weekEditable ? "Add or edit comment" : "View comment"} aria-label="Comment">
+                                                                <div className="flex items-center justify-center">
+                                                                    <button
+                                                                        onClick={() => openRowText(r.rowId, "comment")}
+                                                                        className={`relative p-1.5 rounded transition-all ${r.comment ? "text-emerald-600 bg-emerald-50" : "text-brand-text/40 hover:bg-bg-slate"}`}
+                                                                        title={weekEditable ? "Add or edit comment" : "View comment"}
+                                                                        aria-label={r.comment ? "View comment" : "Add comment"}
+                                                                    >
                                                                         <MessageSquare size={16} />
+                                                                        {r.comment && (
+                                                                            <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                                                                        )}
                                                                     </button>
-                                                                    {r.comment
-                                                                        ? <span className="block max-w-[120px] truncate text-[11px] text-brand-text/70" title={r.comment}>{r.comment}</span>
-                                                                        : <span className="text-[11px] text-brand-text/30">—</span>}
                                                                 </div>
                                                             </td>
                                                             <td className="px-2 py-2 whitespace-nowrap">
@@ -875,28 +1013,29 @@ export default function ClientTimesheetEntry() {
                                         </table>
                                     </div>
 
-                                    {/* Per-row comments in full, read-only. Same component and position
-                                        as the admin review drawer, so what the employee wrote reads
-                                        identically on both sides after submission. */}
-                                    <RowCommentsPanel rows={projectRows} className="mt-8" />
-
                                     {/* OT hours — derived, never typed. Sits between the project
-                                        hours (Regular) and the Holiday/Time off block it reads from. */}
-                                    <div className="mt-8 bg-white rounded-xl border border-[#E3E8EF] shadow-sm overflow-x-auto">
+                                        hours (Regular) and the Holiday/Time off block it reads from.
+                                        mt-2 rather than mt-8: the three blocks are one timesheet
+                                        read top to bottom, not three floating cards. */}
+                                    <div className="mt-2 bg-white rounded-xl border border-[#E3E8EF] shadow-sm overflow-x-auto">
                                         <div className="px-4 py-3 border-b border-[#E3E8EF] flex items-baseline gap-3">
                                             <h3 className="text-sm font-black text-brand-text uppercase tracking-wide">OT Hours</h3>
-                                            <span className="text-[11px] text-brand-text/40">
-                                                Calculated — hours beyond the 8h daily regular capacity (leave included)
-                                            </span>
+                                            {/* <span className="text-[11px] text-brand-text/40">
+                                                Calculated — hours worked beyond the 8h daily capacity, which leave uses up first
+                                            </span> */}
                                         </div>
-                                        <table className="w-full border-collapse table-fixed" style={{ minWidth: GRID_MIN_W }}>
-                                            {/* The label column is exactly as wide as the project grid's seven
-                                                descriptive columns, so day 1 starts at the same x in both. */}
+                                        <table className="w-full border-collapse table-fixed" style={{ minWidth: LOWER_GRID_MIN_W }}>
+                                            {/* Day and Total take the project grid's pixel widths verbatim, so a
+                                                day cell is the same size in all three blocks. The label column is
+                                                the only auto one — with table-fixed it absorbs the leftover width,
+                                                which is what keeps this block fitting the page instead of
+                                                inheriting the project grid's scroll. Exactly one column may be
+                                                auto: if the fixed widths did not account for the rest, table-fixed
+                                                would rescale them proportionally and stretch the day cells again. */}
                                             <colgroup>
-                                                <col style={{ width: GRID_LEAD_W }} />
+                                                <col />
                                                 {days.map((d) => <col key={d.ymd} style={{ width: GRID_DAY_W }} />)}
                                                 <col style={{ width: GRID_TOTAL_W }} />
-                                                <col style={{ width: GRID_COMMENT_W + GRID_ACTIONS_W }} />
                                             </colgroup>
                                             <thead>
                                                 <tr className="text-[11px] text-brand-text/40 uppercase">
@@ -907,7 +1046,6 @@ export default function ClientTimesheetEntry() {
                                                         </th>
                                                     ))}
                                                     <th className="px-2 py-2 font-bold text-center">Total</th>
-                                                    <th></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -935,24 +1073,22 @@ export default function ClientTimesheetEntry() {
                                                         </td>
                                                     ))}
                                                     <td className="px-2 py-2 text-center text-xs font-bold text-amber-600">{totalOT.toFixed(2)}</td>
-                                                    <td></td>
                                                 </tr>
                                             </tbody>
                                         </table>
                                     </div>
 
                                     {/* Holiday / Time off */}
-                                    <div className="mt-8 bg-white rounded-xl border border-[#E3E8EF] shadow-sm overflow-x-auto">
+                                    <div className="mt-2 bg-white rounded-xl border border-[#E3E8EF] shadow-sm overflow-x-auto">
                                         <div className="px-4 py-3 border-b border-[#E3E8EF]">
                                             <h3 className="text-sm font-black text-brand-text uppercase tracking-wide">Holiday/Time off</h3>
                                         </div>
-                                        <table className="w-full border-collapse table-fixed" style={{ minWidth: GRID_MIN_W }}>
-                                            {/* Same geometry as the Regular and OT grids above. */}
+                                        <table className="w-full border-collapse table-fixed" style={{ minWidth: LOWER_GRID_MIN_W }}>
+                                            {/* Same geometry as the OT block above — see the note there. */}
                                             <colgroup>
-                                                <col style={{ width: GRID_LEAD_W }} />
+                                                <col />
                                                 {days.map((d) => <col key={d.ymd} style={{ width: GRID_DAY_W }} />)}
                                                 <col style={{ width: GRID_TOTAL_W }} />
-                                                <col style={{ width: GRID_COMMENT_W + GRID_ACTIONS_W }} />
                                             </colgroup>
                                             <thead>
                                                 <tr className="text-[11px] text-brand-text/40 uppercase">
@@ -963,7 +1099,6 @@ export default function ClientTimesheetEntry() {
                                                         </th>
                                                     ))}
                                                     <th className="px-2 py-2 font-bold text-center">Total</th>
-                                                    <th></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -972,13 +1107,33 @@ export default function ClientTimesheetEntry() {
                                                     return (
                                                         <tr key={r.type} className="border-b border-[#E3E8EF]">
                                                             <td className="px-4 py-2 text-right text-sm font-semibold text-brand-text/70">{TIMEOFF_LABELS[r.type]}</td>
-                                                            {r.days.map((d, dayIdx) => (
-                                                                <td key={d.date} className="px-1 py-2 text-center">
-                                                                    {dayCell(d.date, d.hours, isDayEditable(d.date, gate), (v) => setTimeOffDay(rowIdx, dayIdx, v), false, false, MAX_LEAVE_HOURS_PER_DAY, capNotices[leaveCellKey(r.type, d.date)])}
-                                                                </td>
-                                                            ))}
+                                                            {r.days.map((d, dayIdx) => {
+                                                                // A date belongs to one leave type. Once another row holds
+                                                                // hours for it, this cell is simply closed — a greyed,
+                                                                // non-interactive box in the same disabled treatment the
+                                                                // module uses for pre-assignment dates and full-leave-day
+                                                                // Regular/OT cells. There is deliberately no message: the
+                                                                // employee cannot reach the field, and an error under a
+                                                                // field they cannot touch reads as a fault rather than a
+                                                                // rule. The hover text follows the module's existing
+                                                                // "Not available — …" wording for anyone who looks.
+                                                                const claimedBy = otherLeaveTypeOn(d.date, rowIdx);
+                                                                return (
+                                                                    <td key={d.date} className="px-1 py-2 text-center">
+                                                                        {dayCell(
+                                                                            d.date, d.hours,
+                                                                            isDayEditable(d.date, gate) && !claimedBy,
+                                                                            (v) => setTimeOffDay(rowIdx, dayIdx, v),
+                                                                            false, false, MAX_LEAVE_HOURS_PER_DAY,
+                                                                            capNotices[leaveCellKey(r.type, d.date)],
+                                                                            claimedBy
+                                                                                ? `Not available — ${TIMEOFF_LABELS[claimedBy]} is already logged for this date`
+                                                                                : null
+                                                                        )}
+                                                                    </td>
+                                                                );
+                                                            })}
                                                             <td className="px-2 py-2 text-center text-xs font-bold text-brand-text">{rowTotal(r).toFixed(2)}</td>
-                                                            <td></td>
                                                         </tr>
                                                     );
                                                 })}
@@ -989,10 +1144,16 @@ export default function ClientTimesheetEntry() {
                                     {/* Totals + actions */}
                                     <div className="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                         <div className="flex flex-col gap-1 text-sm">
-                                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Holiday/Time off Hours:</span><span className="font-black text-brand-text">{totalTimeOff.toFixed(2)}</span></div>
+                                            {/* Ordered so the arithmetic reads down the column:
+                                                Regular + OT = Working, Working + Time off = Grand.
+                                                Every line is a distinct bucket — no hour appears
+                                                in two of them. */}
                                             <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Regular Hours:</span><span className="font-black text-brand-text">{totalRegular.toFixed(2)}</span></div>
                                             <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total OT Hours:</span><span className="font-black text-amber-600">{totalOT.toFixed(2)}</span></div>
-                                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Grand Total:</span><span className="font-black text-brand-text">{grandTotal.toFixed(2)}</span></div>
+                                            {/* Hours actually worked — Regular + OT, leave excluded. */}
+                                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Working Hours:</span><span className="font-black text-brand-text">{totalWorking.toFixed(2)}</span></div>
+                                            <div className="flex gap-4"><span className="text-brand-text/50 font-semibold">Total Holiday/Time off Hours:</span><span className="font-black text-brand-text">{totalTimeOff.toFixed(2)}</span></div>
+                                            <div className="flex gap-4 pt-1 border-t border-[#E3E8EF]"><span className="text-brand-text/50 font-semibold">Grand Total:</span><span className="font-black text-brand-text">{grandTotal.toFixed(2)}</span></div>
                                             {/* The per-day breakdown that used to live here is now the OT Hours
                                                 block above; both read the same dayBreakdown, so they cannot drift. */}
                                         </div>
@@ -1012,7 +1173,7 @@ export default function ClientTimesheetEntry() {
                                             <p className="mt-1 text-sm text-red-700 leading-relaxed">{dayCapMessage()}</p>
                                         </div>
                                     )}
-                                    {showErrors && incompleteRowCount > 0 && (
+                                    {/* {showErrors && incompleteRowCount > 0 && (
                                         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
                                             <p className="text-xs font-black uppercase tracking-widest text-red-600">Incomplete rows</p>
                                             <p className="mt-1 text-sm text-red-700 leading-relaxed">
@@ -1022,7 +1183,7 @@ export default function ClientTimesheetEntry() {
                                                 {" "}Remove any row you are not logging against, or complete it.
                                             </p>
                                         </div>
-                                    )}
+                                    )} */}
                                     {!weekEditable ? (
                                         <p className="mt-3 text-xs text-brand-text/40">This week is {statusMeta.label.toLowerCase()} and can no longer be edited.</p>
                                     ) : meta.status === "PENDING" ? (
@@ -1035,36 +1196,22 @@ export default function ClientTimesheetEntry() {
                 </div>
             </main>
 
-            {/* Comment modal */}
-            {commentModal.open && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]">
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-bold text-brand-text">{weekEditable ? "Row Comment" : "Row Comment (read-only)"}</h3>
-                            <button onClick={() => setCommentModal({ open: false, rowId: null, text: "" })} className="text-brand-text/40 hover:text-brand-text"><X size={18} /></button>
-                        </div>
-                        <textarea
-                            value={commentModal.text}
-                            onChange={(e) => setCommentModal((p) => ({ ...p, text: e.target.value }))}
-                            maxLength={MAX_COMMENT}
-                            disabled={!weekEditable}
-                            placeholder="Add a comment for this project row"
-                            className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-yellow outline-none text-sm disabled:bg-gray-100"
-                            rows="4"
-                        />
-                        <div className="mb-4">
-                            {weekEditable && <CharCounter value={commentModal.text} max={MAX_COMMENT} />}
-                        </div>
-                        {/* Once the week is approved the comment is history, not an input — a lone
-                            Close beats a Cancel next to a permanently disabled Save. */}
-                        <div className="flex gap-3">
-                            <button onClick={() => setCommentModal({ open: false, rowId: null, text: "" })} className="flex-1 bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-bold uppercase text-[10px] tracking-widest hover:bg-slate-200 transition">{weekEditable ? "Cancel" : "Close"}</button>
-                            {weekEditable && (
-                                <button onClick={saveComment} className="flex-1 bg-brand-blue-dark text-white px-4 py-2 rounded-lg font-bold uppercase text-[10px] tracking-widest hover:brightness-110 transition">Save</button>
-                            )}
-                        </div>
-                    </div>
-                </div>
+            {/* The only place either long-text field is shown in full. Same component the admin
+                drawer uses, so both sides read identically. */}
+            {textModal.open && (
+                <RowTextDialog
+                    row={projectRows.find((r) => r.rowId === textModal.rowId)}
+                    value={textModal.text}
+                    max={textModal.field === "comment" ? MAX_COMMENT : MAX_TASK_DESCRIPTION}
+                    label={textModal.field === "comment" ? "Row Comment" : "Task/Activity Description"}
+                    placeholder={textModal.field === "comment"
+                        ? "Add a comment for this project row"
+                        : "Describe the work on this project row"}
+                    editable={weekEditable}
+                    onChange={(text) => setTextModal((p) => ({ ...p, text }))}
+                    onClose={closeRowText}
+                    onSave={saveRowText}
+                />
             )}
         </div>
     );

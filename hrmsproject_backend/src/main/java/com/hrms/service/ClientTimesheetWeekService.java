@@ -403,7 +403,10 @@ public class ClientTimesheetWeekService {
         return row;
     }
 
-    private void applyTotals(ClientTimesheetWeekDTO dto) {
+    // Package-private rather than private so the Regular / OT / Grand Total arithmetic can be
+    // exercised directly in ClientTimesheetTotalsTest — it takes no repositories, so it tests
+    // without a DB. Same reason validateEntries is package-private.
+    void applyTotals(ClientTimesheetWeekDTO dto) {
         double billable = 0, nonBillable = 0, timeOff = 0;
         for (ClientTimesheetWeekDTO.ProjectRowDTO r : dto.getProjectRows()) {
             double rowTotal = r.getDays().stream().mapToDouble(d -> d.getHours() != null ? d.getHours() : 0).sum();
@@ -464,12 +467,17 @@ public class ClientTimesheetWeekService {
             double worked = workedByDay.getOrDefault(day, 0.0);
             double leave = leaveByDay.getOrDefault(day, 0.0);
 
+            // Leave consumes the day's regular capacity but is not itself Regular. Regular
+            // used to be `leave + min(worked, capacity)`, which put the leave hours inside
+            // Regular while they were also reported as Time off — so the two totals could not
+            // be added together without counting the same hours twice, and the employee's
+            // Grand Total never matched the lines above it. Regular is worked hours only.
+            // Mirrored in EntryPage.dayBreakdown; keep the two in step.
             if (leave >= REGULAR_HOURS_PER_DAY) {
-                regular += REGULAR_HOURS_PER_DAY;
-                continue; // full-day leave earns no overtime
+                continue; // the day is spent on leave: nothing worked, no overtime earned
             }
             double capacity = REGULAR_HOURS_PER_DAY - leave;
-            regular += leave + Math.min(worked, capacity);
+            regular += Math.min(worked, capacity);
             overtime += Math.max(0, worked - capacity);
         }
 
@@ -495,6 +503,19 @@ public class ClientTimesheetWeekService {
         LocalDate weekEndDate = weekStartDate.plusDays(6);
         LocalDate today = LocalDate.now();
         LocalDate gate = assignmentService.earliestAssignmentDate(employeeId);
+
+        // No active assignment, no new entry. This is what makes removing an employee from a
+        // project bite immediately: the admin's click revokes access server-side, and a page
+        // the employee already had open cannot write past it. Reads are left alone — they
+        // keep seeing what they submitted before, and so does the admin.
+        //
+        // 409 rather than 403: the frontend's api interceptor force-logs-out on 403, and this
+        // is not a broken session — it is the world changing under a request that was fine
+        // when the page loaded.
+        if (gate == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "You are not assigned to an active client project, so this timesheet can no longer be saved.");
+        }
 
         // Don't allow editing an already-approved week.
         ClientTimesheetWeek header = weekRepository.findByEmployeeIdAndWeekStartDate(employeeId, weekStartDate)

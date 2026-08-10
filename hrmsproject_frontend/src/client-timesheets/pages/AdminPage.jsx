@@ -4,8 +4,10 @@ import DownloadClientTimesheetModal from "../components/DownloadClientTimesheetM
 import ClientTimesheetDetailDrawer from "../components/ClientTimesheetDetailDrawer";
 import AccessManagementTab from "../components/AccessManagementTab";
 import AssignedMembersTab from "../components/AssignedMembersTab";
+import AuditLogsTab from "../components/AuditLogsTab";
 import AssignEmployeeToClientProjectModal from "../../components/AssignEmployeeToClientProjectModal";
 import ClientTimesheetConfirmModal from "../components/ClientTimesheetConfirmModal";
+import { approveWeek, rejectWeek } from "../utils/clientTimesheetReview";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { Download, Check, X, Eye, Briefcase } from "lucide-react";
@@ -86,6 +88,10 @@ export default function ClientTimesheets() {
 
     // Detail drawer (opened with any day ID from the block — the drawer loads the whole week).
     const [detailId, setDetailId] = useState(null);
+    // Every day ID in the opened week. The drawer reviews the whole week, exactly as the
+    // row-level buttons do, so it needs the same list rather than the one ID it was opened on.
+    const [detailIds, setDetailIds] = useState([]);
+    const openDetail = (block) => { setDetailIds(block.timesheetIds); setDetailId(block.timesheetIds[0]); };
 
     const currentUserId = useMemo(() => {
         const u = JSON.parse(localStorage.getItem("user")) || {};
@@ -203,14 +209,7 @@ export default function ClientTimesheets() {
         if (acting || !block) return;
         try {
             setActing(true);
-            await Promise.all(
-                block.timesheetIds.map((id) =>
-                    api(`/api/client-timesheets/${id}/approve`, {
-                        method: "POST",
-                        body: JSON.stringify({ reviewerId: currentUserId }),
-                    })
-                )
-            );
+            await approveWeek(block.timesheetIds, currentUserId);
             toast.success("Week approved.");
             setApprovingBlock(null);
             fetchEntries();
@@ -228,14 +227,7 @@ export default function ClientTimesheets() {
         if (!rejectingBlock) return;
         try {
             setActing(true);
-            await Promise.all(
-                rejectingBlock.timesheetIds.map((id) =>
-                    api(`/api/client-timesheets/${id}/reject`, {
-                        method: "POST",
-                        body: JSON.stringify({ reviewerId: currentUserId, reason: rejectReason }),
-                    })
-                )
-            );
+            await rejectWeek(rejectingBlock.timesheetIds, currentUserId, rejectReason);
             toast.success("Week rejected.");
             setConfirmingReject(false);
             setRejectingBlock(null);
@@ -274,6 +266,7 @@ export default function ClientTimesheets() {
                                     { id: "timesheets", label: "Timesheets" },
                                     { id: "assigned", label: "Assigned Members" },
                                     { id: "access", label: "Access Management" },
+                                    { id: "audit", label: "Audit Logs" },
                                 ].map((t) => (
                                     <button
                                         key={t.id}
@@ -307,13 +300,23 @@ export default function ClientTimesheets() {
                         </div>
                     </header>
 
-                    {pageTab === "access" ? (
+                    {pageTab === "audit" ? (
+                        <div className="flex-1 p-4 overflow-y-auto">
+                            <AuditLogsTab />
+                        </div>
+                    ) : pageTab === "access" ? (
                         <div className="flex-1 p-4 overflow-y-auto">
                             <AccessManagementTab />
                         </div>
                     ) : pageTab === "assigned" ? (
                         <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4">
-                            <AssignedMembersTab />
+                            {/* A removal blocked by a week still awaiting a decision hands the
+                                admin straight to the queue that holds it, filtered to what is
+                                pending, rather than leaving them to find it. Uses the tab and
+                                filter that already exist — neither is changed by this. */}
+                            <AssignedMembersTab
+                                onReviewPending={() => { setPageTab("timesheets"); setStatusFilter("PENDING"); }}
+                            />
                         </div>
                     ) : (
                         // overflow-hidden (not auto): the filter row stays put and the card
@@ -338,7 +341,7 @@ export default function ClientTimesheets() {
                                         onChange={(e) => setStatusFilter(e.target.value)}
                                         className="bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all"
                                     >
-                                        <option value="">All statuses</option>
+                                        <option value="">All</option>
                                         <option value="PENDING">Pending Approval</option>
                                         <option value="APPROVED">Approved</option>
                                         <option value="REJECTED">Rejected</option>
@@ -396,7 +399,7 @@ export default function ClientTimesheets() {
                                                             )}
                                                         </div>
                                                         <button
-                                                            onClick={() => setDetailId(block.timesheetIds[0])}
+                                                            onClick={() => openDetail(block)}
                                                             className="text-left text-[15px] font-bold text-blue-600 hover:underline w-fit"
                                                         >
                                                             {fmtRange(block.weekStart)} To {fmtRange(block.weekEnd)}
@@ -422,7 +425,7 @@ export default function ClientTimesheets() {
                                                     {/* Right: actions */}
                                                     <div className="flex items-center justify-end gap-2 px-5 py-4 border-t lg:border-t-0 lg:border-l border-[#E3E8EF] min-w-[140px]">
                                                         <button
-                                                            onClick={() => setDetailId(block.timesheetIds[0])}
+                                                            onClick={() => openDetail(block)}
                                                             className="p-2 bg-brand-blue/5 text-brand-blue-dark rounded-lg hover:bg-brand-blue-dark hover:text-white transition-all"
                                                             title="View details"
                                                             aria-label="View details"
@@ -540,6 +543,7 @@ export default function ClientTimesheets() {
             {detailId != null && (
                 <ClientTimesheetDetailDrawer
                     timesheetId={detailId}
+                    timesheetIds={detailIds}
                     onClose={() => setDetailId(null)}
                     onActioned={fetchEntries}
                 />

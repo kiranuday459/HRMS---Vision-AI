@@ -93,7 +93,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
               <img src={Logo} alt="VisionAi Logo" className="h-16 mx-auto mb-2 object-contain" />
               <h1 className="text-xl font-bold text-[#2C2C2A]">
                 {(JSON.parse(localStorage.getItem("user"))?.firstName)
-                  ? `${JSON.parse(localStorage.getItem("user")).firstName} ${JSON.parse(localStorage.getItem("user")).lastName}`
+                  ? `${JSON.parse(localStorage.getItem("user")).firstName} ${JSON.parse(localStorage.getItem("user")).lastName || ""}`.trim()
                   : "Admin User"}
               </h1>
               <p className="text-sm uppercase tracking-widest mt-1 text-[#888780]">
@@ -145,7 +145,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
               <img src={Logo} alt="VisionAi Logo" className="h-11 mb-2 object-contain" />
               <h1 className="text-lg font-bold text-[#2C2C2A] truncate w-full text-center">
                 {(JSON.parse(localStorage.getItem("user"))?.firstName)
-                  ? `${JSON.parse(localStorage.getItem("user")).firstName} ${JSON.parse(localStorage.getItem("user")).lastName}`
+                  ? `${JSON.parse(localStorage.getItem("user")).firstName} ${JSON.parse(localStorage.getItem("user")).lastName || ""}`.trim()
                   : "Admin User"}
               </h1>
               <p className="text-[10px] uppercase tracking-[0.2em] mt-1 font-bold text-[#888780] truncate w-full text-center">
