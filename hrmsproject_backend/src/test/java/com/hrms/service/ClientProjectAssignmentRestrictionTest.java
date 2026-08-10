@@ -5,7 +5,9 @@ import com.hrms.model.ClientProjectAssignment;
 import com.hrms.model.Employee;
 import com.hrms.model.Role;
 import com.hrms.model.User;
+import com.hrms.repository.ClientProjectAssignmentAuditRepository;
 import com.hrms.repository.ClientProjectAssignmentRepository;
+import com.hrms.repository.CompanyDetailRepository;
 import com.hrms.repository.EmployeeRepository;
 import com.hrms.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,11 +43,19 @@ import static org.mockito.Mockito.*;
 class ClientProjectAssignmentRestrictionTest {
 
     @Mock private ClientProjectAssignmentRepository assignmentRepository;
+    // Append-only audit trail behind the Audit Logs tab; unstubbed, it records nothing and
+    // changes no outcome asserted here.
+    @Mock private ClientProjectAssignmentAuditRepository auditRepository;
     @Mock private EmployeeRepository employeeRepository;
     @Mock private UserRepository userRepository;
     @Mock private ClientVerificationService clientVerificationService;
     @Mock private ClientTimesheetNotificationService notificationService;
     @Mock private UserDisplayNameResolver userDisplayNameResolver;
+    // Unstubbed on purpose: these tests are about role/active/already-assigned, not joining
+    // dates. An empty CompanyDetail with no hireDate means "no joining date recorded", which
+    // the date guard lets through — so it stays out of the way here. The joining-date rule
+    // itself is covered by ClientAssignmentJoiningDateTest.
+    @Mock private CompanyDetailRepository companyDetailRepository;
 
     @InjectMocks private ClientProjectAssignmentService service;
 

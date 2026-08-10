@@ -1,11 +1,20 @@
 package com.hrms.service;
 
+import com.hrms.dto.AssignmentRemovalEligibilityDTO;
+import com.hrms.dto.ClientProjectAssignmentAuditDTO;
 import com.hrms.dto.ClientProjectAssignmentDTO;
 import com.hrms.model.ClientProjectAssignment;
+import com.hrms.model.ClientProjectAssignmentAudit;
+import com.hrms.model.ClientTimesheet;
+import com.hrms.model.ClientTimesheetStatus;
+import com.hrms.model.CompanyDetail;
 import com.hrms.model.Employee;
 import com.hrms.model.Role;
 import com.hrms.model.User;
+import com.hrms.repository.ClientProjectAssignmentAuditRepository;
 import com.hrms.repository.ClientProjectAssignmentRepository;
+import com.hrms.repository.ClientTimesheetRepository;
+import com.hrms.repository.CompanyDetailRepository;
 import com.hrms.repository.EmployeeRepository;
 import com.hrms.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,9 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -46,6 +58,71 @@ public class ClientProjectAssignmentService {
 
     @Autowired
     private UserDisplayNameResolver userDisplayNameResolver;
+
+    // Read-only here, and only for the removal guard: an assignment cannot be closed out while
+    // one of its weeks is still sitting in the admin's approval queue.
+    @Autowired
+    private ClientTimesheetRepository lineRepository;
+
+    // Carries the official employment start date. Read-only here, for the joining-date guard.
+    @Autowired
+    private CompanyDetailRepository companyDetailRepository;
+
+    // Append-only staffing history behind the admin's Audit Logs tab.
+    @Autowired
+    private ClientProjectAssignmentAuditRepository auditRepository;
+
+    /**
+     * Appends one row to the staffing history.
+     *
+     * Swallows its own failures deliberately: the log is a record of what happened, not a
+     * precondition for it happening. An audit write that blew up would otherwise roll back a
+     * completed assignment and leave the admin looking at an error for an action that was
+     * fine.
+     */
+    private void recordAudit(String action, ClientProjectAssignment a, Long performedByUserId) {
+        try {
+            ClientProjectAssignmentAudit log = new ClientProjectAssignmentAudit();
+            log.setAction(action);
+            log.setAssignmentId(a.getId());
+            if (a.getEmployee() != null) {
+                log.setEmployeeId(a.getEmployee().getId());
+                log.setEmployeeName(displayName(a.getEmployee()));
+            }
+            log.setClientName(a.getClientName());
+            log.setProjectId(a.getProjectId());
+            log.setProjectName(a.getProjectName());
+            log.setPerformedById(performedByUserId);
+            if (performedByUserId != null) {
+                userRepository.findById(performedByUserId)
+                        .ifPresent(u -> log.setPerformedByName(userDisplayNameResolver.resolve(u)));
+            }
+            log.setPerformedAt(LocalDateTime.now());
+            auditRepository.save(log);
+        } catch (Exception e) {
+            System.err.println("[AssignmentAudit] could not record " + action + ": " + e.getMessage());
+        }
+    }
+
+    /** The staffing history, newest first. Read-only — the tab that shows it never writes. */
+    public List<ClientProjectAssignmentAuditDTO> getAuditLog() {
+        return auditRepository.findAllByOrderByPerformedAtDescIdDesc().stream()
+                .map(a -> {
+                    ClientProjectAssignmentAuditDTO dto = new ClientProjectAssignmentAuditDTO();
+                    dto.setId(a.getId());
+                    dto.setAssignmentId(a.getAssignmentId());
+                    dto.setEmployeeId(a.getEmployeeId());
+                    dto.setEmployeeName(a.getEmployeeName());
+                    dto.setClientName(a.getClientName());
+                    dto.setProjectId(a.getProjectId());
+                    dto.setProjectName(a.getProjectName());
+                    dto.setAction(a.getAction());
+                    dto.setPerformedByName(a.getPerformedByName());
+                    dto.setPerformedAt(a.getPerformedAt());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
 
     // Agreed field character limits, enforced server-side so a direct API call can't get
     // past the admin modal's maxLength. Mirrored in the frontend by utils/fieldLimits.js.
@@ -100,6 +177,7 @@ public class ClientProjectAssignmentService {
             // rather than a UI convenience. A direct API call, a stale modal left open while
             // someone else assigns, or two admins submitting at once all land here.
             requireAssignable(employee);
+            requireOnOrAfterJoiningDate(employee, dto.getAssignmentStartDate());
 
             ClientProjectAssignment a = new ClientProjectAssignment();
             a.setEmployee(employee);
@@ -115,22 +193,11 @@ public class ClientProjectAssignmentService {
             a.setActive(true);
             a.setAssignedBy(assignedBy);
 
-            created.add(toDTO(assignmentRepository.save(a)));
+            ClientProjectAssignment saved = assignmentRepository.save(a);
+            created.add(toDTO(saved));
+            recordAudit(ClientProjectAssignmentAudit.ACTION_ASSIGNED, saved, createdByUserId);
 
-            // Mirror the current (latest) assignment onto the employee record so the
-            // project name can be appended after the employee's name across the app.
-            employee.setClientProject(dto.getProjectName());
-            employee.setClientProjectId(dto.getProjectId());
-            employee.setClientAssignmentDate(dto.getAssignmentStartDate());
-            employee.setClientAssigned(true);
-            // A (re)assignment always requires (re)verification: reset verified and issue a
-            // fresh activation OTP (hashed + 15-min expiry) that is emailed to the employee.
-            employee.setClientVerified(false);
-            employeeRepository.save(employee);
-
-            // Generate + email the activation OTP. Best-effort email inside the service —
-            // never fails the assignment if mail delivery is unavailable.
-            clientVerificationService.issueAndSendOtp(employee);
+            grantAccess(employee, dto.getProjectName(), dto.getProjectId(), dto.getAssignmentStartDate());
 
             // Side effect only: surface the assignment in the employee's Client Timesheet
             // bell. Swallows its own failures, so it cannot fail the assignment.
@@ -179,6 +246,43 @@ public class ClientProjectAssignmentService {
         }
     }
 
+    /**
+     * The employee's official employment start date in HRMS, or null when it was never
+     * recorded. CompanyDetail.joiningDate is the field HR fills in and the one the timesheet
+     * and leave-balance rules already key off; Employee.hireDate is the older column and only
+     * stands in when there is no company detail row, which is how the frontend reads it too.
+     */
+    private LocalDate joiningDateOf(Employee employee) {
+        LocalDate joining = companyDetailRepository.findByEmployee_Id(employee.getId())
+                .map(CompanyDetail::getJoiningDate)
+                .orElse(null);
+        return joining != null ? joining : employee.getHireDate();
+    }
+
+    /**
+     * An employee cannot be put on a client project before they joined the company — the
+     * assignment start date is what opens their Client Timesheet weeks, so a date before
+     * joining would let them log client hours for time they were not employed.
+     *
+     * Null joining date is allowed through rather than rejected: it means HR never recorded
+     * one, and blocking every such employee from being assigned would be a far larger change
+     * than this rule. Mirrors the frontend cap in AssignEmployeeToClientProjectModal, which is
+     * the convenience — this is the rule.
+     */
+    private void requireOnOrAfterJoiningDate(Employee employee, LocalDate assignmentStartDate) {
+        if (assignmentStartDate == null) {
+            return; // already rejected by the caller
+        }
+        LocalDate joining = joiningDateOf(employee);
+        if (joining != null && assignmentStartDate.isBefore(joining)) {
+            // Names the employee and the date: the admin assigns in batches, so "one of these
+            // 12 joined later than that" would not say which to fix.
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Client project assignment date cannot be earlier than the employee's joining date in VisionAI HRMS. "
+                            + displayName(employee) + " joined on " + joining + ".");
+        }
+    }
+
     public List<ClientProjectAssignmentDTO> getActiveForEmployee(Long employeeId) {
         return assignmentRepository.findByEmployeeIdAndActiveTrue(employeeId)
                 .stream().map(this::toDTO).collect(Collectors.toList());
@@ -201,15 +305,186 @@ public class ClientProjectAssignmentService {
     }
 
     /**
-     * Marks an assignment as inactive (Ended). Does not delete the row so history
-     * is preserved. Used by the admin Assigned Members tab remove action.
+     * Grants Client Timesheet access for an assignment the employee now holds.
+     *
+     * Shared by create() and reactivate() so a re-add lands the employee in exactly the state
+     * a fresh assignment would: the current project mirrored onto the employee row (the app
+     * appends it after their name in several places), access on, and verification off with a
+     * fresh OTP — access always costs one verification, however it was granted.
      */
-    public ClientProjectAssignmentDTO deactivate(Long id) {
+    private void grantAccess(Employee employee, String projectName, String projectId, LocalDate startDate) {
+        employee.setClientProject(projectName);
+        employee.setClientProjectId(projectId);
+        employee.setClientAssignmentDate(startDate);
+        employee.setClientAssigned(true);
+        employee.setClientVerified(false);
+        employeeRepository.save(employee);
+
+        // Generate + email the activation OTP. Best-effort email inside the service —
+        // never fails the assignment if mail delivery is unavailable.
+        clientVerificationService.issueAndSendOtp(employee);
+    }
+
+    /**
+     * Ends an assignment and, with it, the employee's Client Timesheet access.
+     *
+     * The row survives (active = false) so the Assigned Members tab keeps a record of who was
+     * on what and the assignment can be restored later. What does not survive is access:
+     * clearing clientAssigned is what actually revokes it, because the sidebar entry, the
+     * dashboard activation banner, the route guard and /access-status all read that one flag.
+     * Leaving it set was the bug — ending an assignment used to flip the badge to Ended while
+     * the employee kept their Client Timesheet exactly as before.
+     *
+     * Verification is dropped and any unredeemed OTP is wiped, so an activation code that was
+     * already in the employee's inbox cannot be used to walk back in after removal.
+     *
+     * Submitted weeks are deliberately untouched. Removal blocks new entry; it does not erase
+     * history, which the admin still needs for review and billing.
+     */
+    public ClientProjectAssignmentDTO deactivate(Long id, Long performedByUserId) {
         ClientProjectAssignment a = assignmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Assignment not found: " + id));
+        requireNothingAwaitingApproval(a);
         a.setActive(false);
-        return toDTO(assignmentRepository.save(a));
+        ClientProjectAssignment saved = assignmentRepository.save(a);
+        ClientProjectAssignmentDTO dto = toDTO(saved);
+        recordAudit(ClientProjectAssignmentAudit.ACTION_REMOVED, saved, performedByUserId);
+        revokeAccessIfUnassigned(a.getEmployee());
+        return dto;
+    }
+
+    /**
+     * Week starts still awaiting an approve/reject decision on this assignment's project.
+     *
+     * Only PENDING counts. Approved and Rejected are decided; Draft and Not Started were never
+     * submitted and are the employee's own to abandon. The rule is specifically about work that
+     * has been handed to the admin and not yet answered — closing the assignment while one is
+     * outstanding leaves it in a queue for a project the employee is no longer on.
+     */
+    private List<LocalDate> weeksAwaitingApproval(ClientProjectAssignment a) {
+        if (a.getEmployee() == null) {
+            return Collections.emptyList();
+        }
+        Long employeeId = a.getEmployee().getId();
+        String projectId = a.getProjectId();
+
+        // Scoped to this assignment's project where there is one to scope by. projectId is the
+        // assignment's own key and the value the entry page copies onto every project line, so
+        // it is what ties a week to this assignment; time-off lines carry none and drop out,
+        // which is right — pending leave is not work on this project. With no project id to
+        // match on the check widens to every project, because blocking on a pending week beats
+        // silently removing someone who has one.
+        List<ClientTimesheet> pendingLines = (projectId == null || projectId.isBlank())
+                ? lineRepository.findByEmployeeIdAndStatus(employeeId, ClientTimesheetStatus.PENDING)
+                : lineRepository.findByEmployeeIdAndStatusAndProjectId(
+                        employeeId, ClientTimesheetStatus.PENDING, projectId);
+
+        // Distinct weeks, because a week is what the admin queue lists and reviews as one
+        // "timesheet". Counting line rows would report a normal five-day week as five pending
+        // items and send the admin looking for four that do not exist.
+        return pendingLines.stream()
+                .map(ClientTimesheet::getWeekStartDate)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Reports whether an assignment can be removed, for the admin tab to check before it opens
+     * its confirmation dialog — a blocked removal should be explained instead of confirmed and
+     * then refused.
+     */
+    public AssignmentRemovalEligibilityDTO removalEligibility(Long id) {
+        ClientProjectAssignment a = assignmentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Assignment not found: " + id));
+        List<LocalDate> pending = weeksAwaitingApproval(a);
+        return new AssignmentRemovalEligibilityDTO(
+                pending.isEmpty(), pending,
+                a.getEmployee() != null ? a.getEmployee().getId() : null,
+                a.getEmployee() != null ? displayName(a.getEmployee()) : null,
+                a.getProjectName());
+    }
+
+    /**
+     * The rule itself, re-checked at the point of removal. The tab's pre-check is what makes
+     * the block explainable; this is what makes it a rule — a direct API call, a stale tab left
+     * open before the employee submitted, or two admins working at once all arrive here.
+     */
+    private void requireNothingAwaitingApproval(ClientProjectAssignment a) {
+        List<LocalDate> pending = weeksAwaitingApproval(a);
+        if (pending.isEmpty()) {
+            return;
+        }
+        String who = a.getEmployee() != null ? displayName(a.getEmployee()) : "This employee";
+        String project = (a.getProjectName() == null || a.getProjectName().isBlank())
+                ? "this project" : a.getProjectName();
+        // 409: the request is well formed, the state is not ready for it.
+        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Can't remove " + who + " from " + project + " — they have " + pending.size()
+                        + (pending.size() == 1 ? " timesheet" : " timesheets")
+                        + " pending approval. Please approve or reject "
+                        + (pending.size() == 1 ? "it" : "them") + " first.");
+    }
+
+    /**
+     * Puts a removed assignment back and restores access.
+     *
+     * Runs requireAssignable first, so re-adding is held to the same rules as a fresh
+     * assignment — the employee must still be active in HRMS, still hold an assignable role,
+     * and must not have been given another project in the meantime. That last one is the case
+     * that makes this more than a flag flip: reactivating blindly would put an employee on two
+     * active projects and break the one-project rule from the other direction.
+     */
+    public ClientProjectAssignmentDTO reactivate(Long id, Long performedByUserId) {
+        ClientProjectAssignment a = assignmentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Assignment not found: " + id));
+        if (Boolean.TRUE.equals(a.getActive())) {
+            return toDTO(a); // already active — nothing to restore
+        }
+        Employee employee = a.getEmployee();
+        if (employee == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "This assignment has no employee on it and cannot be restored.");
+        }
+        requireAssignable(employee);
+
+        a.setActive(true);
+        ClientProjectAssignment saved = assignmentRepository.save(a);
+        ClientProjectAssignmentDTO dto = toDTO(saved);
+        recordAudit(ClientProjectAssignmentAudit.ACTION_REASSIGNED, saved, performedByUserId);
+
+        grantAccess(employee, a.getProjectName(), a.getProjectId(), a.getAssignmentStartDate());
+        notificationService.notifyEmployeeProjectAssigned(
+                employee, a.getProjectName(), a.getAssignmentStartDate());
+        return dto;
+    }
+
+    /**
+     * Takes Client Timesheet access away once an employee holds no active assignment at all.
+     *
+     * Guarded on the remaining count rather than assumed: the one-project rule means there is
+     * normally nothing left, but a legacy row carrying two active assignments must not lose
+     * access to the one that is still live.
+     */
+    private void revokeAccessIfUnassigned(Employee employee) {
+        if (employee == null) {
+            return;
+        }
+        if (!assignmentRepository.findByEmployeeIdAndActiveTrue(employee.getId()).isEmpty()) {
+            return;
+        }
+        employee.setClientAssigned(false);
+        employee.setClientVerified(false);
+        employee.setClientProject(null);
+        employee.setClientProjectId(null);
+        employee.setClientAssignmentDate(null);
+        employee.setClientOtp(null);
+        employee.setClientOtpExpiry(null);
+        employeeRepository.save(employee);
     }
 
     private ClientProjectAssignmentDTO toDTO(ClientProjectAssignment a) {

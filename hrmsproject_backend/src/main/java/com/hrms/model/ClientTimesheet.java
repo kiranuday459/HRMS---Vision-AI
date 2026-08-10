@@ -33,7 +33,12 @@ public class ClientTimesheet {
     // Legacy admin-facing task field; the week entry mirrors taskDescription into it.
     // Length is stated explicitly because it must stay in step with task_description —
     // a value that fits one and not the other fails the insert on this column first.
-    @Column(length = 255)
+    // 256, not 255: that off-by-one is exactly the failure this comment warns about. A
+    // description at the agreed 256-character limit passed the UI, passed the service-layer
+    // check and fit task_description, then overflowed this mirror column and came back as
+    // "One or more entries are too long or invalid to save" on a sheet with nothing wrong
+    // with it.
+    @Column(length = 256)
     private String task;
 
     private Double hours;

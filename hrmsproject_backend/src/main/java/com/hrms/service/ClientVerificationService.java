@@ -5,6 +5,7 @@ import com.hrms.dto.ClientAccessStatusDTO;
 import com.hrms.dto.VerificationSummaryDTO;
 import com.hrms.model.CompanyDetail;
 import com.hrms.model.Employee;
+import com.hrms.model.User;
 import com.hrms.repository.CompanyDetailRepository;
 import com.hrms.repository.EmployeeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -212,30 +213,33 @@ public class ClientVerificationService {
     // ---------- helpers ----------
 
     /**
-     * Recipient for the activation OTP: the employee's Corporate Email.
+     * Recipient for the activation OTP: the address on the employee's HRMS login account,
+     * users.email. That is the single source of truth for "corporate email" — the OTP has to
+     * reach the inbox of whoever signs in to enter it, so the account's own address is the
+     * only one that can be wrong by definition rather than by accident.
      *
-     * That field lives on company_details.oryfolks_mail_id — EmployeeService writes the
-     * profile's "Corporate Email" there and reads it back from there to render Personal
-     * Details. The employees.corporate_email column is a separate one that is never
-     * populated, so reading it always returned null and the code fell through to
-     * employee.email — the Personal Email. That fallthrough is why the OTP was landing in
-     * personal inboxes.
+     * It deliberately reads no profile field. The profile's "Corporate Email" is
+     * company_details.oryfolks_mail_id, a different column that merely happens to be seeded
+     * from the same value when an account is created with the employee, and drifts from the
+     * login afterwards:
+     *   - EmployeeService seeds it with dto.getEmail() — the *personal* address — whenever
+     *     Corporate Email is left blank on the create form;
+     *   - editing Corporate Email on the profile rewrites it and never touches users.email;
+     *   - AdminUserController creates logins with an address of their own, unconnected to
+     *     the company detail.
+     * Each of those routes points the OTP at an inbox the employee does not sign in with.
+     * Reading the login makes that unreachable by construction instead of by data hygiene.
      *
-     * There is deliberately no personal-email fallback: this address is only ever a
-     * corporate one. Null means no corporate address on file, and issueAndSendOtp already
-     * skips the send in that case rather than guessing a recipient.
+     * Null when the employee has no login account, and issueAndSendOtp skips the send —
+     * which is correct: with no account there is nobody who could enter the OTP.
      */
     private String resolveEmail(Employee employee) {
-        String corporate = companyDetailRepository.findByEmployee_Id(employee.getId())
-                .map(CompanyDetail::getOryfolksMailId)
-                .filter(mail -> !mail.isBlank())
-                .orElse(null);
-        if (corporate != null) {
-            return corporate;
+        User account = employee.getUser();
+        if (account == null) {
+            return null;
         }
-        // Legacy column — still a corporate address, never the personal one.
-        String legacy = employee.getCorporateEmail();
-        return legacy != null && !legacy.isBlank() ? legacy : null;
+        String login = account.getEmail();
+        return login != null && !login.isBlank() ? login : null;
     }
 
     private AssignedEmployeeDTO toDTO(Employee e) {

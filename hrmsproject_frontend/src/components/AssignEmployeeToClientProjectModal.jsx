@@ -35,6 +35,15 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
 
   const fullName = (e) => `${e.firstName || ""}${e.lastName ? ` ${e.lastName}` : ""}`.trim();
 
+  // "2026-06-01" → "01-Jun-2026". Only for messages; the input keeps the ISO value.
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const formatDMY = (ymd) => {
+    if (!ymd) return "";
+    const [y, m, d] = ymd.split("-");
+    return `${d}-${MONTHS[Number(m) - 1]}-${y}`;
+  };
+  const joiningOf = (e) => (e?.joiningDate ? String(e.joiningDate).split("T")[0] : null);
+
   useEffect(() => {
     if (!open) return;
     setClientName("");
@@ -100,6 +109,40 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
     });
   }, [assignableEmployees, search]);
 
+  // An employee cannot be put on a client project before they joined VisionAI HRMS. One date
+  // is applied to every employee ticked below, so the floor is the LATEST joining date among
+  // them — a date that is fine for an April joiner is still invalid for a June one.
+  // joiningDate already rides along on /api/employees (EmployeeService fills it from the
+  // employee's CompanyDetail), so no extra fetch is needed. Employees whose joining date was
+  // never recorded contribute nothing and are left to the server's own guard.
+  const joiningFloorEmployee = useMemo(() => {
+    let latest = null;
+    employees.forEach((e) => {
+      if (!checkedIds.has(e.id)) return;
+      const jd = joiningOf(e);
+      if (jd && (!latest || jd > joiningOf(latest))) latest = e;
+    });
+    return latest;
+  }, [employees, checkedIds]);
+  const joiningFloor = joiningOf(joiningFloorEmployee);
+
+  // A date below the floor is reported and blocks the save; it is not silently corrected.
+  // The calendar cannot offer one (see `min` on the input), so this is reached by typing, or
+  // by ticking a later joiner after the date was already chosen. Moving the admin's date for
+  // them would change what they entered without saying so — the message names the employee
+  // and their joining date instead, and Assign stays shut until it is fixed.
+  //
+  // Guarded on the date being complete, because a date input reports a value mid-entry:
+  // typing 15-Aug-2026 passes through year 0002 as the year is keyed in, which is below every
+  // floor and would flash an error on the first keystroke. Anything before 1900 is therefore
+  // treated as still being typed rather than as a real date.
+  const dateComplete =
+    /^\d{4}-\d{2}-\d{2}$/.test(assignmentStartDate) && Number(assignmentStartDate.slice(0, 4)) >= 1900;
+  const dateBelowFloor = Boolean(dateComplete && joiningFloor && assignmentStartDate < joiningFloor);
+  const dateFloorMessage = dateBelowFloor
+    ? `Assignment date can't be before ${fullName(joiningFloorEmployee)}'s VisionAI join date (${formatDMY(joiningFloor)}).`
+    : "";
+
   // Everything that survives assignableEmployees is selectable — disabled accounts are
   // filtered out of the list entirely now rather than shown greyed out.
   const selectable = filteredEmployees;
@@ -139,6 +182,16 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
       toast.error("Please select at least one employee");
       return;
     }
+    // Checked after the employee selection: the floor is derived from who is ticked, so with
+    // nobody ticked there is no floor to be below and "select an employee" is the real
+    // problem. The server enforces this too (requireOnOrAfterJoiningDate) — that is the rule,
+    // this is the convenience.
+    if (dateBelowFloor) {
+      toast.error(dateFloorMessage);
+      return;
+    }
+
+    const startDate = assignmentStartDate;
 
     setSaving(true);
     try {
@@ -148,7 +201,7 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
           clientName: clientName.trim(),
           projectName: projectName.trim(),
           projectId: projectId.trim() || null,
-          assignmentStartDate,
+          assignmentStartDate: startDate,
           employeeIds: [...checkedIds],
         }),
       });
@@ -253,15 +306,36 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
             </div>
             <div className="space-y-2">
               <label className={sectionHeader}>Assignment start date</label>
+              {/* `min` greys out every day before the selected employees joined, so the
+                  calendar cannot produce an invalid date at all. Typing goes around the
+                  calendar, which is what the message below catches. */}
               <input
                 type="date"
                 value={assignmentStartDate}
+                min={joiningFloor || undefined}
                 onChange={(e) => setAssignmentStartDate(e.target.value)}
-                className="w-full px-4 py-3 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-sm font-bold text-brand-text outline-none focus:border-brand-blue-dark/30 transition-all"
+                aria-invalid={dateBelowFloor}
+                aria-describedby="assignment-date-help"
+                className={`w-full px-4 py-3 bg-bg-slate/50 border rounded-lg text-sm font-bold text-brand-text outline-none transition-all ${dateBelowFloor
+                  ? "border-red-400 focus:border-red-500"
+                  : "border-brand-blue/10 focus:border-brand-blue-dark/30"}`}
               />
             </div>
           </div>
-          <p className="text-[10px] text-brand-text/40 font-medium -mt-2">Employees can only log client hours on or after this date.</p>
+          {/* States the floor up front, and replaces it with the error once the date is below
+              it — one line rather than two competing ones. */}
+          <p
+            id="assignment-date-help"
+            className={`text-[10px] font-medium -mt-2 ${dateBelowFloor ? "text-red-600 font-semibold" : "text-brand-text/40"}`}
+            role={dateBelowFloor ? "alert" : undefined}
+          >
+            {dateBelowFloor ? dateFloorMessage : (
+              <>
+                Employees can only log client hours on or after this date.
+                {joiningFloor && ` Earliest allowed: ${formatDMY(joiningFloor)} (${fullName(joiningFloorEmployee)}'s joining date).`}
+              </>
+            )}
+          </p>
 
           {/* Employees */}
           <div className="space-y-2">

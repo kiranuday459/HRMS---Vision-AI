@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Eye, Trash2, Users, X, Briefcase, Search } from "lucide-react";
+import { Eye, UserMinus, UserPlus, Users, X, Briefcase, Search } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import DisabledBadge from "../../components/DisabledBadge";
+import ClientTimesheetConfirmModal from "./ClientTimesheetConfirmModal";
 
 /* ─── helpers ─────────────────────────────────────────── */
 const fmtDate = (d) => {
@@ -18,14 +19,35 @@ const fmtDateTime = (d) => {
     return isNaN(dt) ? "—" : `${dt.toLocaleDateString("en-GB")} ${dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
 };
 
+/**
+ * "Removed", not the old "Ended": the badge now reports a deliberate admin action that also
+ * took the employee's Client Timesheet access away, and it reads next to a Re-add button that
+ * puts both back. Slate rather than amber, so it reads as switched-off rather than as a
+ * warning about something still in progress.
+ */
+/**
+ * Why a removal was refused. Counts weeks, not day rows — a normal five-day week is one
+ * timesheet to the admin who reviews it, and "5 timesheets pending" for a single week would
+ * send them looking for four that do not exist. The week starts are named so the card is
+ * findable in the queue.
+ */
+function blockedMessage({ employeeName, projectName, pendingCount, pendingWeekStarts }) {
+    const n = pendingCount || 0;
+    const weeks = (pendingWeekStarts || []).map(fmtDate).join(", ");
+    return `Can't remove ${employeeName} from ${projectName || "this project"} — they have `
+        + `${n} timesheet${n === 1 ? "" : "s"} pending approval`
+        + (weeks ? ` (week${n === 1 ? "" : "s"} starting ${weeks})` : "")
+        + `. Please approve or reject ${n === 1 ? "it" : "them"} first, then remove them.`;
+}
+
 function StatusPill({ active }) {
     return active ? (
         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border bg-emerald-50 text-emerald-600 border-emerald-100">
             Active
         </span>
     ) : (
-        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border bg-amber-50 text-amber-600 border-amber-100">
-            Ended
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border bg-slate-100 text-slate-500 border-slate-200">
+            Removed
         </span>
     );
 }
@@ -72,7 +94,7 @@ function AssignmentDetailModal({ assignment, onClose }) {
                         <div>
                             <p id="assignment-detail-title" className="text-base font-black text-brand-text tracking-tight">Assignment Detail</p>
                             <p className="text-[9px] font-bold text-brand-text/35 uppercase tracking-[0.18em]">
-                                {assignment.active ? "Active" : "Ended"}
+                                {assignment.active ? "Active" : "Removed"}
                             </p>
                         </div>
                     </div>
@@ -99,7 +121,7 @@ function AssignmentDetailModal({ assignment, onClose }) {
                                 </>
                             }
                         />
-                        <Field label="Status" value={assignment.active ? "Active" : "Ended"} />
+                        <Field label="Status" value={assignment.active ? "Active" : "Removed"} />
                         <Field label="Client" value={assignment.clientName} />
                         <Field label="Project Name" value={assignment.projectName} />
                         <Field label="Project ID" value={assignment.projectId} />
@@ -127,12 +149,30 @@ function AssignmentDetailModal({ assignment, onClose }) {
 }
 
 /* ─── Main Tab Component ──────────────────────────────── */
-export default function AssignedMembersTab() {
+/**
+ * `onReviewPending` — optional; switches the page to the Timesheets tab with its status filter
+ * set to Pending Approval, so a blocked removal can be resolved without hunting for the week.
+ * Optional because the tab is also mounted on its own in tests and harnesses.
+ */
+export default function AssignedMembersTab({ onReviewPending }) {
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [detailRow, setDetailRow] = useState(null);
-    const [removingId, setRemovingId] = useState(null);
+    // ALL | ACTIVE | REMOVED. Removed assignments stay in the list as the record of who was on
+    // what, so the filter is what keeps the list readable once they accumulate.
+    const [statusFilter, setStatusFilter] = useState("ALL");
+    // The row whose remove/re-add is awaiting confirmation: { row, action }. Both go through
+    // the module's own confirm dialog rather than window.confirm — removing revokes a person's
+    // access, which is not a decision to take on a browser-chrome prompt.
+    const [pendingAction, setPendingAction] = useState(null);
+    const [actingId, setActingId] = useState(null);
+    // A removal the server refused because the employee still has weeks awaiting a decision:
+    // { employeeName, projectName, pendingCount, pendingWeekStarts }. Shown instead of the
+    // confirmation dialog — there is nothing to confirm.
+    const [blockedRemoval, setBlockedRemoval] = useState(null);
+    // Set while the pre-check is in flight, so the Remove button can't be double-fired.
+    const [checkingId, setCheckingId] = useState(null);
     const firstLoad = useRef(true);
 
     const fetchRows = useCallback(async () => {
@@ -157,6 +197,8 @@ export default function AssignedMembersTab() {
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
         return rows.filter((r) => {
+            if (statusFilter === "ACTIVE" && !r.active) return false;
+            if (statusFilter === "REMOVED" && r.active) return false;
             if (q) {
                 return (
                     (r.employeeName || "").toLowerCase().includes(q) ||
@@ -166,27 +208,97 @@ export default function AssignedMembersTab() {
             }
             return true;
         });
-    }, [rows, search]);
+    }, [rows, search, statusFilter]);
 
-    /* Remove / deactivate */
-    const handleRemove = async (row) => {
-        if (!window.confirm(`End assignment for ${row.employeeName} on "${row.projectName}"?`)) return;
-        setRemovingId(row.id);
+    /**
+     * Remove asks first. An employee cannot be taken off a project while one of their weeks is
+     * still sitting in the approval queue — that week would be stranded, awaiting a decision
+     * for a project nobody is on. Checking before the dialog opens means the admin is told why
+     * instead of confirming a removal that is then refused.
+     *
+     * Re-add has no such gate and goes straight to its confirmation.
+     */
+    const startRemoval = async (row) => {
+        setCheckingId(row.id);
         try {
-            const res = await api(`/api/client-project-assignments/${row.id}/deactivate`, { method: "PATCH" });
+            const res = await api(`/api/client-project-assignments/${row.id}/removal-eligibility`);
+            const body = await res.json().catch(() => ({}));
+            const info = body.data || {};
+            if (res.ok && info.removable === false) {
+                setBlockedRemoval({
+                    employeeName: info.employeeName || row.employeeName,
+                    projectName: info.projectName || row.projectName,
+                    pendingCount: info.pendingCount || 0,
+                    pendingWeekStarts: info.pendingWeekStarts || [],
+                });
+                return;
+            }
+            // Eligible, or the check itself failed. A failed check must not stop the admin:
+            // deactivate re-runs the same rule and refuses there if it has to.
+            setPendingAction({ row, action: "remove" });
+        } catch (err) {
+            console.error(err);
+            setPendingAction({ row, action: "remove" });
+        } finally {
+            setCheckingId(null);
+        }
+    };
+
+    /**
+     * Remove and re-add share this: same endpoint shape, same refresh, and the server owns the
+     * message — it is the side that knows access was revoked or that an OTP went out, so
+     * echoing its text keeps the toast truthful if those rules ever change.
+     */
+    const runAction = async () => {
+        if (!pendingAction) return;
+        const { row, action } = pendingAction;
+        const endpoint = action === "remove" ? "deactivate" : "reactivate";
+        setActingId(row.id);
+        try {
+            const res = await api(`/api/client-project-assignments/${row.id}/${endpoint}`, { method: "PATCH" });
+            const body = await res.json().catch(() => ({}));
             if (res.ok) {
-                toast.success(`Assignment ended for ${row.employeeName}.`);
+                toast.success(body.message || (action === "remove"
+                    ? `${row.employeeName} removed from ${row.projectName}.`
+                    : `${row.employeeName} re-added to ${row.projectName}.`));
+                setPendingAction(null);
                 fetchRows();
             } else {
-                const err = await res.json().catch(() => ({}));
-                toast.error(err.message || "Could not end assignment.");
+                // The re-add path can legitimately fail — the employee may have been disabled
+                // in HRMS or picked up another project since. Surface the server's reason.
+                toast.error(body.message || `Could not ${action === "remove" ? "remove" : "re-add"} ${row.employeeName}.`);
             }
         } catch (err) {
             console.error(err);
-            toast.error("Could not end assignment.");
+            toast.error(`Could not ${action === "remove" ? "remove" : "re-add"} ${row.employeeName}.`);
         } finally {
-            setRemovingId(null);
+            setActingId(null);
         }
+    };
+
+    const confirmCopy = () => {
+        if (!pendingAction) return { title: "", message: "", confirmLabel: "", destructive: false };
+        const { row, action } = pendingAction;
+        const project = row.projectName || "this project";
+        return action === "remove"
+            ? {
+                title: "Remove from project",
+                // Spells out the consequence that is not visible in the row: this is an access
+                // change, not just a status change. And the reassurance that it is reversible
+                // and non-destructive, which is what stops an admin hesitating over it.
+                message: `Are you sure you want to remove ${row.employeeName} from ${project}? `
+                    + `Their Client Timesheet access is revoked immediately and they will not be able to enter new time. `
+                    + `Timesheets they have already submitted are kept, and you can re-add them later.`,
+                confirmLabel: "Remove",
+                destructive: true,
+            }
+            : {
+                title: "Re-add to project",
+                message: `Re-add ${row.employeeName} to ${project}? `
+                    + `Client Timesheet access is restored and a fresh verification OTP is sent to their corporate email.`,
+                confirmLabel: "Re-add",
+                destructive: false,
+            };
     };
 
     /* ── render ── */
@@ -196,8 +308,18 @@ export default function AssignedMembersTab() {
     return (
         <div className="flex flex-col gap-4">
             {/* Filter row */}
-            <div className="flex flex-wrap items-center justify-end w-full">
-                <div className="relative w-64 ml-auto">
+            <div className="flex flex-wrap items-center justify-end gap-3 w-full">
+                <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className={`${selectCls} ml-auto`}
+                    aria-label="Filter by assignment status"
+                >
+                    <option value="ALL">All</option>
+                    <option value="ACTIVE">Active only</option>
+                    <option value="REMOVED">Removed only</option>
+                </select>
+                <div className="relative w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/30" size={15} />
                     <input
                         type="text"
@@ -276,6 +398,9 @@ export default function AssignedMembersTab() {
                                         <td className="py-3 px-6 text-center">
                                             <StatusPill active={r.active} />
                                         </td>
+                                        {/* Remove and Re-add are mutually exclusive — an assignment
+                                            is either on or off, so the row shows the one action its
+                                            state allows rather than a disabled pair. */}
                                         <td className="py-3 px-6 text-right">
                                             <div className="flex justify-end items-center gap-2">
                                                 {/* View details */}
@@ -289,19 +414,34 @@ export default function AssignedMembersTab() {
                                                     <Eye size={16} />
                                                 </button>
 
-                                                {/* Remove — only shown for active assignments */}
-                                                {r.active && (
+                                                {r.active ? (
                                                     <button
                                                         id={`am-remove-${r.id}`}
-                                                        onClick={(ev) => { ev.stopPropagation(); handleRemove(r); }}
-                                                        disabled={removingId === r.id}
+                                                        onClick={(ev) => { ev.stopPropagation(); startRemoval(r); }}
+                                                        disabled={actingId === r.id || checkingId === r.id}
                                                         className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                                        title="End assignment"
-                                                        aria-label="End assignment"
+                                                        title="Remove from project (revokes Client Timesheet access)"
+                                                        aria-label={`Remove ${r.employeeName} from ${r.projectName || "project"}`}
                                                     >
-                                                        {removingId === r.id
+                                                        {(actingId === r.id || checkingId === r.id)
                                                             ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin block" />
-                                                            : <Trash2 size={16} />
+                                                            : <UserMinus size={16} />
+                                                        }
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        id={`am-readd-${r.id}`}
+                                                        onClick={(ev) => { ev.stopPropagation(); setPendingAction({ row: r, action: "readd" }); }}
+                                                        disabled={actingId === r.id || r.employeeActive === false}
+                                                        className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                                        title={r.employeeActive === false
+                                                            ? "This employee is disabled in HRMS and cannot be re-added"
+                                                            : "Re-add to project (restores Client Timesheet access)"}
+                                                        aria-label={`Re-add ${r.employeeName} to ${r.projectName || "project"}`}
+                                                    >
+                                                        {actingId === r.id
+                                                            ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin block" />
+                                                            : <UserPlus size={16} />
                                                         }
                                                     </button>
                                                 )}
@@ -322,6 +462,30 @@ export default function AssignedMembersTab() {
                     onClose={() => setDetailRow(null)}
                 />
             )}
+
+            {/* Remove / re-add confirmation — the module's own dialog, same one the approve
+                and reject decisions use. */}
+            <ClientTimesheetConfirmModal
+                isOpen={!!pendingAction}
+                onClose={() => setPendingAction(null)}
+                onConfirm={runAction}
+                submitting={actingId != null}
+                {...confirmCopy()}
+            />
+
+            {/* Blocked removal. Not a confirmation — there is no version of this the admin can
+                say yes to, so the primary button leads to the fix rather than to the action. */}
+            <ClientTimesheetConfirmModal
+                isOpen={!!blockedRemoval}
+                onClose={() => setBlockedRemoval(null)}
+                onConfirm={() => {
+                    setBlockedRemoval(null);
+                    if (onReviewPending) onReviewPending();
+                }}
+                title="Can't remove yet"
+                message={blockedRemoval ? blockedMessage(blockedRemoval) : ""}
+                confirmLabel={onReviewPending ? "Review pending timesheets" : "OK"}
+            />
         </div>
     );
 }

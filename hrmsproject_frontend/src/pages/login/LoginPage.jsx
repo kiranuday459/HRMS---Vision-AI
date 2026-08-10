@@ -103,7 +103,9 @@ const LoginPage = ({ setUser }) => {
             if (empData.firstName) {
               normalizedUser.firstName = empData.firstName;
               normalizedUser.lastName = empData.lastName;
-              normalizedUser.fullName = `${empData.firstName} ${empData.lastName}`;
+              // Trimmed: an admin has no surname, and the cached name reaches exports and
+              // notification text where a trailing space is not swallowed the way HTML does.
+              normalizedUser.fullName = `${empData.firstName} ${empData.lastName || ""}`.trim();
               normalizedUser.designation = empData.designation;
             }
           }

@@ -1,10 +1,18 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import api from "../utils/api";
 
 /**
  * Client Timesheet access state (assignment + OTP verification) for the logged-in employee.
- * Read once on login and refreshed after a successful OTP verification, so the sidebar
+ * Read on login, on every navigation, and after a successful OTP verification, so the sidebar
  * button and the dashboard activation banner update WITHOUT a page reload.
+ *
+ * Re-reading on navigation is what makes an admin removing someone from a project land on
+ * that employee's screen without a re-login: their next move anywhere in the app picks up the
+ * revocation, the sidebar button goes, and ClientTimesheetGuard bounces them out of the
+ * module. It is a cheap call and only fires for non-admin sessions. The guarantee itself is
+ * server-side — ClientTimesheetWeekService refuses to save for an unassigned employee — this
+ * only keeps the UI honest.
  *
  * Shape: { clientAssigned, clientVerified, clientProject, clientProjectId,
  *          clientAssignmentDate, loading, refresh }
@@ -30,6 +38,8 @@ function readUser() {
 export function ClientAccessProvider({ children }) {
     const [status, setStatus] = useState(DEFAULT);
     const [loading, setLoading] = useState(true);
+    // Pathname only — a query-string change is the same screen and needs no re-check.
+    const { pathname } = useLocation();
 
     const refresh = useCallback(async () => {
         const token = localStorage.getItem("token");
@@ -66,7 +76,7 @@ export function ClientAccessProvider({ children }) {
 
     useEffect(() => {
         refresh();
-    }, [refresh]);
+    }, [refresh, pathname]);
 
     return (
         <ClientAccessContext.Provider value={{ ...status, loading, refresh }}>
