@@ -360,6 +360,8 @@ export default function AdminTimesheets() {
         return { ...week, filteredEmployees };
     }).filter(week => week.filteredEmployees.length > 0);
 
+    const totalFilteredCount = filteredWeeks.reduce((acc, week) => acc + week.filteredEmployees.length, 0);
+
     return (
         <div className="flex min-h-screen bg-bg-slate font-brand text-brand-text">
             <AdminSidebar
@@ -440,6 +442,13 @@ export default function AdminTimesheets() {
                                             <option>Approved</option>
                                             <option>Rejected</option>
                                         </select>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 px-3.5 py-2 bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm">
+                                        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Total</span>
+                                        <span className="text-xs font-black text-brand-blue-dark bg-white px-2.5 py-0.5 rounded-xl border border-brand-blue/10 shadow-sm">
+                                            {totalFilteredCount}
+                                        </span>
                                     </div>
 
                                     <button

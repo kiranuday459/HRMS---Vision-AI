@@ -27,6 +27,8 @@ public interface TimesheetRepository extends JpaRepository<Timesheet, Long> {
         // Used to block disabling/deleting an employee with pending approvals.
         long countByEmployeeIdAndStatusIn(Long employeeId, java.util.Collection<TimesheetStatus> statuses);
 
+        List<Timesheet> findByEmployeeIdAndStatusIn(Long employeeId, java.util.Collection<TimesheetStatus> statuses);
+
         List<Timesheet> findByEmployeeIdAndDateBetween(Long employeeId, LocalDate startDate, LocalDate endDate);
 
         List<Timesheet> findByDateBetween(LocalDate startDate, LocalDate endDate);

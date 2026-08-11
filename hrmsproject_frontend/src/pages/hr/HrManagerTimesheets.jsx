@@ -400,6 +400,28 @@ export default function HrManagerTimesheets() {
         return `${h12}:${m} ${ampm}`;
     };
 
+    const filteredWeeks = groupedWeeks.map(week => {
+        const filteredEmployees = week.employeeList.filter(emp => {
+            const manager = managers.find(m => String(m.id || m.employeeId) === String(emp.employeeId));
+            const matchesSearch = !tsFilter ||
+                emp.employeeName.toLowerCase().includes(tsFilter.toLowerCase()) ||
+                emp.employeeId.toString().includes(tsFilter) ||
+                (manager?.officeId && manager.officeId.toLowerCase().includes(tsFilter.toLowerCase()));
+            const matchesStatus = tsStatusFilter === "All" ||
+                (tsStatusFilter === "Pending" && [
+                    APPROVAL_STATUS.PENDING_RM_APPROVAL,
+                    APPROVAL_STATUS.PENDING_HR_APPROVAL,
+                    APPROVAL_STATUS.PENDING_ADMIN_APPROVAL
+                ].includes(emp.status)) ||
+                (tsStatusFilter === "Approved" && emp.status === APPROVAL_STATUS.APPROVED) ||
+                (tsStatusFilter === "Rejected" && emp.status === APPROVAL_STATUS.REJECTED);
+            return matchesSearch && matchesStatus;
+        });
+        return { ...week, filteredEmployees };
+    }).filter(week => week.filteredEmployees.length > 0);
+
+    const totalFilteredCount = filteredWeeks.reduce((acc, week) => acc + week.filteredEmployees.length, 0);
+
     const navItems = getHrNavItems();
 
     return (
@@ -509,19 +531,25 @@ export default function HrManagerTimesheets() {
                                             />
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <label htmlFor="hr-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
-                                            <select
-                                                id="hr-status-filter"
-                                                value={tsStatusFilter}
-                                                onChange={(e) => setTsStatusFilter(e.target.value)}
-                                                className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10"
-                                            >
-                                                <option>All</option>
-                                                <option>Pending</option>
-                                                <option>Approved</option>
-                                                <option>Rejected</option>
-                                            </select>
-                                        </div>
+                                             <label htmlFor="hr-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
+                                             <select
+                                                 id="hr-status-filter"
+                                                 value={tsStatusFilter}
+                                                 onChange={(e) => setTsStatusFilter(e.target.value)}
+                                                 className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10"
+                                             >
+                                                 <option>All</option>
+                                                 <option>Pending</option>
+                                                 <option>Approved</option>
+                                                 <option>Rejected</option>
+                                             </select>
+                                         </div>
+                                         <div className="flex items-center gap-2 px-3.5 py-2 bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm">
+                                             <span className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Total</span>
+                                             <span className="text-xs font-black text-brand-blue-dark bg-white px-2.5 py-0.5 rounded-xl border border-brand-blue/10 shadow-sm">
+                                                 {totalFilteredCount}
+                                             </span>
+                                         </div>
                                     </div>
 
                                     <button
@@ -539,33 +567,12 @@ export default function HrManagerTimesheets() {
                                             <div className="w-12 h-12 border-4 border-brand-blue border-t-transparent rounded-full animate-spin" />
                                             <p className="text-brand-text/40 font-bold uppercase tracking-widest text-[10px]">Processing Manager Data...</p>
                                         </div>
-                                    ) : groupedWeeks.length === 0 ? (
+                                    ) : filteredWeeks.length === 0 ? (
                                         <div className="py-20 text-center bg-white rounded-[32px] border-2 border-dashed border-brand-blue/5">
                                             <p className="text-brand-text/20 font-bold uppercase tracking-widest text-xs italic">No manager timesheet records found.</p>
                                         </div>
                                     ) : (
-                                        groupedWeeks
-                                            .map(week => {
-                                                const filteredEmployees = week.employeeList.filter(emp => {
-                                                    const manager = managers.find(m => String(m.id || m.employeeId) === String(emp.employeeId));
-                                                    const matchesSearch = !tsFilter ||
-                                                        emp.employeeName.toLowerCase().includes(tsFilter.toLowerCase()) ||
-                                                        emp.employeeId.toString().includes(tsFilter) ||
-                                                        (manager?.officeId && manager.officeId.toLowerCase().includes(tsFilter.toLowerCase()));
-                                                    const matchesStatus = tsStatusFilter === "All" ||
-                                                        (tsStatusFilter === "Pending" && [
-                                                            APPROVAL_STATUS.PENDING_RM_APPROVAL,
-                                                            APPROVAL_STATUS.PENDING_HR_APPROVAL,
-                                                            APPROVAL_STATUS.PENDING_ADMIN_APPROVAL
-                                                        ].includes(emp.status)) ||
-                                                        (tsStatusFilter === "Approved" && emp.status === APPROVAL_STATUS.APPROVED) ||
-                                                        (tsStatusFilter === "Rejected" && emp.status === APPROVAL_STATUS.REJECTED);
-                                                    return matchesSearch && matchesStatus;
-                                                });
-                                                return { ...week, filteredEmployees };
-                                            })
-                                            .filter(week => week.filteredEmployees.length > 0)
-                                            .map((week, wIdx) => (
+                                        filteredWeeks.map((week, wIdx) => (
                                                 <div key={wIdx} className="bg-white rounded-[32px] shadow-xl border border-brand-blue/5 overflow-hidden">
                                                     <div className="bg-white p-3 px-6 flex items-center justify-between border-b border-brand-blue/5">
                                                         <div>

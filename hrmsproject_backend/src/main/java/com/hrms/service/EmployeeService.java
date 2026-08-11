@@ -39,10 +39,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -151,7 +153,8 @@ public class EmployeeService {
         employeeRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
 
-        long pendingTimesheets = timesheetRepository.countByEmployeeIdAndStatusIn(id, PENDING_TIMESHEET_STATUSES);
+        List<Timesheet> pendingEntries = timesheetRepository.findByEmployeeIdAndStatusIn(id, PENDING_TIMESHEET_STATUSES);
+        long pendingTimesheets = countPendingWeeklyTimesheets(pendingEntries);
         long pendingLeaves = leaveRepository.countByEmployeeIdAndStatusIn(id, PENDING_LEAVE_STATUSES);
 
         Map<String, Object> summary = new LinkedHashMap<>();
@@ -159,6 +162,25 @@ public class EmployeeService {
         summary.put("pendingTimesheets", pendingTimesheets);
         summary.put("pendingLeaves", pendingLeaves);
         return summary;
+    }
+
+    private long countPendingWeeklyTimesheets(List<Timesheet> entries) {
+        if (entries == null || entries.isEmpty()) {
+            return 0;
+        }
+        return entries.stream()
+                .filter(t -> t.getDate() != null)
+                .map(t -> getSaturdayOfWeek(t.getDate()))
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+    }
+
+    private LocalDate getSaturdayOfWeek(LocalDate date) {
+        if (date == null) return null;
+        int jsDay = date.getDayOfWeek().getValue() % 7; // Sunday=0, Monday=1, ..., Saturday=6
+        int diff = (jsDay + 1) % 7;
+        return date.minusDays(diff);
     }
 
     // Enable / disable an employee (toggle active flag). Mirrors the status onto the

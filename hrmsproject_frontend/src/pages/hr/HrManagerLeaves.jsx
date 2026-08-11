@@ -308,6 +308,22 @@ export default function HrManagerLeaves() {
                                         <option>Rejected</option>
                                     </select>
                                 </div>
+                                <div className="flex items-center gap-2 px-4 h-[47px] bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Total</span>
+                                    <span className="text-xs font-black text-brand-blue-dark bg-white px-2.5 py-0.5 rounded-lg border border-brand-blue/10 shadow-sm">
+                                        {leaves.filter(lv => {
+                                            const matchesStatus = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
+                                            const matchesSearch = !leavesFilter || (lv.employeeName && lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase()));
+                                            const emp = employees.find(e => e.id === lv.employeeId || e.fullName === lv.employeeName);
+                                            const role = emp?.role;
+                                            if (!matchesStatus) return false;
+                                            if (leaveRoleFilter === "ALL") return matchesSearch;
+                                            if (leaveRoleFilter === "REPORTING_MANAGERS") return matchesSearch && role === "REPORTING_MANAGER";
+                                            if (leaveRoleFilter === "OTHERS") return matchesSearch && role !== "REPORTING_MANAGER";
+                                            return matchesSearch;
+                                        }).length}
+                                    </span>
+                                </div>
                                 <div className="relative group">
                                     <input
                                         type="text"

@@ -655,30 +655,51 @@ export default function ReportingManagerTeam() {
                             {tsSubView === 'summary' ? (
                                 <>
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 mb-8">
-                                    <input type="text" placeholder="Filter by Name or ID..." value={tsFilter} onChange={(e) => setTsFilter(e.target.value)} className="w-full sm:w-64 h-10 bg-white border border-brand-blue/10 rounded-xl px-4 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm" />
-                                    <div className="flex items-center gap-2">
-                                        <label htmlFor="rm-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
-                                        <select
-                                            id="rm-status-filter"
-                                            value={tsStatusFilter}
-                                            onChange={(e) => setTsStatusFilter(e.target.value)}
-                                            className="h-10 rounded-xl border border-brand-blue/10 bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm"
+                                        <input type="text" placeholder="Filter by Name or ID..." value={tsFilter} onChange={(e) => setTsFilter(e.target.value)} className="w-full sm:w-64 h-10 bg-white border border-brand-blue/10 rounded-xl px-4 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm" />
+                                        <div className="flex items-center gap-2">
+                                            <label htmlFor="rm-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
+                                            <select
+                                                id="rm-status-filter"
+                                                value={tsStatusFilter}
+                                                onChange={(e) => setTsStatusFilter(e.target.value)}
+                                                className="h-10 rounded-xl border border-brand-blue/10 bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm"
+                                            >
+                                                <option>All</option>
+                                                <option>Pending</option>
+                                                <option>Approved</option>
+                                                <option>Rejected</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex items-center gap-2 px-3.5 py-2 bg-brand-blue/5 border border-brand-blue/10 rounded-xl shadow-sm">
+                                            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Total</span>
+                                            <span className="text-xs font-black text-brand-blue-dark bg-white px-2.5 py-0.5 rounded-lg border border-brand-blue/10 shadow-sm">
+                                                {groupedWeeks.map(week => ({
+                                                    ...week,
+                                                    filteredEmployees: week.employeeList.filter(emp => {
+                                                        const matchesSearch = !tsFilter || emp.employeeName.toLowerCase().includes(tsFilter.toLowerCase()) || emp.employeeId.toString().includes(tsFilter);
+                                                        const matchesStatus = tsStatusFilter === "All" ||
+                                                            (tsStatusFilter === "Pending" && [
+                                                                APPROVAL_STATUS.PENDING_RM_APPROVAL,
+                                                                APPROVAL_STATUS.PENDING_HR_APPROVAL,
+                                                                APPROVAL_STATUS.PENDING_RM_AS_HR_APPROVAL,
+                                                                APPROVAL_STATUS.PENDING_ADMIN_APPROVAL
+                                                            ].includes(emp.status)) ||
+                                                            (tsStatusFilter === "Approved" && emp.status === APPROVAL_STATUS.APPROVED) ||
+                                                            (tsStatusFilter === "Rejected" && emp.status === APPROVAL_STATUS.REJECTED);
+                                                        return matchesSearch && matchesStatus;
+                                                    })
+                                                })).filter(week => week.filteredEmployees.length > 0).reduce((acc, week) => acc + week.filteredEmployees.length, 0)}
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={() => setIsDownloadModalOpen(true)}
+                                            className="h-10 px-4 bg-brand-blue-dark text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 hover:bg-brand-blue-hover transition-all shadow-sm"
                                         >
-                                            <option>All</option>
-                                            <option>Pending</option>
-                                            <option>Approved</option>
-                                            <option>Rejected</option>
-                                        </select>
+                                            <Download size={14} />
+                                            Download Timesheet
+                                        </button>
                                     </div>
-                                    <button
-                                         onClick={() => setIsDownloadModalOpen(true)}
-                                         className="h-10 px-4 bg-brand-blue-dark text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 hover:bg-brand-blue-hover transition-all shadow-sm"
-                                     >
-                                         <Download size={14} />
-                                         Download Timesheet
-                                     </button>
-                                </div>
-                                <div className="space-y-8">
+                                    <div className="space-y-8">
                                         {tsLoading ? (
                                             <div className="py-20 flex flex-col items-center justify-center space-y-4 bg-white rounded-[32px] border border-brand-blue/5 shadow-sm">
                                                 <div className="w-12 h-12 border-4 border-brand-blue border-t-transparent rounded-full animate-spin" />
@@ -790,6 +811,12 @@ export default function ReportingManagerTeam() {
                                         <option>Approved</option>
                                         <option>Rejected</option>
                                     </select>
+                                </div>
+                                <div className="flex items-center gap-2 px-4 h-[47px] bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Total</span>
+                                    <span className="text-xs font-black text-brand-blue-dark bg-white px-2.5 py-0.5 rounded-lg border border-brand-blue/10 shadow-sm">
+                                        {leaves.filter(lv => (leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase()) && (!leavesFilter || lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase()))).length}
+                                    </span>
                                 </div>
                             </div>
                             <div className="bg-white rounded-[20px] shadow-xl overflow-hidden border border-brand-blue/5">

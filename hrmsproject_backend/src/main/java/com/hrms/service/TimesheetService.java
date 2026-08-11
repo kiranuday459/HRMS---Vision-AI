@@ -1176,7 +1176,7 @@ public class TimesheetService {
                         try {
                             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                             java.util.Map<String, String> map = mapper.readValue(leave.getSessionData(),
-                                    new com.fasterxml.jackson.databind.type.TypeReference<java.util.Map<String, String>>() {});
+                                    new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, String>>() {});
                             if (map.containsKey(dateStr)) {
                                 String session = map.get(dateStr);
                                 if (session != null) {
@@ -1190,7 +1190,7 @@ public class TimesheetService {
                             }
                         } catch (Exception ignored) {}
                     }
-                    if (Boolean.TRUE.equals(leave.getHalfDay())) {
+                    if (leave.getDaysCount() != null && leave.getDaysCount() < 1.0) {
                         return "HALF";
                     }
                     return "FULL";
