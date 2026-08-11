@@ -436,8 +436,8 @@ const HrActions = () => {
 											>
 												<svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M15 19l-7-7 7-7" /></svg>
 											</button>
-											<div className="px-2 text-[10px] md:text-[9px] font-black text-brand-text uppercase tracking-widest min-w-[120px] text-center">
-												{currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+											<div className="px-2 text-[8px] font-black text-brand-text uppercase tracking-widest min-w-[80px] text-center">
+												{currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
 											</div>
 											<button
 												onClick={() => changeMonth(1)}
@@ -450,26 +450,31 @@ const HrActions = () => {
 								</div>
 
 								<div className="p-4 flex-1 flex flex-col overflow-hidden">
-									<div className="grid grid-cols-7 gap-1.5 mb-2">
-										{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+									<div className="grid grid-cols-5 gap-2 mb-2">
+										{['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
 											<div key={day} className="text-center text-[9px] font-black text-brand-text uppercase tracking-[0.15em]">
 												{day}
 											</div>
 										))}
 									</div>
 
-									<div className="grid grid-cols-7 gap-1.5 flex-1 overflow-y-auto pr-1 scrollbar-hide">
+									<div className="grid grid-cols-5 gap-2 flex-1 overflow-y-auto pr-1 scrollbar-hide">
 										{(() => {
 											const year = currentDate.getFullYear();
 											const month = currentDate.getMonth();
 											const firstDay = new Date(year, month, 1).getDay();
 											const daysInMonth = new Date(year, month + 1, 0).getDate();
-											const startingPadding = firstDay;
+											const startingPadding = firstDay === 0 ? 6 : firstDay - 1;
 											const cells = [];
 											for (let i = 0; i < startingPadding; i++) {
-												cells.push(<div key={`pad-${i}`} className="h-10 rounded-xl bg-bg-slate/5 border border-dashed border-brand-blue/5 opacity-10" />);
+												const padDate = new Date(year, month, 1 - (startingPadding - i));
+												if (padDate.getDay() !== 0 && padDate.getDay() !== 6) {
+													cells.push(<div key={`pad-${i}`} className="h-12 rounded-xl bg-bg-slate/5 border border-dashed border-brand-blue/5 opacity-10" />);
+												}
 											}
 											for (let day = 1; day <= daysInMonth; day++) {
+												const dateObj = new Date(year, month, day);
+												if (dateObj.getDay() === 0 || dateObj.getDay() === 6) continue;
 												const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 												const isToday = new Date().toISOString().split('T')[0] === dateStr;
 												const onLeave = calendarData[dateStr] || [];
