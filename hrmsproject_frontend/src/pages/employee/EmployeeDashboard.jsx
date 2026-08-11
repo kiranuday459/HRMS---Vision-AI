@@ -111,7 +111,7 @@ const EmployeeDashboard = () => {
 						...storedUser,
 						employeeId: employeeData.id,
 						firstName: employeeData.firstName || storedUser.firstName,
-						lastName: employeeData.lastName || storedUser.lastName,
+						lastName: employeeData.lastName ?? storedUser.lastName,
 						photoPath: employeeData.photoPath || storedUser.photoPath,
 						designation: employeeData.designation || storedUser.designation || "Team Member",
 						companyMail: employeeData.corporateEmail || storedUser.companyMail || "",
@@ -120,7 +120,7 @@ const EmployeeDashboard = () => {
 						// Track whether the RM/HR accounts are disabled so we can show "(Disabled)" beside their name.
 						reportingManagerActive: employeeData.reportingManagerActive,
 						hrActive: employeeData.hrActive,
-						fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName}` : (storedUser.fullName || "Employee")
+						fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName || ""}`.trim() : (storedUser.fullName || "Employee")
 					};
 					setUser(newUser);
 					localStorage.setItem("user", JSON.stringify(newUser));

@@ -99,13 +99,13 @@ const HrDashboard = () => {
 						...storedUser,
 						employeeId: employeeData.id,
 						firstName: employeeData.firstName || storedUser.firstName,
-						lastName: employeeData.lastName || storedUser.lastName,
+						lastName: employeeData.lastName ?? storedUser.lastName,
 						photoPath: employeeData.photoPath || storedUser.photoPath,
 						designation: employeeData.designation || storedUser.designation || "HR",
 						companyMail: employeeData.corporateEmail || storedUser.companyMail || "",
 						reportingManagerName: employeeData.reportingManagerName || storedUser.reportingManagerName || "N/A",
 						hrName: employeeData.hrName || storedUser.hrName || "N/A",
-						fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName}` : (storedUser.fullName || "HR")
+						fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName || ""}`.trim() : (storedUser.fullName || "HR")
 					};
 					setUser(newUser);
 					localStorage.setItem("user", JSON.stringify(newUser));

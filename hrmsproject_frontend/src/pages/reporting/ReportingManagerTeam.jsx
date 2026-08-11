@@ -99,8 +99,8 @@ export default function ReportingManagerTeam() {
                         const newUser = {
                             ...stored,
                             firstName: employeeData.firstName || stored.firstName,
-                            lastName: employeeData.lastName || stored.lastName,
-                            fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName}` : (stored.fullName || "Reporting Manager"),
+                            lastName: employeeData.lastName ?? stored.lastName,
+                            fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName || ""}`.trim() : (stored.fullName || "Reporting Manager"),
                             designation: employeeData.designation || stored.designation,
                             role: stored.role || "REPORTING_MANAGER"
                         };

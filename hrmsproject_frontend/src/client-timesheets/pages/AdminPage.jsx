@@ -303,11 +303,16 @@ export default function ClientTimesheets() {
                     </header>
 
                     {pageTab === "audit" ? (
-                        <div className="flex-1 p-4 overflow-y-auto">
+                        // overflow-hidden (not auto), matching the Timesheets panel below: the
+                        // tab's own table owns the scrolling, so its horizontal scrollbar sits at
+                        // the bottom of the visible panel instead of below every row.
+                        <div className="flex-1 min-h-0 p-4 overflow-hidden flex flex-col">
                             <AuditLogsTab />
                         </div>
                     ) : pageTab === "assigned" ? (
-                        <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4">
+                        // Same as above: the panel does not scroll, the table inside it does, so
+                        // the horizontal scrollbar stays on screen at any vertical position.
+                        <div className="flex-1 min-h-0 p-4 overflow-hidden flex flex-col gap-4">
                             {/* A removal blocked by a week still awaiting a decision hands the
                                 admin straight to the queue that holds it, filtered to what is
                                 pending, rather than leaving them to find it. Uses the tab and

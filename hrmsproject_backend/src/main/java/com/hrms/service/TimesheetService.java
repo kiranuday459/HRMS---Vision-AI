@@ -1176,7 +1176,7 @@ public class TimesheetService {
                         try {
                             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                             java.util.Map<String, String> map = mapper.readValue(leave.getSessionData(),
-                                    new com.fasterxml.jackson.databind.type.TypeReference<java.util.Map<String, String>>() {});
+                                    new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, String>>() {});
                             if (map.containsKey(dateStr)) {
                                 String session = map.get(dateStr);
                                 if (session != null) {
@@ -1190,9 +1190,11 @@ public class TimesheetService {
                             }
                         } catch (Exception ignored) {}
                     }
-                    if (Boolean.TRUE.equals(leave.getHalfDay())) {
-                        return "HALF";
-                    }
+                    // A `leave.getHalfDay()` fallback stood here and did not compile: Leave has
+                    // no such field — sessionData above is the only record of which dates are
+                    // half days. Removing it cannot change behaviour, because code that does not
+                    // compile never ran. If a leave-level half-day flag is wanted, it needs
+                    // adding to Leave first.
                     return "FULL";
                 }
             }

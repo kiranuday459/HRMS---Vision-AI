@@ -36,6 +36,8 @@ const leaveLabel = (category) => LEAVE_LABELS[String(category || "").toUpperCase
 
 const FULL_DAY_MINUTES = FULL_DAY_HOURS * 60;
 const HALF_DAY_MINUTES = FULL_DAY_MINUTES / 2;
+// A calendar day. Clock-out is capped here so the export can never print a time past midnight.
+const MINUTES_IN_DAY = 24 * 60;
 
 /**
  * How a leave date is named, given how much of the day the leave actually covers.
@@ -704,12 +706,23 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
 
                     // Clock times describe worked hours only — a day spent on leave was not
                     // clocked in, so it no longer reports a 9:30–18:30 shift it never had.
+                    //
+                    // Clock-in is the same nominal 9:30 on every worked day, and clock-out is
+                    // capped at 24:00 so it can never print a time that does not exist on a
+                    // clock. A 24-hour day used to read 34:30 — 9:30 + 24h + 1h — on a row whose
+                    // own Total already said 24:00.
+                    //
+                    // The cap only engages past 13.5 worked hours; every ordinary day, and most
+                    // overtime ones, are unaffected. Past it the window stops tracking the hours
+                    // (9:30–24:00 less the break is 13:30, not 24:00) — deliberately, because a
+                    // uniform clock-in was the requirement. Regular / OT / Leave / Total remain
+                    // the authoritative figures and are untouched by any of this.
                     if (workMin > 0) {
                         const startMin = 9 * 60 + 30; // 9:30
                         const breakMin = 60; // 1:00
-                        clockIn = "9:30";
-                        brk = "1:00";
-                        clockOut = minutesToHMM(startMin + workMin + breakMin);
+                        clockIn = minutesToHMM(startMin);
+                        brk = minutesToHMM(breakMin);
+                        clockOut = minutesToHMM(Math.min(startMin + workMin + breakMin, MINUTES_IN_DAY));
                     }
                     if (lvMin > 0) {
                         // Prefixed with Half Day / Partial Day when the leave does not cover the
@@ -722,7 +735,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                         // prefix when the leave covers less than the full day.
                         dayType = category;
                     } else if (regMin + otMin > 0) {
-                        dayType = "Working";
+                        dayType = "Working day";
                     }
                     regular = minutesToHMM(regMin);
                     ot = minutesToHMM(otMin);

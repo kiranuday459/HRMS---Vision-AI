@@ -60,6 +60,46 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getReason()));
     }
 
+    /**
+     * Database column names mapped to the field label the user actually sees, so a rejected
+     * save can name the field instead of asking them to guess which one.
+     */
+    private static final Map<String, String> COLUMN_LABELS = Map.ofEntries(
+            Map.entry("task_description", "Task/Activity Description"),
+            // The legacy mirror of task_description — the same field as far as the user is
+            // concerned, so it must not surface under its own column name.
+            Map.entry("task", "Task/Activity Description"),
+            Map.entry("comment", "Comment"),
+            Map.entry("billing_location", "Billing Location"),
+            Map.entry("project_name", "Project Name"),
+            Map.entry("project_id", "Project ID"),
+            Map.entry("task_id", "Task/Activity ID"),
+            Map.entry("rejection_reason", "Rejection reason"),
+            Map.entry("client_name", "Client name"));
+
+    private static final java.util.regex.Pattern TOO_LONG =
+            java.util.regex.Pattern.compile("Data too long for column '([^']+)'");
+    private static final java.util.regex.Pattern BAD_VALUE =
+            java.util.regex.Pattern.compile("Incorrect string value: .* for column '([^']+)'");
+    private static final java.util.regex.Pattern NOT_NULL =
+            java.util.regex.Pattern.compile("Column '([^']+)' cannot be null");
+
+    private static String labelFor(String column) {
+        return COLUMN_LABELS.getOrDefault(column, column);
+    }
+
+    /**
+     * Turns a driver-level integrity error into something the user can act on.
+     *
+     * This used to answer every integrity violation with "One or more entries are too long or
+     * invalid to save. Please shorten your text and try again." That is a guess, and when it is
+     * wrong it is actively misleading — it sends someone shortening a description that was
+     * never the problem, and it names no field even when it is right, on a sheet that may carry
+     * a dozen text inputs. MySQL states the offending column outright; that is what decides the
+     * message now, and anything unrecognised no longer claims to be a length problem.
+     *
+     * The full driver text still goes to the server log, and never to the browser.
+     */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolation(
             DataIntegrityViolationException ex) {
@@ -68,11 +108,29 @@ public class GlobalExceptionHandler {
         // reads as a server crash, so a rejected save/submit looks like nothing happened.
         // The detail stays in the server log; the client gets something actionable.
         Throwable cause = ex.getMostSpecificCause();
-        System.err.println("[DataIntegrity] " + (cause != null ? cause.getMessage() : ex.getMessage()));
+        String detail = cause != null ? cause.getMessage() : ex.getMessage();
+        System.err.println("[DataIntegrity] " + detail);
+
+        String message = "Couldn't save this change. Please check the entries and try again.";
+        if (detail != null) {
+            java.util.regex.Matcher tooLong = TOO_LONG.matcher(detail);
+            java.util.regex.Matcher badValue = BAD_VALUE.matcher(detail);
+            java.util.regex.Matcher notNull = NOT_NULL.matcher(detail);
+            if (tooLong.find()) {
+                message = labelFor(tooLong.group(1))
+                        + " is too long to save. Please shorten it and try again.";
+            } else if (badValue.find()) {
+                message = labelFor(badValue.group(1))
+                        + " contains a character that can't be saved. Please remove it and try again.";
+            } else if (notNull.find()) {
+                message = labelFor(notNull.group(1)) + " is required.";
+            } else if (detail.contains("Duplicate entry")) {
+                message = "That record already exists.";
+            }
+        }
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(
-                        "One or more entries are too long or invalid to save. Please shorten your text and try again."));
+                .body(ApiResponse.error(message));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

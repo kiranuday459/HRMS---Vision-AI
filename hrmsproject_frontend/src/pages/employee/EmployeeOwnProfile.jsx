@@ -569,7 +569,7 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
         localStorage.setItem("user", JSON.stringify({
           ...storedUser,
           firstName: updated.firstName || storedUser.firstName,
-          lastName: updated.lastName || storedUser.lastName,
+          lastName: updated.lastName ?? storedUser.lastName,
           fullName: updated.firstName ? `${updated.firstName} ${updated.lastName}` : (storedUser.fullName || "Employee"),
           photoPath: photoPath === null ? null : photoPath || storedUser.photoPath,
           designation: updated.designation || storedUser.designation || storedUser.role

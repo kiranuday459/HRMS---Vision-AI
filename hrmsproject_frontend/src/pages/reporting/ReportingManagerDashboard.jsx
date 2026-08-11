@@ -117,8 +117,8 @@ const ReportingManagerDashboard = () => {
           const newUser = {
             ...stored,
             firstName: employeeData.firstName || stored.firstName,
-            lastName: employeeData.lastName || stored.lastName,
-            fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName}` : (stored.fullName || "Reporting Manager"),
+            lastName: employeeData.lastName ?? stored.lastName,
+            fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName || ""}`.trim() : (stored.fullName || "Reporting Manager"),
             photoPath: employeeData.photoPath || stored.photoPath,
             designation: employeeData.designation || stored.designation || "Reporting Manager",
             reportingManagerName: employeeData.reportingManagerName || stored.reportingManagerName || "N/A",
