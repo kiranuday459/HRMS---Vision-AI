@@ -114,8 +114,8 @@ const EmployeeTimesheet = () => {
         navItems={navItems}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white text-[#2C2C2A] p-4 md:p-6 md:px-10 flex flex-wrap items-center justify-between shadow-lg z-10 border-b border-[#E3E8EF]">
+      <main className="flex-1 flex flex-col min-w-0">
+        <header className="sticky top-0 z-30 bg-white text-[#2C2C2A] p-4 md:p-6 md:px-10 flex flex-wrap items-center justify-between shadow-lg border-b border-[#E3E8EF]">
           <div className="flex items-center gap-5">
             <div className="w-16 h-16 bg-brand-yellow rounded-full flex items-center justify-center text-brand-blue shadow-inner border-2 border-[#E3E8EF]">
               <svg className="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

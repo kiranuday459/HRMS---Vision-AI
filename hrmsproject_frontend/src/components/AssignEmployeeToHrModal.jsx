@@ -122,7 +122,7 @@ export default function AssignEmployeeToHrModal({ open, onClose, onSaved }) {
     const toAssign = [...checkedIds];
 
     if (toAssign.length === 0) {
-      toast.info("No changes to save");
+      toast.error("Please select at least one employee");
       return;
     }
 
@@ -277,7 +277,7 @@ export default function AssignEmployeeToHrModal({ open, onClose, onSaved }) {
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || !selectedHrId}
+            disabled={saving || !selectedHrId || checkedIds.size === 0}
             className="px-6 py-2.5 rounded-lg bg-brand-blue-dark text-white text-[12px] font-black uppercase tracking-widest shadow-lg shadow-brand-blue/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Save Assignments"}

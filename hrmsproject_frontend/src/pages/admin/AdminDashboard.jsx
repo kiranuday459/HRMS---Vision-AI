@@ -445,8 +445,8 @@ export default function AdminDashboard() {
       <div className="flex h-screen w-screen bg-bg-slate flex-col md:flex-row overflow-hidden relative">
         <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
 
-        <main className="flex-1 flex flex-col h-full overflow-hidden">
-          <header className="bg-white py-4 px-4 md:px-6 flex flex-wrap items-center justify-between shadow-sm z-10 border-b border-[#E3E8EF] w-full">
+        <main className="flex-1 flex flex-col min-w-0">
+          <header className="sticky top-0 z-30 bg-white py-4 px-4 md:px-6 flex flex-wrap items-center justify-between shadow-sm border-b border-[#E3E8EF] w-full">
             {activeTab === "leave-requests" ? (
                 <div className="flex items-center md:gap-16 gap-6">
                   <div className="hidden sm:block">
@@ -630,36 +630,33 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1.5 bg-bg-slate/50 p-1 rounded-lg border border-brand-blue/5">
                           <button onClick={() => changeMonth(-1)} className="w-8 h-8 md:w-6 md:h-6 rounded-md bg-white border border-brand-blue/5 flex items-center justify-center text-brand-text hover:bg-brand-blue-dark hover:text-white transition-all shadow-sm"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M15 19l-7-7 7-7" /></svg></button>
-                          <div className="px-2 text-[10px] md:text-[8px] font-black text-brand-text uppercase tracking-widest min-w-[100px] md:min-w-[80px] text-center">{currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</div>
+                          <div className="px-2 text-[10px] md:text-[9px] font-black text-brand-text uppercase tracking-widest min-w-[120px] text-center">{currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
                           <button onClick={() => changeMonth(1)} className="w-8 h-8 md:w-6 md:h-6 rounded-md bg-white border border-brand-blue/5 flex items-center justify-center text-brand-text hover:bg-brand-blue-dark hover:text-white transition-all shadow-sm"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M9 5l7 7-7 7" /></svg></button>
                         </div>
                       </div>
                     </div>
                     <div className="p-4 flex-1 overflow-y-auto">
-                      <div className="grid grid-cols-5 gap-2 mb-2">
-                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => <div key={day} className="text-center text-[9px] font-black text-brand-text uppercase tracking-[0.15em]">{day}</div>)}
+                      <div className="grid grid-cols-7 gap-1.5 mb-2">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="text-center text-[9px] font-black text-brand-text uppercase tracking-[0.15em]">{day}</div>)}
                       </div>
-                      <div className="grid grid-cols-5 gap-2">
+                      <div className="grid grid-cols-7 gap-1.5">
                         {(() => {
                           const year = currentDate.getFullYear();
                           const month = currentDate.getMonth();
                           const firstDay = new Date(year, month, 1).getDay();
                           const daysInMonth = new Date(year, month + 1, 0).getDate();
-                          const startingPadding = firstDay === 0 ? 6 : firstDay - 1;
+                          const startingPadding = firstDay;
                           const cells = [];
                           for (let i = 0; i < startingPadding; i++) {
-                            const padDate = new Date(year, month, 1 - (startingPadding - i));
-                            if (padDate.getDay() !== 0 && padDate.getDay() !== 6) cells.push(<div key={`pad-${i}`} className="h-12 opacity-10 bg-bg-slate/5 border border-dashed border-brand-blue/5 rounded-xl" />);
+                            cells.push(<div key={`pad-${i}`} className="h-10 opacity-10 bg-bg-slate/5 border border-dashed border-brand-blue/5 rounded-xl" />);
                           }
                           for (let day = 1; day <= daysInMonth; day++) {
-                            const dateObj = new Date(year, month, day);
-                            if (dateObj.getDay() === 0 || dateObj.getDay() === 6) continue;
                             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                             const isToday = new Date().toISOString().split('T')[0] === dateStr;
                             const onLeave = calendarData[dateStr] || [];
                             cells.push(
                               <div key={day} onMouseEnter={(e) => onLeave.length > 0 && setHoveredLeaveData({ data: onLeave, rect: e.currentTarget.getBoundingClientRect() })} onMouseLeave={() => setHoveredLeaveData(null)}
-                                className={`h-12 rounded-xl border transition-all p-1.5 flex flex-col items-center justify-center relative group ${isToday ? "bg-brand-blue/5 border-brand-blue ring-2 ring-brand-blue/10" : ""} ${onLeave.length > 0 ? "bg-white border-brand-yellow/50 shadow-lg cursor-pointer" : "bg-bg-slate/30 border-transparent hover:bg-white hover:border-brand-blue/10"}`}>
+                                className={`h-10 md:h-11 rounded-xl border transition-all p-1 flex flex-col items-center justify-center relative group ${isToday ? "bg-brand-blue/5 border-brand-blue ring-2 ring-brand-blue/10" : ""} ${onLeave.length > 0 ? "bg-white border-brand-yellow/50 shadow-lg cursor-pointer" : "bg-bg-slate/30 border-transparent hover:bg-white hover:border-brand-blue/10"}`}>
                                 <span className="text-xs font-black text-brand-text">{day}</span>
                                 {onLeave.length > 0 && <div className="mt-0.5 px-1 py-0 bg-brand-blue/5 rounded"><span className="text-[6px] font-black text-brand-text">{onLeave.length} LEAVE</span></div>}
                               </div>

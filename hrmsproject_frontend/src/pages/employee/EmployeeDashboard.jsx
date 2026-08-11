@@ -451,10 +451,10 @@ const EmployeeDashboard = () => {
 			</div>
 
 			{/* Main Content */}
-			<main className="flex-1 flex flex-col">
+			<main className="flex-1 flex flex-col min-w-0">
 				{/* Conditional Header */}
 				{activeTab === 'dashboard' ? (
-				<header className="bg-white px-4 md:px-8 py-4 flex flex-wrap items-center justify-between shadow-sm z-40 border-b border-[#E3E8EF]">
+				<header className="sticky top-0 z-40 bg-white px-4 md:px-8 py-4 flex flex-wrap items-center justify-between shadow-sm border-b border-[#E3E8EF]">
 					<div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0 min-w-0">
 						<div className="min-w-0">
 							<h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight line-clamp-1">
@@ -538,7 +538,7 @@ const EmployeeDashboard = () => {
 						</div>
 					</header>
 				) : (
-					<header className="bg-white px-4 md:px-8 py-4 flex items-center justify-between shadow-sm z-40 border-b border-[#E3E8EF]">
+					<header className="sticky top-0 z-40 bg-white px-4 md:px-8 py-4 flex items-center justify-between shadow-sm border-b border-[#E3E8EF]">
 						<div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0 min-w-0">
 							<div className="min-w-0">
 								<h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight line-clamp-1">
