@@ -16,8 +16,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import com.hrms.repository.EmployeeReportingRepository;
 import com.hrms.repository.CompanyDetailRepository;
+import com.hrms.repository.LeaveRepository;
 import com.hrms.model.CompanyDetail;
 import com.hrms.model.EmployeeReporting;
+import com.hrms.model.Leave;
+import com.hrms.model.LeaveStatus;
+import com.hrms.model.LeaveDayDetail;
+import java.util.Map;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -438,6 +443,28 @@ public class TimesheetService {
                                 "Timesheet entries cannot be created for dates before the employee's joining date.");
                     }
                     validateDateAgainstApprovedLeaves(employeeId, dto.getDate(), dto.getCategory());
+                }
+            }
+
+            // Server-side guard: check half-day and full-day leave work hour limits
+            List<Leave> approvedLeaves = leaveRepository.findByEmployeeIdAndStatus(employeeId, LeaveStatus.APPROVED);
+            if (approvedLeaves != null && !approvedLeaves.isEmpty()) {
+                Map<LocalDate, Double> dailyProjectHours = entries.stream()
+                        .filter(e -> "PROJECT".equalsIgnoreCase(e.getCategory()) || e.getCategory() == null || e.getCategory().isBlank())
+                        .filter(e -> e.getDate() != null && e.getTotalHours() != null)
+                        .collect(Collectors.groupingBy(TimesheetDTO::getDate, Collectors.summingDouble(TimesheetDTO::getTotalHours)));
+
+                for (Map.Entry<LocalDate, Double> entry : dailyProjectHours.entrySet()) {
+                    LocalDate date = entry.getKey();
+                    double hours = entry.getValue();
+                    String leaveType = getApprovedLeaveTypeForDate(approvedLeaves, date);
+                    if ("HALF".equals(leaveType) && hours > 4.0) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Maximum allowed work hours for a Half-Day Leave is 4 hours.");
+                    } else if ("FULL".equals(leaveType) && hours > 0.0) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Work hours are not allowed on a Full-Day Leave date.");
+                    }
                 }
             }
         }
@@ -1120,5 +1147,56 @@ public class TimesheetService {
                 break;
         }
         return currentStatus; // Should not happen if canApprove is checked first
+    }
+
+    private String getApprovedLeaveTypeForDate(List<Leave> approvedLeaves, LocalDate entryDate) {
+        if (approvedLeaves == null || approvedLeaves.isEmpty() || entryDate == null) {
+            return null;
+        }
+        for (Leave leave : approvedLeaves) {
+            if (leave.getStartDate() != null && leave.getEndDate() != null) {
+                if (!entryDate.isBefore(leave.getStartDate()) && !entryDate.isAfter(leave.getEndDate())) {
+                    String dateStr = entryDate.toString();
+                    if (leave.getDayDetails() != null && !leave.getDayDetails().isEmpty()) {
+                        for (LeaveDayDetail detail : leave.getDayDetails()) {
+                            if (detail.getLeaveDate() != null && detail.getLeaveDate().equals(entryDate)) {
+                                String type = detail.getDayType();
+                                if (type != null) {
+                                    type = type.trim().toUpperCase();
+                                    if (type.equals("MORNING") || type.equals("AFTERNOON") || type.contains("HALF")) {
+                                        return "HALF";
+                                    } else if (type.equals("FULL")) {
+                                        return "FULL";
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (leave.getSessionData() != null && !leave.getSessionData().isBlank()) {
+                        try {
+                            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                            java.util.Map<String, String> map = mapper.readValue(leave.getSessionData(),
+                                    new com.fasterxml.jackson.databind.type.TypeReference<java.util.Map<String, String>>() {});
+                            if (map.containsKey(dateStr)) {
+                                String session = map.get(dateStr);
+                                if (session != null) {
+                                    session = session.trim().toUpperCase();
+                                    if (session.equals("MORNING") || session.equals("AFTERNOON") || session.contains("HALF")) {
+                                        return "HALF";
+                                    } else if (session.equals("FULL")) {
+                                        return "FULL";
+                                    }
+                                }
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                    if (Boolean.TRUE.equals(leave.getHalfDay())) {
+                        return "HALF";
+                    }
+                    return "FULL";
+                }
+            }
+        }
+        return null;
     }
 }
