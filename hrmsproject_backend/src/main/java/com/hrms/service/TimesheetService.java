@@ -31,6 +31,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.stream.Collectors;
+import com.hrms.repository.LeaveRepository;
+import com.hrms.model.Leave;
+import com.hrms.model.LeaveStatus;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
@@ -84,6 +87,29 @@ public class TimesheetService {
         return convertToDTO(timesheet);
     }
 
+    private boolean isWorkCategory(String category) {
+        if (category == null) return true;
+        String catUpper = category.trim().toUpperCase();
+        return "PROJECT".equals(catUpper) || "TRUTIME".equals(catUpper) || (!"LEAVE".equals(catUpper) && !"HOLIDAY".equals(catUpper));
+    }
+
+    private void validateDateAgainstApprovedLeaves(Long employeeId, LocalDate date, String category) {
+        if (date == null || employeeId == null) return;
+        if (!isWorkCategory(category)) return;
+
+        List<Leave> approvedLeaves = leaveRepository.findByEmployeeIdAndStatus(employeeId, LeaveStatus.APPROVED);
+        if (approvedLeaves != null && !approvedLeaves.isEmpty()) {
+            for (Leave leave : approvedLeaves) {
+                if (leave.getStartDate() != null && leave.getEndDate() != null) {
+                    if (!date.isBefore(leave.getStartDate()) && !date.isAfter(leave.getEndDate())) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Timesheet entry is not allowed on approved leave days.");
+                    }
+                }
+            }
+        }
+    }
+
     private void validateDateAgainstJoiningDate(Long employeeId, LocalDate date) {
         if (date == null || employeeId == null) return;
         companyDetailRepository.findByEmployee_Id(employeeId).ifPresent(detail -> {
@@ -99,6 +125,7 @@ public class TimesheetService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
 
         validateDateAgainstJoiningDate(dto.getEmployeeId(), dto.getDate());
+        validateDateAgainstApprovedLeaves(dto.getEmployeeId(), dto.getDate(), dto.getCategory());
 
         Timesheet timesheet = new Timesheet();
         timesheet.setEmployee(employee);
@@ -156,6 +183,7 @@ public class TimesheetService {
 
         if (dto.getDate() != null && timesheet.getEmployee() != null) {
             validateDateAgainstJoiningDate(timesheet.getEmployee().getId(), dto.getDate());
+            validateDateAgainstApprovedLeaves(timesheet.getEmployee().getId(), dto.getDate(), dto.getCategory());
         }
 
         timesheet.setDate(dto.getDate());
@@ -414,6 +442,7 @@ public class TimesheetService {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                 "Timesheet entries cannot be created for dates before the employee's joining date.");
                     }
+                    validateDateAgainstApprovedLeaves(employeeId, dto.getDate(), dto.getCategory());
                 }
             }
 
