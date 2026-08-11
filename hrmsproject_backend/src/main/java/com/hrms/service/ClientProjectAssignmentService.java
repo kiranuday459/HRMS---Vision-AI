@@ -41,6 +41,15 @@ import java.util.stream.Collectors;
 @Transactional
 public class ClientProjectAssignmentService {
 
+    /**
+     * Timesheet statuses that still have somewhere to go, and therefore block removing the
+     * employee from the project. PENDING is waiting on the admin; REJECTED is waiting on the
+     * employee to correct and resubmit. APPROVED is done, and DRAFT / NOT_STARTED were never
+     * submitted at all.
+     */
+    private static final List<ClientTimesheetStatus> UNSETTLED_STATUSES =
+            List.of(ClientTimesheetStatus.PENDING, ClientTimesheetStatus.REJECTED);
+
     @Autowired
     private ClientProjectAssignmentRepository assignmentRepository;
 
@@ -357,10 +366,14 @@ public class ClientProjectAssignmentService {
     /**
      * Week starts still awaiting an approve/reject decision on this assignment's project.
      *
-     * Only PENDING counts. Approved and Rejected are decided; Draft and Not Started were never
-     * submitted and are the employee's own to abandon. The rule is specifically about work that
-     * has been handed to the admin and not yet answered — closing the assignment while one is
-     * outstanding leaves it in a queue for a project the employee is no longer on.
+     * PENDING and REJECTED both count. Approved is settled; Draft and Not Started were never
+     * submitted and are the employee's own to abandon.
+     *
+     * Rejected is here because it is not the end of the story — it is the admin asking for a
+     * correction, and the week is expected back. Removing the employee mid-correction strands a
+     * week that was already submitted once: they lose access to the project they would have to
+     * fix it under, and it never returns to the queue. So the rule is "nothing still in flight",
+     * not "nothing awaiting a first decision".
      */
     private List<LocalDate> weeksAwaitingApproval(ClientProjectAssignment a) {
         if (a.getEmployee() == null) {
@@ -376,9 +389,9 @@ public class ClientProjectAssignmentService {
         // match on the check widens to every project, because blocking on a pending week beats
         // silently removing someone who has one.
         List<ClientTimesheet> pendingLines = (projectId == null || projectId.isBlank())
-                ? lineRepository.findByEmployeeIdAndStatus(employeeId, ClientTimesheetStatus.PENDING)
-                : lineRepository.findByEmployeeIdAndStatusAndProjectId(
-                        employeeId, ClientTimesheetStatus.PENDING, projectId);
+                ? lineRepository.findByEmployeeIdAndStatusIn(employeeId, UNSETTLED_STATUSES)
+                : lineRepository.findByEmployeeIdAndStatusInAndProjectId(
+                        employeeId, UNSETTLED_STATUSES, projectId);
 
         // Distinct weeks, because a week is what the admin queue lists and reviews as one
         // "timesheet". Counting line rows would report a normal five-day week as five pending
@@ -422,11 +435,12 @@ public class ClientProjectAssignmentService {
         String project = (a.getProjectName() == null || a.getProjectName().isBlank())
                 ? "this project" : a.getProjectName();
         // 409: the request is well formed, the state is not ready for it.
+        boolean one = pending.size() == 1;
         throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Can't remove " + who + " from " + project + " — they have " + pending.size()
-                        + (pending.size() == 1 ? " timesheet" : " timesheets")
-                        + " pending approval. Please approve or reject "
-                        + (pending.size() == 1 ? "it" : "them") + " first.");
+                        + (one ? " timesheet" : " timesheets")
+                        + " still open (pending approval or rejected and not yet resubmitted). "
+                        + "Please see " + (one ? "it" : "them") + " through to approved first.");
     }
 
     /**

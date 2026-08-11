@@ -4,6 +4,7 @@ import api from "../../utils/api";
 import { toast } from "react-toastify";
 import DisabledBadge from "../../components/DisabledBadge";
 import ClientTimesheetConfirmModal from "./ClientTimesheetConfirmModal";
+import { roleLabel } from "../../utils/roleLabel";
 
 /* ─── helpers ─────────────────────────────────────────── */
 const fmtDate = (d) => {
@@ -31,13 +32,27 @@ const fmtDateTime = (d) => {
  * send them looking for four that do not exist. The week starts are named so the card is
  * findable in the queue.
  */
-function blockedMessage({ employeeName, projectName, pendingCount, pendingWeekStarts }) {
-    const n = pendingCount || 0;
-    const weeks = (pendingWeekStarts || []).map(fmtDate).join(", ");
+function blockedMessage({ employeeName, projectName, blockingCount, blockingWeekStarts }) {
+    const n = blockingCount || 0;
+    const weeks = (blockingWeekStarts || []).map(fmtDate).join(", ");
     return `Can't remove ${employeeName} from ${projectName || "this project"} — they have `
-        + `${n} timesheet${n === 1 ? "" : "s"} pending approval`
+        + `${n} timesheet${n === 1 ? "" : "s"} still open`
         + (weeks ? ` (week${n === 1 ? "" : "s"} starting ${weeks})` : "")
-        + `. Please approve or reject ${n === 1 ? "it" : "them"} first, then remove them.`;
+        + `. ${n === 1 ? "It is" : "They are"} either pending approval or rejected and not yet `
+        + `resubmitted. Please see ${n === 1 ? "it" : "them"} through to approved, then remove them.`;
+}
+
+/** Client-timesheet verification state, as the Access Management tab showed it. */
+function VerificationBadge({ verified }) {
+    return verified ? (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+            ✅ Verified
+        </span>
+    ) : (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap" style={{ backgroundColor: "#FEF9C3", color: "#B45309" }}>
+            ⏳ Pending
+        </span>
+    );
 }
 
 function StatusPill({ active }) {
@@ -159,6 +174,8 @@ export default function AssignedMembersTab({ onReviewPending }) {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [detailRow, setDetailRow] = useState(null);
+    // employeeId → EmployeeDTO, for the Employee ID / Role / Verification columns.
+    const [employeeById, setEmployeeById] = useState(new Map());
     // ALL | ACTIVE | REMOVED. Removed assignments stay in the list as the record of who was on
     // what, so the filter is what keeps the list readable once they accumulate.
     const [statusFilter, setStatusFilter] = useState("ALL");
@@ -167,8 +184,9 @@ export default function AssignedMembersTab({ onReviewPending }) {
     // access, which is not a decision to take on a browser-chrome prompt.
     const [pendingAction, setPendingAction] = useState(null);
     const [actingId, setActingId] = useState(null);
-    // A removal the server refused because the employee still has weeks awaiting a decision:
-    // { employeeName, projectName, pendingCount, pendingWeekStarts }. Shown instead of the
+    // A removal the server refused because the employee still has weeks in flight — pending
+    // approval, or rejected and not yet resubmitted:
+    // { employeeName, projectName, blockingCount, blockingWeekStarts }. Shown instead of the
     // confirmation dialog — there is nothing to confirm.
     const [blockedRemoval, setBlockedRemoval] = useState(null);
     // Set while the pre-check is in flight, so the Remove button can't be double-fired.
@@ -193,6 +211,32 @@ export default function AssignedMembersTab({ onReviewPending }) {
     }, []);
 
     useEffect(() => { fetchRows(); }, [fetchRows]);
+
+    /**
+     * The employee-level facts this table absorbed from the Access Management tab — HRMS
+     * employee ID, role and client-verification state — keyed by employee id.
+     *
+     * Read from /api/employees, NOT the assigned-employees endpoint the old tab used. That one
+     * lists only employees whose client access is currently on, and removing an assignment
+     * turns that off, so every Removed row would have shown three blank cells — and Removed
+     * rows are precisely what this table exists to keep. /api/employees carries all three
+     * fields for everyone, assigned or not.
+     */
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await api("/api/employees");
+                if (!res.ok) return;
+                const json = await res.json().catch(() => ({}));
+                const list = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+                setEmployeeById(new Map(list.map((e) => [e.id, e])));
+            } catch (err) {
+                // Non-fatal: the three joined columns fall back to "—" and every existing
+                // column, and every action, still works.
+                console.error("Error fetching employees for the assigned-members join:", err);
+            }
+        })();
+    }, []);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -228,8 +272,8 @@ export default function AssignedMembersTab({ onReviewPending }) {
                 setBlockedRemoval({
                     employeeName: info.employeeName || row.employeeName,
                     projectName: info.projectName || row.projectName,
-                    pendingCount: info.pendingCount || 0,
-                    pendingWeekStarts: info.pendingWeekStarts || [],
+                    blockingCount: info.blockingCount || 0,
+                    blockingWeekStarts: info.blockingWeekStarts || [],
                 });
                 return;
             }
@@ -334,29 +378,37 @@ export default function AssignedMembersTab({ onReviewPending }) {
             {/* Table */}
             <div className="bg-white rounded-[24px] shadow-2xl shadow-brand-blue/5 border border-brand-blue/5 overflow-hidden flex-1 flex flex-col min-h-0">
                 <div className="overflow-x-auto overflow-y-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse min-w-[860px]">
+                    {/* px-3, not the px-6 this table used with seven columns: ten columns at 48px
+                        of horizontal padding each would not fit a standard window, and the point
+                        of merging the two tabs is one table you can read without dragging it
+                        sideways. min-w is the floor at which every cell still fits its content —
+                        overflow-x-auto below that rather than truncating anything. */}
+                    <table className="w-full text-left border-collapse min-w-[1100px]">
                         <thead className="sticky top-0 z-10 bg-white">
                             <tr className="bg-brand-blue/[0.02]">
-                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Employee</th>
-                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Project Name</th>
-                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Project ID</th>
-                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Client</th>
-                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Assigned Date</th>
-                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-center">Status</th>
-                                <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-right">Actions</th>
+                                <th className="py-3 px-3 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 whitespace-nowrap">Employee ID</th>
+                                <th className="py-3 px-3 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Employee Name</th>
+                                <th className="py-3 px-3 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Role</th>
+                                <th className="py-3 px-3 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Project Name</th>
+                                <th className="py-3 px-3 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Project ID</th>
+                                <th className="py-3 px-3 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Client</th>
+                                <th className="py-3 px-3 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 whitespace-nowrap">Assigned Date</th>
+                                <th className="py-3 px-3 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-center">Verification</th>
+                                <th className="py-3 px-3 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-center">Status</th>
+                                <th className="py-3 px-3 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-right">Actions</th>
                             </tr>
                         </thead>
 
                         <tbody className="divide-y divide-brand-blue/5">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={7} className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">
+                                    <td colSpan={10} className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">
                                         Loading assignments…
                                     </td>
                                 </tr>
                             ) : filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="py-16 text-center">
+                                    <td colSpan={10} className="py-16 text-center">
                                         <Users className="mx-auto mb-3 text-brand-text/20" size={40} />
                                         <p className="text-base font-bold text-brand-text">No assignments found.</p>
                                         <p className="text-sm text-brand-text/40 mt-1">
@@ -369,13 +421,25 @@ export default function AssignedMembersTab({ onReviewPending }) {
                                     </td>
                                 </tr>
                             ) : (
-                                filtered.map((r) => (
+                                filtered.map((r) => {
+                                    // The employee behind this assignment, for the three columns
+                                    // carried over from Access Management. Absent only while the
+                                    // employee list is still loading, or if that request failed.
+                                    const emp = employeeById.get(r.employeeId);
+                                    return (
                                     <tr
                                         key={r.id}
                                         onClick={() => setDetailRow(r)}
                                         className="group hover:bg-bg-slate/40 transition-all cursor-pointer"
                                     >
-                                        <td className="py-3 px-6">
+                                        {/* The HRMS employee ID, not a row index — it identifies the
+                                            person and stays the same however the list is filtered.
+                                            Falls back to a dash rather than the internal database
+                                            key, which would mean nothing to the admin. */}
+                                        <td className="py-3 px-3">
+                                            <span className="text-[12px] font-bold text-brand-text/70 tabular-nums whitespace-nowrap">{emp?.oryfolksId || "—"}</span>
+                                        </td>
+                                        <td className="py-3 px-3">
                                             <span className="inline-flex items-center gap-2">
                                                 <span className="text-sm font-black text-brand-text tracking-tight">{r.employeeName}</span>
                                                 {/* Assignment history is kept for a disabled account; the badge
@@ -383,19 +447,25 @@ export default function AssignedMembersTab({ onReviewPending }) {
                                                 {r.employeeActive === false && <DisabledBadge />}
                                             </span>
                                         </td>
-                                        <td className="py-3 px-6">
+                                        <td className="py-3 px-3">
+                                            <span className="text-[12px] font-bold text-brand-text/70 whitespace-nowrap">{emp ? roleLabel(emp.role) : "—"}</span>
+                                        </td>
+                                        <td className="py-3 px-3">
                                             <span className="text-sm font-bold text-brand-text">{r.projectName || "—"}</span>
                                         </td>
-                                        <td className="py-3 px-6">
+                                        <td className="py-3 px-3">
                                             <span className="text-[12px] font-bold text-brand-text/60 font-mono">{r.projectId || "—"}</span>
                                         </td>
-                                        <td className="py-3 px-6">
+                                        <td className="py-3 px-3">
                                             <span className="text-[12px] font-bold text-brand-text/70">{r.clientName || "—"}</span>
                                         </td>
-                                        <td className="py-3 px-6">
-                                            <span className="text-[12px] font-bold text-brand-text/70">{fmtDate(r.assignmentStartDate)}</span>
+                                        <td className="py-3 px-3">
+                                            <span className="text-[12px] font-bold text-brand-text/70 whitespace-nowrap">{fmtDate(r.assignmentStartDate)}</span>
                                         </td>
-                                        <td className="py-3 px-6 text-center">
+                                        <td className="py-3 px-3 text-center">
+                                            <VerificationBadge verified={Boolean(emp?.clientVerified)} />
+                                        </td>
+                                        <td className="py-3 px-3 text-center">
                                             <StatusPill active={r.active} />
                                         </td>
                                         {/* Remove and Re-add are mutually exclusive — an assignment
@@ -448,7 +518,8 @@ export default function AssignedMembersTab({ onReviewPending }) {
                                             </div>
                                         </td>
                                     </tr>
-                                ))
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>

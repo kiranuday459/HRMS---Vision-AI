@@ -13,20 +13,24 @@ import java.util.List;
 public class AssignmentRemovalEligibilityDTO {
 
     private boolean removable;
-    private int pendingCount;
-    /** Week start dates awaiting a decision, so the message can name them. */
-    private List<LocalDate> pendingWeekStarts;
+    private int blockingCount;
+    /**
+     * Week start dates that are blocking the removal, so the message can name them. Named
+     * "blocking" rather than "pending" because a rejected week counts too — it is waiting on the
+     * employee to resubmit, not finished.
+     */
+    private List<LocalDate> blockingWeekStarts;
     private Long employeeId;
     private String employeeName;
     private String projectName;
 
     public AssignmentRemovalEligibilityDTO() {}
 
-    public AssignmentRemovalEligibilityDTO(boolean removable, List<LocalDate> pendingWeekStarts,
+    public AssignmentRemovalEligibilityDTO(boolean removable, List<LocalDate> blockingWeekStarts,
                                            Long employeeId, String employeeName, String projectName) {
         this.removable = removable;
-        this.pendingWeekStarts = pendingWeekStarts;
-        this.pendingCount = pendingWeekStarts == null ? 0 : pendingWeekStarts.size();
+        this.blockingWeekStarts = blockingWeekStarts;
+        this.blockingCount = blockingWeekStarts == null ? 0 : blockingWeekStarts.size();
         this.employeeId = employeeId;
         this.employeeName = employeeName;
         this.projectName = projectName;
@@ -34,10 +38,10 @@ public class AssignmentRemovalEligibilityDTO {
 
     public boolean isRemovable() { return removable; }
     public void setRemovable(boolean removable) { this.removable = removable; }
-    public int getPendingCount() { return pendingCount; }
-    public void setPendingCount(int pendingCount) { this.pendingCount = pendingCount; }
-    public List<LocalDate> getPendingWeekStarts() { return pendingWeekStarts; }
-    public void setPendingWeekStarts(List<LocalDate> pendingWeekStarts) { this.pendingWeekStarts = pendingWeekStarts; }
+    public int getBlockingCount() { return blockingCount; }
+    public void setBlockingCount(int blockingCount) { this.blockingCount = blockingCount; }
+    public List<LocalDate> getBlockingWeekStarts() { return blockingWeekStarts; }
+    public void setBlockingWeekStarts(List<LocalDate> blockingWeekStarts) { this.blockingWeekStarts = blockingWeekStarts; }
     public Long getEmployeeId() { return employeeId; }
     public void setEmployeeId(Long employeeId) { this.employeeId = employeeId; }
     public String getEmployeeName() { return employeeName; }

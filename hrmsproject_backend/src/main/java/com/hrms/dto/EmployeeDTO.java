@@ -330,18 +330,6 @@ public class EmployeeDTO {
 	private String role;
 	private String corporateEmail;
 	private String designation;
-	/**
-	 * The employee's department name, read-only.
-	 *
-	 * Departments are otherwise a Phase 2 feature — nothing here creates or edits one, and the
-	 * departmentId field stays commented out with the rest of that work. This carries the name
-	 * outward only, because the timesheet Excel export prints a Department line in its header
-	 * and had no field to read: /api/employees never returned one, so the cell was blank for
-	 * every employee, including the four who do have a department set.
-	 *
-	 * Null when the employee has no department_id, which is most of them today.
-	 */
-	private String department;
 	private String oryfolksId;
 	private java.time.LocalDate joiningDate;
 	private Long userId;
@@ -489,14 +477,6 @@ public class EmployeeDTO {
 
 	public void setDesignation(String designation) {
 		this.designation = designation;
-	}
-
-	public String getDepartment() {
-		return department;
-	}
-
-	public void setDepartment(String department) {
-		this.department = department;
 	}
 
 	public List<EmployeeDocumentDTO> getDocumentList() {

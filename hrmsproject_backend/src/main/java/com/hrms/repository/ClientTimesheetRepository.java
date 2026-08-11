@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -53,4 +54,15 @@ public interface ClientTimesheetRepository extends JpaRepository<ClientTimesheet
 
     List<ClientTimesheet> findByEmployeeIdAndStatusAndProjectId(Long employeeId,
             ClientTimesheetStatus status, String projectId);
+
+    /**
+     * The same two lookups over a set of statuses. Removal is blocked by more than one status
+     * now (PENDING and REJECTED), and a single query beats calling the singular form per status
+     * and merging the results.
+     */
+    List<ClientTimesheet> findByEmployeeIdAndStatusIn(Long employeeId,
+            Collection<ClientTimesheetStatus> statuses);
+
+    List<ClientTimesheet> findByEmployeeIdAndStatusInAndProjectId(Long employeeId,
+            Collection<ClientTimesheetStatus> statuses, String projectId);
 }

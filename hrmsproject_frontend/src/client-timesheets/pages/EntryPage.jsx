@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MessageSquare, Plus, Minus, ArrowLeft, Maximize2 } from "lucide-react";
 import api from "../../utils/api";
@@ -177,6 +177,12 @@ export default function ClientTimesheetEntry() {
     const [meta, setMeta] = useState({ employeeName: "", weekStartDate: weekStart, weekEndDate: "", status: "DRAFT", earliestAssignmentDate: null, rejectionReason: null, hasProjectContext: false });
     const [projectRows, setProjectRows] = useState([]);
     const [timeOffRows, setTimeOffRows] = useState([]);
+    // Whether the sheet differs from what the server last gave us. Gates Resubmit on a
+    // rejected week — see the payloadSnapshot effect below.
+    const [dirty, setDirty] = useState(false);
+    const [baselineToken, setBaselineToken] = useState(0);
+    const baselineTokenRef = useRef(-1);
+    const baselineRef = useRef(null);
     // The row-text dialog, shared by Comment and Task/Activity Description. `field` is which of
     // the two is open, so one dialog and one save path serve both.
     const [textModal, setTextModal] = useState({ open: false, rowId: null, field: null, text: "" });
@@ -251,6 +257,11 @@ export default function ClientTimesheetEntry() {
             const found = (dto.timeOffRows || []).find((t) => (t.type || "").toUpperCase() === type);
             return { type, days: found ? mapDays(found.days) : days.map((d) => ({ date: d.ymd, hours: "" })) };
         }));
+        // Everything above is now the sheet's saved state. Bumping the token tells the effect
+        // below to re-baseline against it, so "changed" means changed since this load — not
+        // since the page first opened. Saving a draft re-applies the server's echo and
+        // therefore re-baselines too, which is correct: those edits are no longer unsaved.
+        setBaselineToken((t) => t + 1);
     };
 
     const fetchDetail = useCallback(async () => {
@@ -588,6 +599,16 @@ export default function ClientTimesheetEntry() {
     // Regular/OT are sent for reference only — the server recomputes them from the same
     // rules in applyTotals() and persists its own figures, so a tampered payload can't
     // change what the admin sees.
+    // ── "Has anything actually changed?" ────────────────────────────────────────
+    // A rejected week may only be resubmitted once the employee has edited something —
+    // resubmitting it untouched sends the admin back exactly what they rejected.
+    //
+    // The comparison is against buildPayload(), which is precisely what a submit would send:
+    // if two states serialise the same, submitting either is the same request, so there is
+    // nothing to resubmit. Deriving it from the payload rather than tracking a flag on every
+    // setter means no edit path can forget to mark the sheet dirty, and — because it compares
+    // values rather than counting keystrokes — typing a 7 over a 7, or typing a character and
+    // deleting it again, correctly leaves the sheet clean.
     const buildPayload = () => ({
         weekStartDate: meta.weekStartDate,
         weekEndDate: meta.weekEndDate,
@@ -605,6 +626,25 @@ export default function ClientTimesheetEntry() {
             type: r.type, days: r.days.map((d) => ({ date: d.date, hours: numOr0(d.hours) })),
         })),
     });
+
+    const payloadSnapshot = JSON.stringify(buildPayload());
+    // Re-baseline when applyDetail bumped the token, otherwise compare. Keyed on the token as
+    // well as the snapshot because a save can echo back a byte-identical sheet: the snapshot
+    // alone would not change, the effect would not run, and the pending re-baseline would land
+    // on the NEXT edit instead — quietly adopting that edit as the saved state.
+    useEffect(() => {
+        if (baselineTokenRef.current !== baselineToken) {
+            baselineTokenRef.current = baselineToken;
+            baselineRef.current = payloadSnapshot;
+            setDirty(false);
+            return;
+        }
+        setDirty(baselineRef.current !== null && payloadSnapshot !== baselineRef.current);
+    }, [payloadSnapshot, baselineToken]);
+
+    // Only the rejected sheet is gated. A draft is submitted for the first time, so there is
+    // nothing to compare it against, and Save stays available throughout either way.
+    const resubmitBlockedUnchanged = meta.status === "REJECTED" && !dirty;
 
     // Upsert the whole week (all project rows + time-off rows) as a DRAFT. Save and Update
     // Totals both go through here, so the timesheet stays a single draft record (overwrite,
@@ -636,6 +676,14 @@ export default function ClientTimesheetEntry() {
     const handleSubmit = async () => {
         // Blocks Submit/Resubmit only — drafts stay work-in-progress and are never gated.
         // Checked before the request so the week is never written with a submitted status.
+
+        // Mirrors the disabled state on the button, for the case where a click lands before
+        // React has re-rendered it. Checked before setShowErrors so an untouched rejected week
+        // does not light up in red for fields the employee has not been asked to change.
+        if (resubmitBlockedUnchanged) {
+            toast.error("Nothing has changed since this week was rejected — update it before resubmitting.");
+            return;
+        }
 
         // Reveal the field-level errors from here on, whatever the outcome below.
         setShowErrors(true);
@@ -1160,7 +1208,14 @@ export default function ClientTimesheetEntry() {
                                         <div className="flex flex-wrap gap-3">
                                             {/* <button onClick={handleUpdateTotals} disabled={saving || !weekEditable} className="px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40">Update Totals</button> */}
                                             <button onClick={handleSave} disabled={saving || !weekEditable} className="px-5 py-2.5 rounded-lg bg-[#2C2C2A] hover:bg-black text-white text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40">Save</button>
-                                            <button onClick={handleSubmit} disabled={saving || !weekEditable} className="px-6 py-2.5 rounded-lg bg-brand-blue-dark hover:brightness-110 text-white text-xs font-bold uppercase tracking-widest shadow-lg shadow-brand-blue/20 transition-all active:scale-95 disabled:opacity-40">
+                                            <button
+                                                onClick={handleSubmit}
+                                                disabled={saving || !weekEditable || resubmitBlockedUnchanged}
+                                                title={resubmitBlockedUnchanged
+                                                    ? "Make a change before resubmitting — this week is unchanged since it was rejected."
+                                                    : undefined}
+                                                className="px-6 py-2.5 rounded-lg bg-brand-blue-dark hover:brightness-110 text-white text-xs font-bold uppercase tracking-widest shadow-lg shadow-brand-blue/20 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                            >
                                                 {meta.status === "PENDING" || meta.status === "REJECTED" ? "Resubmit" : "Submit"}
                                             </button>
                                         </div>

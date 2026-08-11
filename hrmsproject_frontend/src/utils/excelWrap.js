@@ -19,6 +19,42 @@ export const LINE_HEIGHT = 15;
 const usableChars = (widthChars) => Math.max(1, Math.floor((widthChars || 10) * 0.95));
 
 /**
+ * Lines one paragraph occupies, breaking at spaces the way Excel does.
+ *
+ * Counting characters and dividing by the width under-counts: it assumes text can break
+ * anywhere, but a word that does not fit is pushed to the next line whole, leaving the rest of
+ * the previous one empty. "Half Day — Paid Sick Leave" in a 20-char column is 26 characters —
+ * two lines either way — but "Total Holiday/Time off Hours" is 28 characters and breaks after
+ * "Time" rather than mid-word, so the naive count can be a line short. A line short is a line
+ * clipped, which is the failure this whole module exists to prevent.
+ *
+ * A single word longer than the column is the one case Excel does break mid-word, so it is
+ * charged the lines it actually needs.
+ */
+function linesForParagraph(text, per) {
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return 1;
+    let lines = 1;
+    let used = 0;
+    for (const word of words) {
+        if (word.length > per) {
+            if (used > 0) { lines += 1; used = 0; }
+            lines += Math.ceil(word.length / per) - 1;
+            used = word.length % per || per;
+            continue;
+        }
+        const need = used === 0 ? word.length : used + 1 + word.length;
+        if (need <= per) {
+            used = need;
+        } else {
+            lines += 1;
+            used = word.length;
+        }
+    }
+    return lines;
+}
+
+/**
  * How many lines a value occupies at a given column width, honouring explicit newlines.
  * Always at least 1, so an empty cell never produces a zero-height row.
  */
@@ -28,12 +64,21 @@ export function wrappedLineCount(value, widthChars) {
     const per = usableChars(widthChars);
     return text
         .split("\n")
-        .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / per)), 0);
+        .reduce((sum, line) => sum + linesForParagraph(line, per), 0);
 }
 
-/** Row height in points for a line count, never below `minHeight`. */
+/**
+ * Row height in points for a line count, never below `minHeight`.
+ *
+ * Wrapped rows get more slack than a single-line one. Excel leaves internal padding above and
+ * below the text block, so a row sized to exactly n × LINE_HEIGHT clips the last line — which
+ * is what "Half Day — Paid Sick Leave" did at two lines and 33pt. Single-line rows are
+ * unaffected: they were never close to clipping and their height is still the 20pt floor.
+ */
 export function heightForLines(lines, minHeight = 20) {
-    return Math.max(minHeight, Math.ceil(lines) * LINE_HEIGHT + 3);
+    const n = Math.ceil(lines);
+    const padding = n > 1 ? 8 : 3;
+    return Math.max(minHeight, n * LINE_HEIGHT + padding);
 }
 
 /**

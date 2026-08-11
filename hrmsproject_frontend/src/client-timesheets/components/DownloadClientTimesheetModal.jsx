@@ -6,6 +6,7 @@ import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { projectSuffix } from "../../utils/employeeName";
+import { roleLabel } from "../../utils/roleLabel";
 import { fitRowHeight, wrap } from "../../utils/excelWrap";
 
 // ── Local date helpers (treat YYYY-MM-DD as local, avoid timezone shifts) ──
@@ -32,6 +33,57 @@ const LEAVE_LABELS = {
 };
 const isLeaveRow = (r) => Object.prototype.hasOwnProperty.call(LEAVE_LABELS, String(r?.category || "").toUpperCase());
 const leaveLabel = (category) => LEAVE_LABELS[String(category || "").toUpperCase()] || "Leave";
+
+const FULL_DAY_MINUTES = FULL_DAY_HOURS * 60;
+const HALF_DAY_MINUTES = FULL_DAY_MINUTES / 2;
+
+/**
+ * How a leave date is named, given how much of the day the leave actually covers.
+ *
+ *   8h (a full day) → "Paid Sick Leave"
+ *   4h              → "Half Day — Paid Sick Leave"
+ *   any other <8h   → "Partial Day — Paid Sick Leave"
+ *
+ * The point is that a date not fully covered by leave must not read like one that is. A 4-hour
+ * sick day still has 4 hours of Regular capacity, and the row prints those worked hours beside
+ * the leave — without the prefix the label claims a whole day off that the numbers contradict.
+ * "Partial Day" exists because leave is capped at 8 but otherwise free: a 6-hour leave would
+ * otherwise be indistinguishable from a full one, which is the same confusion for a different
+ * number.
+ *
+ * Takes the leave name already resolved for the date (which may be a comma-joined list on
+ * legacy rows carrying more than one type) and the leave total in MINUTES — the same rounded
+ * integer the hour cells are printed from. Comparing hours would be a float equality test, and
+ * 4.0000000001 hours of leave must not fall through to "Partial Day".
+ *
+ * Labelling only. Nothing here feeds the Regular/OT split, the daily cap, or the
+ * one-leave-type-per-day rule — those are computed exactly as before and are unchanged.
+ */
+const leaveDayLabel = (name, leaveMinutes) => {
+    if (leaveMinutes >= FULL_DAY_MINUTES) return name;
+    if (leaveMinutes === HALF_DAY_MINUTES) return `Half Day — ${name}`;
+    return `Partial Day — ${name}`;
+};
+
+/**
+ * The Status filter's options, in the order they are offered. "" is the unfiltered case.
+ *
+ * One map drives both the dropdown and the Status line printed into the workbook, so the sheet
+ * can never name the filter differently from the control the admin actually used.
+ */
+const STATUS_OPTIONS = [
+    ["", "All"],
+    ["PENDING", "Pending"],
+    ["APPROVED", "Approved"],
+    ["REJECTED", "Rejected"],
+];
+const statusLabel = (value) => {
+    const key = String(value || "").toUpperCase();
+    const found = STATUS_OPTIONS.find(([v]) => v === key);
+    // An unrecognised value is printed as itself rather than silently reported as "All" — a
+    // filtered export mislabelled "All" reads as the complete record when it is not.
+    return found ? found[1] : String(value);
+};
 
 // Monday of the week containing `d`.
 const startOfWeek = (d) => {
@@ -365,7 +417,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
     // Reference-style export (English). One workbook per employee; within each workbook
     // one tab per calendar month spanned by the range (newest month first / leftmost).
     // Each tab: header block + Date | Day | Category | Clock-in | Clock-out | Break |
-    // Working hours | Remarks, one row per calendar date in that month, with a Total
+    // Working hours, one row per calendar date in that month, with a Total
     // working-hours footer. A single employee downloads one .xlsx; multiple employees
     // download a .zip of one .xlsx per employee.
     const generateExcel = async (rows) => {
@@ -434,7 +486,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             // Named so the header block below can add up the columns it merges across without
             // restating the numbers — the two used to be maintained separately and drifted.
             // Each is sized to its own content: the hour columns hold "10:00" and their own
-            // header word, Category and Remarks hold leave names ("Unpaid Leave (LOP)" fits on
+            // header word, Category holds the leave names ("Unpaid Leave (LOP)" fits on
             // one line; "Holiday (Public/National)" takes two, which the row grows for).
             // `regular` is 10 rather than 9 on purpose: ExcelJS treats 9 as its own default
             // column width and omits the <col> entry entirely, so the column shipped with no
@@ -442,7 +494,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             // was meant to match. Any value but 9 is written out.
             const COL = {
                 date: 8, day: 8, category: 22, clockIn: 10, clockOut: 10, break: 8,
-                regular: 10, ot: 8, leave: 8, dayTotal: 10, remarks: 20,
+                regular: 10, ot: 8, leave: 8, dayTotal: 10,
             };
             const colWidths = Object.values(COL);
             colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
@@ -455,7 +507,12 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             const emp = (employees || []).find(
                 (e) => String(e.id) === String(group.rows[0].employeeId)
             );
-            const dept = emp ? (emp.department || emp.departmentName || "") : "";
+            // The employee's HRMS role, printed exactly as the Access Management tab's Role
+            // column shows it (shared roleLabel). The Employee.department relation is the other
+            // candidate and is deliberately not used: it is Phase 2 work, unset for every
+            // non-admin employee and unsettable through the UI, so it would print blank for
+            // everyone this export can reach.
+            const dept = emp ? roleLabel(emp.role) : "";
             const workLocation = "Office";
             // Project lines only. A leave line carries a client but no project, so including
             // them added a bare "Acme" alongside the real "Acme / p2".
@@ -492,7 +549,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
             const LABEL_L = COL.date + COL.day;                       // A-B
             const VALUE_L = COL.category + COL.clockIn + COL.clockOut; // C-E
             const LABEL_R = COL.regular + COL.ot;                      // G-H
-            const VALUE_R = COL.leave + COL.dayTotal + COL.remarks;    // I-K
+            const VALUE_R = COL.leave + COL.dayTotal;                  // I-J
             const metaPair = (rowIdx, leftLabel, leftValue, rightLabel, rightValue) => {
                 ws.mergeCells(rowIdx, 1, rowIdx, 2);
                 ws.getCell(rowIdx, 1).value = leftLabel;
@@ -515,12 +572,40 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                     { value: rightValue, width: VALUE_R },
                 ]);
             };
+            /**
+             * A meta line with only a left-hand pair. Same two merges as metaPair's left side, so
+             * the label and value line up with the rows above it; the right half of the row is
+             * left alone rather than written as empty merged cells.
+             */
+            const metaLeft = (rowIdx, label, value) => {
+                ws.mergeCells(rowIdx, 1, rowIdx, 2);
+                ws.getCell(rowIdx, 1).value = label;
+                ws.getCell(rowIdx, 1).font = { name: "Calibri", bold: true };
+                ws.getCell(rowIdx, 1).alignment = wrap({ horizontal: "left" });
+                ws.mergeCells(rowIdx, 3, rowIdx, 5);
+                ws.getCell(rowIdx, 3).value = value;
+                ws.getCell(rowIdx, 3).alignment = wrap({ horizontal: "left" });
+                fitRowHeight(ws.getRow(rowIdx), [
+                    { value: label, width: LABEL_L },
+                    { value: value, width: VALUE_L },
+                ]);
+            };
             metaPair(3, "Employee name:", group.name, "Project name:", projectName);
             metaPair(4, "Department:", dept, "Work location:", workLocation);
+            // Which Status filter produced this workbook. Without it an export of only the
+            // approved weeks is indistinguishable from a complete one, and a sheet that silently
+            // omits rows is worse than no sheet — so it is stated on the face of it.
+            metaLeft(5, "Status:", statusLabel(status));
 
-            // ---- Table header (row 6) ----
-            const headerRowIdx = 6;
-            const headers = ["Date", "Day", "Category", "Clock-in", "Clock-out", "Break", "Regular", "OT", "Leave", "Day Total", "Remarks"];
+            // ---- Table header ----
+            // Row 7, not 6: the Status line took row 5, and row 6 stays blank so the header is
+            // still separated from the meta block by one empty row.
+            const headerRowIdx = 7;
+            // "Category" keeps the name and the position it always had; what changed is that it
+            // now carries the Day Type values. The two columns were near-duplicates — Category
+            // was blank on a worked day where Day Type said "Working", and otherwise both spelled
+            // out the same leave name — so the sheet is one column, not two.
+            const headers = ["Date", "Day", "Category", "Clock-in", "Clock-out", "Break", "Regular", "OT", "Leave", "Total Hrs"];
             const hr = ws.getRow(headerRowIdx);
             headers.forEach((h, i) => {
                 const c = hr.getCell(i + 1);
@@ -584,11 +669,18 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                 let ot = "0:00";
                 let leave = "0:00";
                 let dayTotal = "0:00";
-                let remarks = "";
+                // Day Type: one category per row, never free text. Exactly one of
+                //   Weekend | <leave type name> | Working | ""
+                // Leave outranks Working on a half-and-half day (4h sick + 4h worked): the spec
+                // is "the leave type name for a day where leave was logged", and it keeps this
+                // column agreeing with Category, which already names the leave.
+                // A weekday with nothing logged stays blank — it is neither worked nor claimed,
+                // and labelling it would assert something the timesheet does not record.
+                let dayType = "";
 
                 if (isWeekend) {
                     category = "Weekend";
-                    remarks = "Weekend";
+                    dayType = "Weekend";
                 } else {
                     const workedHrs = workedByDate[ymd] || 0;
                     const leaveHrs = leaveByDate[ymd] || 0;
@@ -620,8 +712,17 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                         clockOut = minutesToHMM(startMin + workMin + breakMin);
                     }
                     if (lvMin > 0) {
-                        category = leaveLabelByDate[ymd] || "Leave";
-                        remarks = category;
+                        // Prefixed with Half Day / Partial Day when the leave does not cover the
+                        // whole day, so the label agrees with the Regular and OT figures printed
+                        // beside it on the same row.
+                        category = leaveDayLabel(leaveLabelByDate[ymd] || "Leave", lvMin);
+                        // A LEAVE_LABELS name — "Paid Sick Leave", "Holiday (Public/National)",
+                        // "Paid Time Off", "Unpaid Leave (LOP)", "Leave (Earned)", the same names
+                        // the entry page and admin drawer use — carrying a Half Day / Partial Day
+                        // prefix when the leave covers less than the full day.
+                        dayType = category;
+                    } else if (regMin + otMin > 0) {
+                        dayType = "Working";
                     }
                     regular = minutesToHMM(regMin);
                     ot = minutesToHMM(otMin);
@@ -631,10 +732,13 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                     regularMinutes += regMin;
                     otMinutes += otMin;
                     leaveMinutes += lvMin;
-                    // Weekday with no entry → all 0:00, blank Category/Remarks.
+                    // Weekday with no entry → all 0:00, blank Category.
                 }
 
-                const values = [`${mo}/${da}`, dayAbbr[dow], category, clockIn, clockOut, brk, regular, ot, leave, dayTotal, remarks];
+                // dayType, not category, in the Category column — same values the Day Type
+                // column used to print. Both are still computed exactly as before; category is
+                // what dayType is derived from on a leave day.
+                const values = [`${mo}/${da}`, dayAbbr[dow], dayType, clockIn, clockOut, brk, regular, ot, leave, dayTotal];
                 values.forEach((v, i) => {
                     const c = row.getCell(i + 1);
                     c.value = v;
@@ -645,7 +749,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                         c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF9C4" } };
                     }
                 });
-                // Remarks is free text and the only cell here that realistically wraps.
+                // Category carries the longest leave names, so it is the cell that wraps.
                 fitRowHeight(row, values.map((v, i) => ({ value: v, width: colWidths[i] })));
             });
 
@@ -669,8 +773,9 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                     c.alignment = wrap({ horizontal: "right" });
                     c.border = totalBorder;
                 });
-            totalRow.getCell(LAST_COL).border = totalBorder;
-            totalRow.getCell(LAST_COL).alignment = wrap({ horizontal: "left" });
+            // The four totals above end on the last column now that Day Type is gone. There is no
+            // trailing empty cell left to border — doing it here would re-align Day Total's own
+            // total to the left, out of step with the three beside it.
             fitRowHeight(totalRow, [{ value: "Total", width: colWidths.slice(0, 6).reduce((a, b) => a + b, 0) }]);
 
             // ---- Named summary, in the order the Time Entry page lists it ----
@@ -891,10 +996,11 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                                 onChange={(e) => setStatus(e.target.value)}
                                 className="block w-full max-w-[200px] bg-bg-slate/50 border-2 border-transparent focus:border-brand-yellow rounded-2xl p-3.5 text-sm font-bold text-brand-text outline-none transition-all"
                             >
-                                <option value="">All</option>
-                                <option value="PENDING">Pending</option>
-                                <option value="APPROVED">Approved</option>
-                                <option value="REJECTED">Rejected</option>
+                                {/* Same list the workbook's Status line prints from, so the sheet
+                                    always names the filter exactly as it was chosen here. */}
+                                {STATUS_OPTIONS.map(([value, label]) => (
+                                    <option key={value || "ALL"} value={value}>{label}</option>
+                                ))}
                             </select>
                         </div>
                     </div>

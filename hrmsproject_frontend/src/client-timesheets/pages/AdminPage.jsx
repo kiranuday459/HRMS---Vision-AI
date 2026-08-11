@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import DownloadClientTimesheetModal from "../components/DownloadClientTimesheetModal";
 import ClientTimesheetDetailDrawer from "../components/ClientTimesheetDetailDrawer";
-import AccessManagementTab from "../components/AccessManagementTab";
 import AssignedMembersTab from "../components/AssignedMembersTab";
 import AuditLogsTab from "../components/AuditLogsTab";
 import AssignEmployeeToClientProjectModal from "../../components/AssignEmployeeToClientProjectModal";
@@ -10,7 +9,7 @@ import ClientTimesheetConfirmModal from "../components/ClientTimesheetConfirmMod
 import { approveWeek, rejectWeek } from "../utils/clientTimesheetReview";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
-import { Download, Check, X, Eye, Briefcase } from "lucide-react";
+import { Download, Check, X, Briefcase } from "lucide-react";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
 import { CLIENT_TIMESHEET_ADMIN } from "../../utils/clientTimesheetNav";
 import CharCounter from "../../components/CharCounter";
@@ -264,8 +263,11 @@ export default function ClientTimesheets() {
                             <div className="flex gap-1 mt-2">
                                 {[
                                     { id: "timesheets", label: "Timesheets" },
+                                    // Assigned Members absorbed the Access Management tab: the two
+                                    // listed the same assignments, one showing project/status and
+                                    // the other employee id/role/verification. One table now
+                                    // carries both sets of columns.
                                     { id: "assigned", label: "Assigned Members" },
-                                    { id: "access", label: "Access Management" },
                                     { id: "audit", label: "Audit Logs" },
                                 ].map((t) => (
                                     <button
@@ -303,10 +305,6 @@ export default function ClientTimesheets() {
                     {pageTab === "audit" ? (
                         <div className="flex-1 p-4 overflow-y-auto">
                             <AuditLogsTab />
-                        </div>
-                    ) : pageTab === "access" ? (
-                        <div className="flex-1 p-4 overflow-y-auto">
-                            <AccessManagementTab />
                         </div>
                     ) : pageTab === "assigned" ? (
                         <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4">
@@ -423,15 +421,11 @@ export default function ClientTimesheets() {
                                                     </div>
 
                                                     {/* Right: actions */}
-                                                    <div className="flex items-center justify-end gap-2 px-5 py-4 border-t lg:border-t-0 lg:border-l border-[#E3E8EF] min-w-[140px]">
-                                                        <button
-                                                            onClick={() => openDetail(block)}
-                                                            className="p-2 bg-brand-blue/5 text-brand-blue-dark rounded-lg hover:bg-brand-blue-dark hover:text-white transition-all"
-                                                            title="View details"
-                                                            aria-label="View details"
-                                                        >
-                                                            <Eye size={16} />
-                                                        </button>
+                                                    {/* No view icon: the week's date range above is itself a
+                                                        link into the same detail dialog, so the icon was a
+                                                        second control for one action. openDetail is unchanged
+                                                        and still reached from that link. */}
+                                                    <div className="flex items-center justify-center gap-2 px-5 py-4 border-t lg:border-t-0 lg:border-l border-[#E3E8EF] min-w-[140px]">
                                                         {isPending ? (
                                                             <>
                                                                 <button

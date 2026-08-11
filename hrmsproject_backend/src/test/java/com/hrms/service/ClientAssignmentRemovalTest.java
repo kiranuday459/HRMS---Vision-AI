@@ -1,5 +1,6 @@
 package com.hrms.service;
 
+import com.hrms.dto.AssignmentRemovalEligibilityDTO;
 import com.hrms.dto.ClientProjectAssignmentDTO;
 import com.hrms.model.ClientProjectAssignment;
 import com.hrms.model.Employee;
@@ -15,6 +16,7 @@ import com.hrms.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -26,8 +28,11 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -109,6 +114,9 @@ class ClientAssignmentRemovalTest {
         when(lineRepository.findByEmployeeIdAndStatus(anyLong(), any())).thenReturn(Collections.emptyList());
         when(lineRepository.findByEmployeeIdAndStatusAndProjectId(anyLong(), any(), any()))
                 .thenReturn(Collections.emptyList());
+        when(lineRepository.findByEmployeeIdAndStatusIn(anyLong(), any())).thenReturn(Collections.emptyList());
+        when(lineRepository.findByEmployeeIdAndStatusInAndProjectId(anyLong(), any(), any()))
+                .thenReturn(Collections.emptyList());
     }
 
     /**
@@ -117,6 +125,16 @@ class ClientAssignmentRemovalTest {
      * rollup to distinct weeks is exercised rather than assumed.
      */
     private void givenWeeksAwaitingApproval(LocalDate... weekStarts) {
+        givenBlockingWeeks(ClientTimesheetStatus.PENDING, weekStarts);
+    }
+
+    /**
+     * Weeks that block removal, in the given status. Given as day-level line rows, the way they
+     * are actually stored — several rows per week — so the rollup to distinct weeks is exercised
+     * rather than assumed. The guard now queries by a status set, so the stub answers the
+     * status-set lookup regardless of which blocking status the rows carry.
+     */
+    private void givenBlockingWeeks(ClientTimesheetStatus status, LocalDate... weekStarts) {
         List<ClientTimesheet> lines = new ArrayList<>();
         for (LocalDate weekStart : weekStarts) {
             for (int day = 0; day < 5; day++) {          // Mon–Fri, one row each
@@ -124,12 +142,12 @@ class ClientAssignmentRemovalTest {
                 line.setWeekStartDate(weekStart);
                 line.setDate(weekStart.plusDays(day));
                 line.setProjectId("PRJ-1");
-                line.setStatus(ClientTimesheetStatus.PENDING);
+                line.setStatus(status);
                 lines.add(line);
             }
         }
-        when(lineRepository.findByEmployeeIdAndStatusAndProjectId(
-                EMP_ID, ClientTimesheetStatus.PENDING, "PRJ-1")).thenReturn(lines);
+        when(lineRepository.findByEmployeeIdAndStatusInAndProjectId(
+                eq(EMP_ID), any(), eq("PRJ-1"))).thenReturn(lines);
     }
 
     // ── Remove ──────────────────────────────────────────────────────────────
@@ -226,8 +244,8 @@ class ClientAssignmentRemovalTest {
         String reason = ex.getReason();
         assertTrue(reason.contains("Dana Whitfield"), reason);
         assertTrue(reason.contains("Atlas Migration"), reason);
-        assertTrue(reason.contains("1 timesheet pending approval"), reason);
-        assertTrue(reason.contains("approve or reject it first"), reason);
+        assertTrue(reason.contains("1 timesheet still open"), reason);
+        assertTrue(reason.contains("see it through to approved"), reason);
     }
 
     /** The count is a count of weeks, and the wording follows it. */
@@ -238,8 +256,8 @@ class ClientAssignmentRemovalTest {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> service.deactivate(ASSIGNMENT_ID, ADMIN_USER_ID));
 
-        assertTrue(ex.getReason().contains("2 timesheets pending approval"), ex.getReason());
-        assertTrue(ex.getReason().contains("approve or reject them first"), ex.getReason());
+        assertTrue(ex.getReason().contains("2 timesheets still open"), ex.getReason());
+        assertTrue(ex.getReason().contains("see them through to approved"), ex.getReason());
     }
 
     /** A blocked removal must leave access exactly as it was. */
@@ -257,18 +275,58 @@ class ClientAssignmentRemovalTest {
     }
 
     /**
-     * Only PENDING blocks. Approved, Rejected, Draft and Not Started are all decided or were
-     * never handed to the admin — the query asks for PENDING and nothing else, so a stub that
-     * answers only for PENDING leaves every other status returning empty.
+     * A rejected week blocks removal just as a pending one does. It is not a finished timesheet
+     * — the admin has asked for a correction and the week is expected back — so removing the
+     * employee mid-correction strands work that was already submitted once.
      */
     @Test
-    void approvedRejectedAndDraftTimesheetsDoNotBlockRemoval() {
-        // Weeks exist in every other status; none of them is PENDING. The guard asks for
-        // PENDING and nothing else, so these are never even fetched.
+    void aRejectedTimesheetBlocksRemoval() {
+        givenBlockingWeeks(ClientTimesheetStatus.REJECTED, LocalDate.of(2026, 6, 6));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> service.deactivate(ASSIGNMENT_ID, ADMIN_USER_ID));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+        assertTrue(assignment.getActive(), "a blocked removal must leave the assignment active");
+    }
+
+    /** And the pre-check reports it, so the tab explains rather than confirms. */
+    @Test
+    void eligibilityReportsARejectedWeekAsBlocking() {
+        givenBlockingWeeks(ClientTimesheetStatus.REJECTED, LocalDate.of(2026, 6, 6));
+
+        AssignmentRemovalEligibilityDTO eligibility = service.removalEligibility(ASSIGNMENT_ID);
+
+        assertFalse(eligibility.isRemovable());
+        assertEquals(1, eligibility.getBlockingCount());
+        assertEquals(List.of(LocalDate.of(2026, 6, 6)), eligibility.getBlockingWeekStarts());
+    }
+
+    /** Pending and rejected weeks are counted together, each week once. */
+    @Test
+    void pendingAndRejectedWeeksAreCountedTogether() {
+        List<ClientTimesheet> mixed = new ArrayList<>();
+        mixed.addAll(lineIn(ClientTimesheetStatus.PENDING, LocalDate.of(2026, 6, 6)));
+        mixed.addAll(lineIn(ClientTimesheetStatus.REJECTED, LocalDate.of(2026, 6, 13)));
+        when(lineRepository.findByEmployeeIdAndStatusInAndProjectId(eq(EMP_ID), any(), eq("PRJ-1")))
+                .thenReturn(mixed);
+
+        AssignmentRemovalEligibilityDTO eligibility = service.removalEligibility(ASSIGNMENT_ID);
+
+        assertFalse(eligibility.isRemovable());
+        assertEquals(2, eligibility.getBlockingCount());
+        assertEquals(List.of(LocalDate.of(2026, 6, 6), LocalDate.of(2026, 6, 13)),
+                eligibility.getBlockingWeekStarts());
+    }
+
+    /**
+     * Approved, Draft and Not Started still do not block — they are settled or were never handed
+     * over. The guard asks only for the unsettled statuses, so these are never fetched at all.
+     */
+    @Test
+    void approvedAndDraftTimesheetsDoNotBlockRemoval() {
         when(lineRepository.findByEmployeeIdAndStatusAndProjectId(
                 eq(EMP_ID), eq(ClientTimesheetStatus.APPROVED), any())).thenReturn(lineIn(ClientTimesheetStatus.APPROVED));
-        when(lineRepository.findByEmployeeIdAndStatusAndProjectId(
-                eq(EMP_ID), eq(ClientTimesheetStatus.REJECTED), any())).thenReturn(lineIn(ClientTimesheetStatus.REJECTED));
         when(lineRepository.findByEmployeeIdAndStatusAndProjectId(
                 eq(EMP_ID), eq(ClientTimesheetStatus.DRAFT), any())).thenReturn(lineIn(ClientTimesheetStatus.DRAFT));
 
@@ -278,22 +336,40 @@ class ClientAssignmentRemovalTest {
         assertEquals(Boolean.FALSE, employee.getClientAssigned(), "access still revoked as before");
     }
 
+    /** The status set the guard asks for is exactly PENDING + REJECTED. */
+    @Test
+    void theGuardAsksForPendingAndRejectedOnly() {
+        service.deactivate(ASSIGNMENT_ID, ADMIN_USER_ID);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<ClientTimesheetStatus>> statuses =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(lineRepository).findByEmployeeIdAndStatusInAndProjectId(
+                eq(EMP_ID), statuses.capture(), eq("PRJ-1"));
+        assertEquals(Set.of(ClientTimesheetStatus.PENDING, ClientTimesheetStatus.REJECTED),
+                new HashSet<>(statuses.getValue()));
+    }
+
     private List<ClientTimesheet> lineIn(ClientTimesheetStatus status) {
+        return lineIn(status, LocalDate.of(2026, 5, 30));
+    }
+
+    private List<ClientTimesheet> lineIn(ClientTimesheetStatus status, LocalDate weekStart) {
         ClientTimesheet line = new ClientTimesheet();
-        line.setWeekStartDate(LocalDate.of(2026, 5, 30));
+        line.setWeekStartDate(weekStart);
         line.setProjectId("PRJ-1");
         line.setStatus(status);
         return List.of(line);
     }
 
-    /** The guard asks only about this assignment's project, and only about PENDING. */
+    /** The guard asks only about this assignment's project. */
     @Test
     void theCheckIsScopedToThisAssignmentsProject() {
         service.deactivate(ASSIGNMENT_ID, ADMIN_USER_ID);
 
-        verify(lineRepository).findByEmployeeIdAndStatusAndProjectId(
-                EMP_ID, ClientTimesheetStatus.PENDING, "PRJ-1");
-        verify(lineRepository, never()).findByEmployeeIdAndStatus(anyLong(), any());
+        verify(lineRepository).findByEmployeeIdAndStatusInAndProjectId(
+                eq(EMP_ID), any(), eq("PRJ-1"));
+        verify(lineRepository, never()).findByEmployeeIdAndStatusIn(anyLong(), any());
     }
 
     /**
@@ -306,7 +382,7 @@ class ClientAssignmentRemovalTest {
 
         service.deactivate(ASSIGNMENT_ID, ADMIN_USER_ID);
 
-        verify(lineRepository).findByEmployeeIdAndStatus(EMP_ID, ClientTimesheetStatus.PENDING);
+        verify(lineRepository).findByEmployeeIdAndStatusIn(eq(EMP_ID), any());
     }
 
     /** Five day rows for one week are one pending timesheet, not five. */
@@ -316,8 +392,8 @@ class ClientAssignmentRemovalTest {
 
         var eligibility = service.removalEligibility(ASSIGNMENT_ID);
 
-        assertEquals(1, eligibility.getPendingCount());
-        assertEquals(List.of(LocalDate.of(2026, 6, 6)), eligibility.getPendingWeekStarts());
+        assertEquals(1, eligibility.getBlockingCount());
+        assertEquals(List.of(LocalDate.of(2026, 6, 6)), eligibility.getBlockingWeekStarts());
     }
 
     /** Resolve the pending week, retry, and removal goes through as before. */
@@ -326,8 +402,8 @@ class ClientAssignmentRemovalTest {
         givenWeeksAwaitingApproval(LocalDate.of(2026, 6, 6));
         assertThrows(ResponseStatusException.class, () -> service.deactivate(ASSIGNMENT_ID, ADMIN_USER_ID));
 
-        // Admin approves or rejects it — nothing is left pending.
-        when(lineRepository.findByEmployeeIdAndStatusAndProjectId(anyLong(), any(), any()))
+        // The week reaches approved — nothing is left pending or rejected.
+        when(lineRepository.findByEmployeeIdAndStatusInAndProjectId(anyLong(), any(), any()))
                 .thenReturn(Collections.emptyList());
 
         assertDoesNotThrow(() -> service.deactivate(ASSIGNMENT_ID, ADMIN_USER_ID));
@@ -342,7 +418,7 @@ class ClientAssignmentRemovalTest {
         var eligibility = service.removalEligibility(ASSIGNMENT_ID);
 
         assertTrue(eligibility.isRemovable());
-        assertEquals(0, eligibility.getPendingCount());
+        assertEquals(0, eligibility.getBlockingCount());
     }
 
     @Test
@@ -352,9 +428,9 @@ class ClientAssignmentRemovalTest {
         var eligibility = service.removalEligibility(ASSIGNMENT_ID);
 
         assertFalse(eligibility.isRemovable());
-        assertEquals(2, eligibility.getPendingCount());
+        assertEquals(2, eligibility.getBlockingCount());
         assertEquals(List.of(LocalDate.of(2026, 6, 6), LocalDate.of(2026, 6, 13)),
-                eligibility.getPendingWeekStarts());
+                eligibility.getBlockingWeekStarts());
         assertEquals(EMP_ID, eligibility.getEmployeeId());
         assertEquals("Dana Whitfield", eligibility.getEmployeeName());
         assertEquals("Atlas Migration", eligibility.getProjectName());
