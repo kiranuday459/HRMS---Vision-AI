@@ -127,24 +127,6 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
         }
     };
 
-    const handlePrevMonth = () => {
-        if (startMonthIndex === 0) {
-            setStartMonthIndex(11);
-            setSelectedYear(prev => prev - 1);
-        } else {
-            setStartMonthIndex(prev => prev - 1);
-        }
-    };
-
-    const handleNextMonth = () => {
-        if (startMonthIndex === 11) {
-            setStartMonthIndex(0);
-            setSelectedYear(prev => prev + 1);
-        } else {
-            setStartMonthIndex(prev => prev + 1);
-        }
-    };
-
     if (!isOpen) return null;
 
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -271,23 +253,37 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                             <div className="space-y-16">
                                 {/* Pagination for Calendar (shows 1 month) */}
                                 <div className="flex items-center justify-between mb-8">
-                                    <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
+                                    <div className="flex items-center gap-3">
                                         <button
-                                            onClick={handlePrevMonth}
-                                            className="p-1.5 hover:bg-slate-200 rounded-xl transition-all text-slate-600 active:scale-95"
+                                            onClick={() => {
+                                                if (startMonthIndex > 0) {
+                                                    setStartMonthIndex(prev => prev - 1);
+                                                } else {
+                                                    setStartMonthIndex(11);
+                                                    setSelectedYear(prev => prev - 1);
+                                                }
+                                            }}
+                                            className="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-600 hover:text-slate-900"
                                             title="Previous Month"
                                         >
-                                            <ChevronLeft size={20} />
+                                            <ChevronLeft size={24} />
                                         </button>
-                                        <span className="px-6 text-sm font-black text-slate-800 tracking-widest uppercase text-center min-w-[180px]">
+                                        <span className="text-sm font-black text-slate-800 tracking-tight px-2 min-w-[150px] text-center select-none">
                                             {months[startMonthIndex]} {selectedYear}
                                         </span>
                                         <button
-                                            onClick={handleNextMonth}
-                                            className="p-1.5 hover:bg-slate-200 rounded-xl transition-all text-slate-600 active:scale-95"
+                                            onClick={() => {
+                                                if (startMonthIndex < 11) {
+                                                    setStartMonthIndex(prev => prev + 1);
+                                                } else {
+                                                    setStartMonthIndex(0);
+                                                    setSelectedYear(prev => prev + 1);
+                                                }
+                                            }}
+                                            className="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-600 hover:text-slate-900"
                                             title="Next Month"
                                         >
-                                            <ChevronRight size={20} />
+                                            <ChevronRight size={24} />
                                         </button>
                                     </div>
                                     <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Monthly Overview</p>
@@ -326,6 +322,9 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
 
                                         return (
                                             <div key={monthIdx} className="flex flex-col gap-6">
+                                                <h3 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-3 uppercase text-xs tracking-[0.2em] opacity-40">
+                                                    {months[monthIdx]} {selectedYear}
+                                                </h3>
                                                 <div className="grid grid-cols-7 gap-2">
                                                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                                                         <div key={day} className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-center py-2">{day}</div>
