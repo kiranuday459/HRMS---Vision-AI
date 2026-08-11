@@ -253,18 +253,35 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                             <div className="space-y-16">
                                 {/* Pagination for Calendar (shows 1 month) */}
                                 <div className="flex items-center justify-between mb-8">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-3">
                                         <button
-                                            disabled={startMonthIndex === 0}
-                                            onClick={() => setStartMonthIndex(prev => prev - 1)}
-                                            className="p-2 hover:bg-slate-100 rounded-xl disabled:opacity-20 transition-all text-slate-400"
+                                            onClick={() => {
+                                                if (startMonthIndex > 0) {
+                                                    setStartMonthIndex(prev => prev - 1);
+                                                } else {
+                                                    setStartMonthIndex(11);
+                                                    setSelectedYear(prev => prev - 1);
+                                                }
+                                            }}
+                                            className="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-600 hover:text-slate-900"
+                                            title="Previous Month"
                                         >
                                             <ChevronLeft size={24} />
                                         </button>
+                                        <span className="text-sm font-black text-slate-800 tracking-tight px-2 min-w-[150px] text-center select-none">
+                                            {months[startMonthIndex]} {selectedYear}
+                                        </span>
                                         <button
-                                            disabled={startMonthIndex >= 11}
-                                            onClick={() => setStartMonthIndex(prev => prev + 1)}
-                                            className="p-2 hover:bg-slate-100 rounded-xl disabled:opacity-20 transition-all text-slate-400"
+                                            onClick={() => {
+                                                if (startMonthIndex < 11) {
+                                                    setStartMonthIndex(prev => prev + 1);
+                                                } else {
+                                                    setStartMonthIndex(0);
+                                                    setSelectedYear(prev => prev + 1);
+                                                }
+                                            }}
+                                            className="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-600 hover:text-slate-900"
+                                            title="Next Month"
                                         >
                                             <ChevronRight size={24} />
                                         </button>

@@ -99,13 +99,13 @@ const HrDashboard = () => {
 						...storedUser,
 						employeeId: employeeData.id,
 						firstName: employeeData.firstName || storedUser.firstName,
-						lastName: employeeData.lastName || storedUser.lastName,
+						lastName: employeeData.lastName ?? storedUser.lastName,
 						photoPath: employeeData.photoPath || storedUser.photoPath,
 						designation: employeeData.designation || storedUser.designation || "HR",
 						companyMail: employeeData.corporateEmail || storedUser.companyMail || "",
 						reportingManagerName: employeeData.reportingManagerName || storedUser.reportingManagerName || "N/A",
 						hrName: employeeData.hrName || storedUser.hrName || "N/A",
-						fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName}` : (storedUser.fullName || "HR")
+						fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName || ""}`.trim() : (storedUser.fullName || "HR")
 					};
 					setUser(newUser);
 					localStorage.setItem("user", JSON.stringify(newUser));
@@ -334,10 +334,10 @@ const weekStatus = getWeekStatus(week.entries, 'HR');
 				hideLogout={true}
 			/>
 
-			<main className="flex-1 flex flex-col overflow-hidden">
+			<main className="flex-1 flex flex-col min-w-0">
 				{/* Conditional Header */}
 				{activeTab === 'dashboard' ? (
-				<header className="bg-white px-4 md:px-8 py-4 flex flex-wrap items-center justify-between shadow-sm z-10 border-b border-[#E3E8EF]">
+				<header className="sticky top-0 z-30 bg-white px-4 md:px-8 py-4 flex flex-wrap items-center justify-between shadow-sm border-b border-[#E3E8EF]">
 					<div className="flex items-center gap-6">
 
 						<div>
@@ -416,7 +416,7 @@ const weekStatus = getWeekStatus(week.entries, 'HR');
 						</div>
 					</header>
 				) : (
-				<header className="bg-white px-8 py-4 flex items-center justify-between shadow-sm z-10 border-b border-[#E3E8EF]">
+				<header className="sticky top-0 z-30 bg-white px-8 py-4 flex items-center justify-between shadow-sm border-b border-[#E3E8EF]">
 					<div className="flex items-center gap-6">
 
 						<div>

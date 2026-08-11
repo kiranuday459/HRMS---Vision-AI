@@ -111,7 +111,7 @@ const EmployeeDashboard = () => {
 						...storedUser,
 						employeeId: employeeData.id,
 						firstName: employeeData.firstName || storedUser.firstName,
-						lastName: employeeData.lastName || storedUser.lastName,
+						lastName: employeeData.lastName ?? storedUser.lastName,
 						photoPath: employeeData.photoPath || storedUser.photoPath,
 						designation: employeeData.designation || storedUser.designation || "Team Member",
 						companyMail: employeeData.corporateEmail || storedUser.companyMail || "",
@@ -120,7 +120,7 @@ const EmployeeDashboard = () => {
 						// Track whether the RM/HR accounts are disabled so we can show "(Disabled)" beside their name.
 						reportingManagerActive: employeeData.reportingManagerActive,
 						hrActive: employeeData.hrActive,
-						fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName}` : (storedUser.fullName || "Employee")
+						fullName: employeeData.firstName ? `${employeeData.firstName} ${employeeData.lastName || ""}`.trim() : (storedUser.fullName || "Employee")
 					};
 					setUser(newUser);
 					localStorage.setItem("user", JSON.stringify(newUser));
@@ -451,10 +451,10 @@ const EmployeeDashboard = () => {
 			</div>
 
 			{/* Main Content */}
-			<main className="flex-1 flex flex-col">
+			<main className="flex-1 flex flex-col min-w-0">
 				{/* Conditional Header */}
 				{activeTab === 'dashboard' ? (
-				<header className="bg-white px-4 md:px-8 py-4 flex flex-wrap items-center justify-between shadow-sm z-40 border-b border-[#E3E8EF]">
+				<header className="sticky top-0 z-40 bg-white px-4 md:px-8 py-4 flex flex-wrap items-center justify-between shadow-sm border-b border-[#E3E8EF]">
 					<div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0 min-w-0">
 						<div className="min-w-0">
 							<h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight line-clamp-1">
@@ -538,7 +538,7 @@ const EmployeeDashboard = () => {
 						</div>
 					</header>
 				) : (
-					<header className="bg-white px-4 md:px-8 py-4 flex items-center justify-between shadow-sm z-40 border-b border-[#E3E8EF]">
+					<header className="sticky top-0 z-40 bg-white px-4 md:px-8 py-4 flex items-center justify-between shadow-sm border-b border-[#E3E8EF]">
 						<div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0 min-w-0">
 							<div className="min-w-0">
 								<h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight line-clamp-1">

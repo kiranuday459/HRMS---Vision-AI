@@ -168,8 +168,8 @@ const HrActions = () => {
 		<div className="flex h-screen w-screen bg-bg-slate flex-col md:flex-row overflow-hidden">
 			<Sidebar activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} navItems={navItems} hideLogout={true} />
 
-			<div className="flex-1 flex flex-col overflow-hidden">
-				<header className="bg-white px-8 py-4 flex items-center justify-between shadow-sm z-10 border-b border-[#E3E8EF]">
+			<div className="flex-1 flex flex-col min-w-0">
+				<header className="sticky top-0 z-30 bg-white px-8 py-4 flex items-center justify-between shadow-sm border-b border-[#E3E8EF]">
 					<div className="flex items-center gap-6">
 						<div className="w-11 h-11 bg-[#F1EFE8] rounded-xl flex items-center justify-center border border-[#E3E8EF] shadow-sm overflow-hidden">
 							<svg

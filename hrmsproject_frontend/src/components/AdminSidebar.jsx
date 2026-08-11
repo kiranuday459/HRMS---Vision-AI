@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import api from '../utils/api';
 import Logo from '../assets/visionai-logo.png';
 import {
   LayoutDashboard,
@@ -27,6 +28,50 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
 
   const user = JSON.parse(localStorage.getItem("user")) || {};
   const isManager = user.role === "REPORTING_MANAGER";
+
+  /**
+   * The cached user, re-synced from the server once per mount.
+   *
+   * localStorage is written at login and, for admins, never again — the employee, HR and
+   * reporting-manager dashboards each re-read /api/me/employee on load, and this side had no
+   * equivalent. So a name corrected on the server stayed stale here until the next login. That
+   * is what kept "Admin4 Admin" on screen after the surname behind it had already been fixed:
+   * admin accounts were seeded with the literal "Admin" as a last name, printed after the first
+   * name and directly above the ADMIN badge that already says it.
+   */
+  const [profile, setProfile] = useState(() => JSON.parse(localStorage.getItem("user")) || {});
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api("/api/me/employee");
+        if (!res.ok || cancelled) return;
+        const json = await res.json().catch(() => ({}));
+        const emp = json.data || json;
+        if (!emp || !emp.firstName || cancelled) return;
+        const stored = JSON.parse(localStorage.getItem("user")) || {};
+        const next = {
+          ...stored,
+          firstName: emp.firstName,
+          // ?? rather than ||: an admin's surname is legitimately "", and || is falsy on the
+          // empty string — it would keep the stale "Admin" forever, which is the bug.
+          lastName: emp.lastName ?? stored.lastName,
+          designation: emp.designation || stored.designation,
+          fullName: `${emp.firstName} ${emp.lastName || ""}`.trim(),
+        };
+        localStorage.setItem("user", JSON.stringify(next));
+        setProfile(next);
+      } catch {
+        // Non-fatal: the cached name keeps rendering, exactly as before.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const displayName = profile.firstName
+    ? `${profile.firstName} ${profile.lastName || ""}`.trim()
+    : "Admin User";
+  const displayRole = profile.designation || profile.role || "Administrator";
 
   const handleTabClick = (tab) => {
     if (setActiveTab) setActiveTab(tab);
@@ -92,12 +137,10 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
             <div className="text-center mb-4 pt-4">
               <img src={Logo} alt="VisionAi Logo" className="h-16 mx-auto mb-2 object-contain" />
               <h1 className="text-xl font-bold text-[#2C2C2A]">
-                {(JSON.parse(localStorage.getItem("user"))?.firstName)
-                  ? `${JSON.parse(localStorage.getItem("user")).firstName} ${JSON.parse(localStorage.getItem("user")).lastName || ""}`.trim()
-                  : "Admin User"}
+                {displayName}
               </h1>
               <p className="text-sm uppercase tracking-widest mt-1 text-[#888780]">
-                {JSON.parse(localStorage.getItem("user"))?.designation || JSON.parse(localStorage.getItem("user"))?.role || 'Administrator'}
+                {displayRole}
               </p>
             </div>
 
@@ -144,12 +187,10 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
             <div className="flex flex-col items-center text-center min-w-0 flex-1">
               <img src={Logo} alt="VisionAi Logo" className="h-11 mb-2 object-contain" />
               <h1 className="text-lg font-bold text-[#2C2C2A] truncate w-full text-center">
-                {(JSON.parse(localStorage.getItem("user"))?.firstName)
-                  ? `${JSON.parse(localStorage.getItem("user")).firstName} ${JSON.parse(localStorage.getItem("user")).lastName || ""}`.trim()
-                  : "Admin User"}
+                {displayName}
               </h1>
               <p className="text-[10px] uppercase tracking-[0.2em] mt-1 font-bold text-[#888780] truncate w-full text-center">
-                {JSON.parse(localStorage.getItem("user"))?.designation || JSON.parse(localStorage.getItem("user"))?.role || 'Administrator'}
+                {displayRole}
               </p>
             </div>
           )}

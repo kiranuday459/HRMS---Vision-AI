@@ -162,9 +162,9 @@ export default function ReportingManagers() {
       />
 
       {/* ================= MAIN CONTENT ================= */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0">
         {/* Single Professional Header */}
-        <header className="bg-white px-8 py-4 flex items-center justify-between shadow-sm z-10 border-b border-[#E3E8EF]">
+        <header className="sticky top-0 z-30 bg-white px-8 py-4 flex items-center justify-between shadow-sm border-b border-[#E3E8EF]">
           <div className="flex items-center gap-6">
             <div className="w-11 h-11 bg-[#F1EFE8] rounded-xl flex items-center justify-center border border-[#E3E8EF] shadow-sm overflow-hidden text-sm font-black text-[#2C2C2A]">
               {(JSON.parse(localStorage.getItem("user"))?.firstName?.[0]) || "A"}

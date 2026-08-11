@@ -77,8 +77,10 @@ export default function AuditLogsTab() {
     }, [logs, search]);
 
     return (
-        <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
+        // A flex column rather than space-y, so the card below can take the remaining height
+        // (flex-1/min-h-0) instead of growing with the log. The filter row keeps its own height.
+        <div className="flex flex-col gap-4 flex-1 min-h-0">
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
                 {/* Fixed w-64, matching the search inputs on the Assigned Members and Access
                     Management tabs. It used to be flex-1, which stretched it across the whole
                     row — far wider than the query it holds. */}
@@ -102,10 +104,18 @@ export default function AuditLogsTab() {
                 </button>
             </div>
 
-            <div className="bg-white border border-[#E3E8EF] rounded-xl overflow-hidden">
-                <div className="overflow-x-auto">
+            <div className="bg-white border border-[#E3E8EF] rounded-xl overflow-hidden flex-1 flex flex-col min-h-0">
+                {/* Bounded by the card (flex-1/min-h-0) so this element is the scroller for both
+                    axes. Unbounded it grew to fit every log line, which pushed its horizontal
+                    scrollbar below the fold — reachable only after scrolling to the very bottom.
+                    Same fix as the Assigned Members table. */}
+                <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse min-w-[820px]">
-                        <thead>
+                        {/* Sticky now that the container above is the scroller — the column
+                            names stay put while the log scrolls under them. bg-white on the
+                            thead because the row's own tint is 50% opaque: without an opaque
+                            layer beneath it, rows scroll visibly through the header. */}
+                        <thead className="sticky top-0 z-10 bg-white">
                             <tr className="bg-bg-slate/50 text-[10px] uppercase tracking-widest text-brand-text/40">
                                 <th className="px-5 py-3 font-black">Employee</th>
                                 <th className="px-5 py-3 font-black">Project</th>

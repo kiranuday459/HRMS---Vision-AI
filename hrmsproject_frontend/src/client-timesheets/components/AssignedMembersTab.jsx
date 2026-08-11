@@ -350,9 +350,13 @@ export default function AssignedMembersTab({ onReviewPending }) {
         "bg-white border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 py-2.5 text-xs font-bold text-brand-text outline-none transition-all";
 
     return (
-        <div className="flex flex-col gap-4">
+        // flex-1/min-h-0 so the card below is bounded by the panel's height rather than growing
+        // to fit every row. That is what keeps the table's own horizontal scrollbar on screen:
+        // an unbounded container puts it below the last row, reachable only after scrolling the
+        // whole list down.
+        <div className="flex flex-col gap-4 flex-1 min-h-0">
             {/* Filter row */}
-            <div className="flex flex-wrap items-center justify-end gap-3 w-full">
+            <div className="flex flex-wrap items-center justify-end gap-3 w-full shrink-0">
                 <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
@@ -377,7 +381,7 @@ export default function AssignedMembersTab({ onReviewPending }) {
 
             {/* Table */}
             <div className="bg-white rounded-[24px] shadow-2xl shadow-brand-blue/5 border border-brand-blue/5 overflow-hidden flex-1 flex flex-col min-h-0">
-                <div className="overflow-x-auto overflow-y-auto custom-scrollbar">
+                <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
                     {/* px-3, not the px-6 this table used with seven columns: ten columns at 48px
                         of horizontal padding each would not fit a standard window, and the point
                         of merging the two tabs is one table you can read without dragging it

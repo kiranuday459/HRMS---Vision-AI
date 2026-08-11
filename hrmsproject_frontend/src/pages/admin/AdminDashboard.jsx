@@ -445,8 +445,8 @@ export default function AdminDashboard() {
       <div className="flex h-screen w-screen bg-bg-slate flex-col md:flex-row overflow-hidden relative">
         <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
 
-        <main className="flex-1 flex flex-col h-full overflow-hidden">
-          <header className="bg-white py-4 px-4 md:px-6 flex flex-wrap items-center justify-between shadow-sm z-10 border-b border-[#E3E8EF] w-full">
+        <main className="flex-1 flex flex-col min-w-0">
+          <header className="sticky top-0 z-30 bg-white py-4 px-4 md:px-6 flex flex-wrap items-center justify-between shadow-sm border-b border-[#E3E8EF] w-full">
             {activeTab === "leave-requests" ? (
                 <div className="flex items-center md:gap-16 gap-6">
                   <div className="hidden sm:block">
