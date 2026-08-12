@@ -206,8 +206,8 @@ export default function ReportingManagers() {
                       <p className="text-[10px] font-bold uppercase tracking-widest">Fetching Managers...</p>
                     </div>
                   ) : managers.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full space-y-2 opacity-20 py-20 italic">
-                      <p className="text-sm font-bold">No managers found</p>
+                    <div className="flex flex-col items-center justify-center h-full space-y-2 py-20 italic">
+                      <p className="text-sm font-bold text-brand-text/40 uppercase tracking-widest">No records found</p>
                     </div>
                   ) : (
                     managers.map((m) => {

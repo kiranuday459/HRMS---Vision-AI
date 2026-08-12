@@ -705,12 +705,8 @@ export default function ReportingManagerTeam() {
                                                 <div className="w-12 h-12 border-4 border-brand-blue border-t-transparent rounded-full animate-spin" />
                                                 <p className="text-brand-text/40 font-bold uppercase tracking-widest text-[10px]">Filtering Team Evidence...</p>
                                             </div>
-                                        ) : groupedWeeks.length === 0 ? (
-                                            <div className="py-20 text-center bg-white rounded-[32px] border-2 border-dashed border-brand-blue/5">
-                                                <p className="text-brand-text/20 font-bold uppercase tracking-widest text-xs italic">No team timesheet records found.</p>
-                                            </div>
-                                        ) : (
-                                            groupedWeeks.map(week => {
+                                        ) : (() => {
+                                            const filteredWeeks = groupedWeeks.map(week => {
                                                 const filteredEmployees = week.employeeList.filter(emp => {
                                                     const matchesSearch = !tsFilter || emp.employeeName.toLowerCase().includes(tsFilter.toLowerCase()) || emp.employeeId.toString().includes(tsFilter);
                                                     const matchesStatus = tsStatusFilter === "All" ||
@@ -725,7 +721,17 @@ export default function ReportingManagerTeam() {
                                                     return matchesSearch && matchesStatus;
                                                 });
                                                 return { ...week, filteredEmployees };
-                                            }).filter(week => week.filteredEmployees.length > 0).map((week, wIdx) => (
+                                            }).filter(week => week.filteredEmployees.length > 0);
+
+                                            if (filteredWeeks.length === 0) {
+                                                return (
+                                                    <div className="py-20 text-center bg-white rounded-[32px] border-2 border-dashed border-brand-blue/5">
+                                                        <p className="text-brand-text/40 font-bold uppercase tracking-widest text-xs italic">No records found</p>
+                                                    </div>
+                                                );
+                                            }
+
+                                            return filteredWeeks.map((week, wIdx) => (
                                                 <div key={wIdx} className="bg-white rounded-[32px] shadow-xl border border-brand-blue/5 overflow-hidden">
                                                     <div className="bg-white p-3 px-6 flex items-center justify-between border-b border-brand-blue/5">
                                                         <div>
@@ -770,7 +776,7 @@ export default function ReportingManagerTeam() {
                                                     </div>
                                                 </div>
                                             ))
-                                        )}
+                                        })()}
                                     </div>
                                 </>
                             ) : (
@@ -828,52 +834,60 @@ export default function ReportingManagerTeam() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-brand-blue/5">
-                                            {leavesLoading ? (<tr><td colSpan="6" className="p-20 text-center animate-pulse">Loading Team Leaves...</td></tr>) : leavesError ? (<tr><td colSpan="6" className="p-20 text-center text-red-500">{leavesError}</td></tr>) : leaves.length === 0 ? (<tr><td colSpan="6" className="p-20 text-center italic">No leave requests found.</td></tr>) : (
-                                                leaves.filter(lv => (leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase()) && (!leavesFilter || lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase()))).map((leave) => {
-                                                    const isDisabled = leave.employeeStatus === 'INACTIVE' || leave.employeeStatus === 'DISABLED';
-                                                    return (
-                                                    <tr key={leave.id} className={`transition-colors font-medium ${isDisabled ? 'bg-[#F1EFE8]' : 'hover:bg-bg-slate/40'}`}>
-                                                        <td className="p-5 px-8 text-xs font-black text-brand-text/40">#{leave.employeeId}</td>
-                                                        <td className={`p-5 px-6 font-bold uppercase text-xs ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>
-                                                            <div className="flex items-center gap-2">
-                                                                <span>{leave.employeeName}</span>
-                                                                {isDisabled && (
-                                                                    <span className="inline-flex px-2 py-0.5 bg-[#D3D1C7] text-[#5F5E5A] text-[10px] font-medium rounded-[4px] normal-case tracking-normal">DISABLED ACCOUNT</span>
-                                                                )}
-                                                            </div>
-                                                            {isHrDisabledReroute(leave) && (
-                                                                <div className="mt-1.5 normal-case tracking-normal font-normal">
-                                                                    <HrRerouteBanner variant="row" />
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                        <td className="p-5 px-6 text-brand-text/70 text-xs font-bold">{leave.type || leave.leaveType}</td>
-                                                        <td className="p-5 px-6 text-brand-text/60 text-xs text-center">{leave.startDate}{leave.endDate && leave.endDate !== leave.startDate ? ` → ${leave.endDate}` : ''}</td>
-                                                        <td className="p-5 px-6 text-center"><span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all inline-block whitespace-nowrap ${leave.status === 'PENDING' ? 'bg-brand-yellow/10 text-brand-yellow-dark' : leave.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{getLeaveStatusLabel(leave, 'REPORTING_MANAGER')}</span></td>
-                                                        <td className="p-5 px-8 text-right">
-                                                            <div className="flex justify-end gap-2">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setSelectedLeave(leave);
-                                                                        setIsDetailsModalOpen(true);
-                                                                    }}
-                                                                    className="p-2 bg-brand-blue/5 text-brand-text rounded-lg hover:bg-brand-blue-dark hover:text-white transition-all shadow-sm"
-                                                                    title="View Details"
-                                                                >
-                                                                    <Eye size={14} />
-                                                                </button>
-                                                                {leave.status === 'PENDING' && !isDisabled && (
-                                                                    <LeaveDecisionButtons
-                                                                        onApprove={() => handleApproveLeave(leave.id)}
-                                                                        onReject={() => handleRejectLeave(leave.id)}
-                                                                    />
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                    );
-                                                })
-                                            )}
+                                            {leavesLoading ? (<tr><td colSpan="6" className="p-20 text-center animate-pulse">Loading Team Leaves...</td></tr>) : leavesError ? (<tr><td colSpan="6" className="p-20 text-center text-red-500">{leavesError}</td></tr>) : (() => {
+                                                 const filteredLeaves = leaves.filter(lv => (leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase()) && (!leavesFilter || lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase())));
+                                                 if (filteredLeaves.length === 0) {
+                                                     return (
+                                                         <tr>
+                                                             <td colSpan="6" className="p-20 text-center text-brand-text/40 font-bold uppercase tracking-widest text-xs italic">No records found</td>
+                                                         </tr>
+                                                     );
+                                                 }
+                                                 return filteredLeaves.map((leave) => {
+                                                     const isDisabled = leave.employeeStatus === 'INACTIVE' || leave.employeeStatus === 'DISABLED';
+                                                     return (
+                                                     <tr key={leave.id} className={`transition-colors font-medium ${isDisabled ? 'bg-[#F1EFE8]' : 'hover:bg-bg-slate/40'}`}>
+                                                         <td className="p-5 px-8 text-xs font-black text-brand-text/40">#{leave.employeeId}</td>
+                                                         <td className={`p-5 px-6 font-bold uppercase text-xs ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>
+                                                             <div className="flex items-center gap-2">
+                                                                 <span>{leave.employeeName}</span>
+                                                                 {isDisabled && (
+                                                                     <span className="inline-flex px-2 py-0.5 bg-[#D3D1C7] text-[#5F5E5A] text-[10px] font-medium rounded-[4px] normal-case tracking-normal">DISABLED ACCOUNT</span>
+                                                                 )}
+                                                             </div>
+                                                             {isHrDisabledReroute(leave) && (
+                                                                 <div className="mt-1.5 normal-case tracking-normal font-normal">
+                                                                     <HrRerouteBanner variant="row" />
+                                                                 </div>
+                                                             )}
+                                                         </td>
+                                                         <td className="p-5 px-6 text-brand-text/70 text-xs font-bold">{leave.type || leave.leaveType}</td>
+                                                         <td className="p-5 px-6 text-brand-text/60 text-xs text-center">{leave.startDate}{leave.endDate && leave.endDate !== leave.startDate ? ` → ${leave.endDate}` : ''}</td>
+                                                         <td className="p-5 px-6 text-center"><span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all inline-block whitespace-nowrap ${leave.status === 'PENDING' ? 'bg-brand-yellow/10 text-brand-yellow-dark' : leave.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{getLeaveStatusLabel(leave, 'REPORTING_MANAGER')}</span></td>
+                                                         <td className="p-5 px-8 text-right">
+                                                             <div className="flex justify-end gap-2">
+                                                                 <button
+                                                                     onClick={() => {
+                                                                         setSelectedLeave(leave);
+                                                                         setIsDetailsModalOpen(true);
+                                                                     }}
+                                                                     className="p-2 bg-brand-blue/5 text-brand-text rounded-lg hover:bg-brand-blue-dark hover:text-white transition-all shadow-sm"
+                                                                     title="View Details"
+                                                                 >
+                                                                     <Eye size={14} />
+                                                                 </button>
+                                                                 {leave.status === 'PENDING' && !isDisabled && (
+                                                                     <LeaveDecisionButtons
+                                                                         onApprove={() => handleApproveLeave(leave.id)}
+                                                                         onReject={() => handleRejectLeave(leave.id)}
+                                                                     />
+                                                                 )}
+                                                             </div>
+                                                         </td>
+                                                     </tr>
+                                                     );
+                                                 });
+                                             })()}
                                         </tbody>
                                     </table>
                                 </div>
