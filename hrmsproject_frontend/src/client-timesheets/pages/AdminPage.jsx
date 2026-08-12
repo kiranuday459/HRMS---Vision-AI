@@ -390,15 +390,26 @@ export default function ClientTimesheets() {
                                                     className="shrink-0 bg-white rounded-xl border border-[#E3E8EF] border-l-4 shadow-sm flex flex-col lg:flex-row lg:items-stretch overflow-hidden"
                                                     style={{ borderLeftColor: meta.borderHex }}
                                                 >
-                                                    {/* Left: employee, project, week range, status */}
-                                                    <div className="flex-1 px-5 py-4 flex flex-col justify-center min-w-[240px] gap-1.5">
+                                                    {/* Left: employee, project, week range, status.
+                                                        min-w-0 so this flex item may shrink to its
+                                                        container: a flex child's automatic minimum is
+                                                        its content width, so without it a long unbroken
+                                                        name or reason widens the column instead of
+                                                        wrapping inside it, and the text runs out past
+                                                        the card. min-w-[240px] alone did not do this —
+                                                        it set a floor, not permission to shrink. */}
+                                                    <div className="flex-1 min-w-0 lg:min-w-[240px] px-5 py-4 flex flex-col justify-center gap-1.5">
                                                         <div className="flex items-baseline gap-2 flex-wrap">
-                                                            <span className="text-[14px] font-black text-brand-text tracking-tight">{block.employeeName}</span>
+                                                            {/* Names and project names are free text and can
+                                                                arrive as one unbroken run of characters —
+                                                                break-words lets those break mid-token rather
+                                                                than pushing the card open. */}
+                                                            <span className="text-[14px] font-black text-brand-text tracking-tight break-words">{block.employeeName}</span>
                                                             {/* Kept in the queue so the work stays reviewable, but flagged —
                                                                 a disabled employee can still have timesheets awaiting a decision. */}
                                                             {block.employeeActive === false && <DisabledBadge />}
                                                             {block.projectName && (
-                                                                <span className="text-[13px] font-normal text-brand-text/40">· {block.projectName}</span>
+                                                                <span className="text-[13px] font-normal text-brand-text/40 break-words">· {block.projectName}</span>
                                                             )}
                                                         </div>
                                                         <button
@@ -409,9 +420,16 @@ export default function ClientTimesheets() {
                                                         </button>
                                                         <div>{statusBadge(block.status)}</div>
                                                         {/* Keeps a visible record of why a week was rejected,
-                                                            not just that it was. */}
+                                                            not just that it was.
+
+                                                            The reason is free text up to 256 characters and is
+                                                            frequently one unbroken run with no spaces to break
+                                                            at. break-words handles that; overflow-wrap:anywhere
+                                                            is the stronger form, so a token longer than the
+                                                            column still breaks instead of overflowing the card
+                                                            and running under the hours columns. */}
                                                         {block.status === "REJECTED" && block.rejectionReason && (
-                                                            <p className="text-[12px] text-[#b91c1c] leading-snug">
+                                                            <p className="text-[12px] text-[#b91c1c] leading-snug break-words [overflow-wrap:anywhere]">
                                                                 <span className="font-semibold">Reason:</span> {block.rejectionReason}
                                                             </p>
                                                         )}

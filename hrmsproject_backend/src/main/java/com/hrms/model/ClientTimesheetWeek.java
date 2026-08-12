@@ -53,7 +53,7 @@ public class ClientTimesheetWeek {
 
     // 256 to match the agreed Rejection Reason limit — see
     // migration_widen_client_timesheet_text_columns.sql.
-    @Column(length = 256)
+    @Column(length = 512)
     private String rejectionReason;
 
     @ManyToOne

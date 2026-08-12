@@ -30,15 +30,16 @@ public class ClientTimesheet {
     private String clientName;
     private String projectName;
 
-    // Legacy admin-facing task field; the week entry mirrors taskDescription into it.
-    // Length is stated explicitly because it must stay in step with task_description —
-    // a value that fits one and not the other fails the insert on this column first.
-    // 256, not 255: that off-by-one is exactly the failure this comment warns about. A
-    // description at the agreed 256-character limit passed the UI, passed the service-layer
-    // check and fit task_description, then overflowed this mirror column and came back as
-    // "One or more entries are too long or invalid to save" on a sheet with nothing wrong
-    // with it.
-    @Column(length = 256)
+    // Legacy admin-facing task field; the week entry mirrors taskDescription into it, so the
+    // two must stay the same width — a value that fits one and not the other fails the insert
+    // on whichever is narrower.
+    //
+    // 512 for a 256-character field, deliberately. Sizing the column to exactly the limit is
+    // what broke this twice: with column == limit there is no margin, and a description at the
+    // documented 256 passed the UI counter and the service-layer check and still came back as
+    // "too long to save". The service layer is the contract; the column is storage and should
+    // never be the thing that rejects a valid value. See migration_task_text_headroom.sql.
+    @Column(length = 512)
     private String task;
 
     private Double hours;
@@ -66,10 +67,10 @@ public class ClientTimesheet {
     @Column(length = 255)
     private String taskId;
 
-    // 256 to match the agreed field limit — see migration_widen_client_timesheet_text_columns.sql.
-    // The column must be at least as wide as the limit, or a value at the maximum would pass
-    // validation and then fail at MySQL.
-    @Column(length = 256)
+    // Comfortably wider than the agreed 256-character limit, not equal to it — see
+    // migration_task_text_headroom.sql. "At least as wide as the limit" was the old rule and it
+    // was not enough: at exactly 256 a maximum-length description still failed the insert.
+    @Column(length = 512)
     private String taskDescription;
 
     private String onsiteOffshore;
@@ -88,7 +89,7 @@ public class ClientTimesheet {
     @Enumerated(EnumType.STRING)
     private ClientTimesheetStatus status = ClientTimesheetStatus.PENDING;
 
-    @Column(length = 256)
+    @Column(length = 512)
     private String rejectionReason;
 
     @ManyToOne
