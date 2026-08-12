@@ -693,7 +693,71 @@ export default function AdminDashboard() {
                       <tbody className="divide-y divide-brand-blue/5">
                         {loading ? (
                           <tr><td colSpan={6} className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Syncing Personnel Records...</td></tr>
-                        ) : leaveRequests.filter(lv => {
+                        ) : (() => {
+                          const filtered = leaveRequests.filter(lv => {
+                            const nameMatch = !leaveSearch || lv.employeeName.toLowerCase().includes(leaveSearch.toLowerCase());
+                            const empRole = employeeRoleMap[lv.employeeId] || "";
+                            const roleMatch = leaveRoleFilter === "ALL"
+                              ? true
+                              : leaveRoleFilter === "HR"
+                                ? empRole === "HR"
+                                : leaveRoleFilter === "MANAGERS"
+                                  ? empRole === "REPORTING_MANAGER"
+                                  : empRole !== "HR" && empRole !== "REPORTING_MANAGER";
+                            return nameMatch && roleMatch;
+                          });
+                          if (filtered.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={6} className="py-20 text-center italic text-brand-text/40 font-bold uppercase tracking-widest text-xs">
+                                  No records found
+                                </td>
+                              </tr>
+                            );
+                          }
+                          return filtered.map((leave) => (
+                            <tr key={leave.id} className="group hover:bg-bg-slate/40 transition-all duration-300">
+                              <td className="py-3 px-4"><span className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest">#{leave.id}</span></td>
+                              <td className="py-3 px-6"><div className="flex flex-col"><span className="text-sm font-black text-brand-text tracking-tight uppercase">{leave.employeeName}</span></div></td>
+                              <td className="py-3 px-6"><span className="px-3 py-1 bg-brand-blue/5 text-brand-text text-[8px] font-black uppercase tracking-widest rounded-lg border border-brand-blue/10">{leave.leaveType}</span></td>
+                              <td className="py-3 px-6 text-center">
+                                <div className="flex flex-col items-center">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-black text-brand-text">{formatDate(leave.startDate)}</span>
+                                    <span className="text-[8px] font-black text-brand-text/10 font-bold">to</span>
+                                    <span className="text-[10px] font-black text-brand-text">{formatDate(leave.endDate)}</span>
+                                  </div>
+                                  <span className="mt-1 px-2 py-0.5 bg-brand-yellow text-brand-text text-[8px] font-black rounded-md">{leave.daysCount} Days</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-6 text-center">
+                                <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${leave.status === 'PENDING' ? 'bg-brand-yellow/10 text-brand-yellow-dark border-brand-yellow/20' : leave.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                                  {leave.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-8 text-right">
+                                <div className="flex justify-end gap-2">
+                                  <button onClick={() => { setSelectedLeave(leave); setIsDetailsModalOpen(true); }} className="p-2 bg-brand-blue/5 text-brand-text rounded-lg hover:bg-brand-blue-dark hover:text-white transition-all" title="View Details" aria-label="View Details"><Eye size={16} /></button>
+                                  {leave.status === 'PENDING' && (
+                                    <LeaveDecisionButtons
+                                      onApprove={() => handleApproveClick(leave.id)}
+                                      onReject={() => handleRejectClick(leave.id)}
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+
+                    {/* Mobile Card View */}
+                    <div className="lg:hidden flex flex-col gap-4 p-4">
+                      {loading ? (
+                        <div className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Syncing Personnel Records...</div>
+                      ) : (() => {
+                        const filtered = leaveRequests.filter(lv => {
                           const nameMatch = !leaveSearch || lv.employeeName.toLowerCase().includes(leaveSearch.toLowerCase());
                           const empRole = employeeRoleMap[lv.employeeId] || "";
                           const roleMatch = leaveRoleFilter === "ALL"
@@ -704,58 +768,15 @@ export default function AdminDashboard() {
                                 ? empRole === "REPORTING_MANAGER"
                                 : empRole !== "HR" && empRole !== "REPORTING_MANAGER";
                           return nameMatch && roleMatch;
-                        }).map((leave) => (
-                          <tr key={leave.id} className="group hover:bg-bg-slate/40 transition-all duration-300">
-                            <td className="py-3 px-4"><span className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest">#{leave.id}</span></td>
-                            <td className="py-3 px-6"><div className="flex flex-col"><span className="text-sm font-black text-brand-text tracking-tight uppercase">{leave.employeeName}</span></div></td>
-                            <td className="py-3 px-6"><span className="px-3 py-1 bg-brand-blue/5 text-brand-text text-[8px] font-black uppercase tracking-widest rounded-lg border border-brand-blue/10">{leave.leaveType}</span></td>
-                            <td className="py-3 px-6 text-center">
-                              <div className="flex flex-col items-center">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-black text-brand-text">{formatDate(leave.startDate)}</span>
-                                  <span className="text-[8px] font-black text-brand-text/10 font-bold">to</span>
-                                  <span className="text-[10px] font-black text-brand-text">{formatDate(leave.endDate)}</span>
-                                </div>
-                                <span className="mt-1 px-2 py-0.5 bg-brand-yellow text-brand-text text-[8px] font-black rounded-md">{leave.daysCount} Days</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-6 text-center">
-                              <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${leave.status === 'PENDING' ? 'bg-brand-yellow/10 text-brand-yellow-dark border-brand-yellow/20' : leave.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-                                {leave.status}
-                              </span>
-                            </td>
-                            <td className="py-3 px-8 text-right">
-                              <div className="flex justify-end gap-2">
-                                <button onClick={() => { setSelectedLeave(leave); setIsDetailsModalOpen(true); }} className="p-2 bg-brand-blue/5 text-brand-text rounded-lg hover:bg-brand-blue-dark hover:text-white transition-all" title="View Details" aria-label="View Details"><Eye size={16} /></button>
-                                {leave.status === 'PENDING' && (
-                                  <LeaveDecisionButtons
-                                    onApprove={() => handleApproveClick(leave.id)}
-                                    onReject={() => handleRejectClick(leave.id)}
-                                  />
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    {/* Mobile Card View */}
-                    <div className="lg:hidden flex flex-col gap-4 p-4">
-                      {loading ? (
-                        <div className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Syncing Personnel Records...</div>
-                      ) : leaveRequests.filter(lv => {
-                        const nameMatch = !leaveSearch || lv.employeeName.toLowerCase().includes(leaveSearch.toLowerCase());
-                        const empRole = employeeRoleMap[lv.employeeId] || "";
-                        const roleMatch = leaveRoleFilter === "ALL"
-                          ? true
-                          : leaveRoleFilter === "HR"
-                            ? empRole === "HR"
-                            : leaveRoleFilter === "MANAGERS"
-                              ? empRole === "REPORTING_MANAGER"
-                              : empRole !== "HR" && empRole !== "REPORTING_MANAGER";
-                        return nameMatch && roleMatch;
-                      }).map((leave) => (
+                        });
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="py-20 text-center italic text-brand-text/40 font-bold uppercase tracking-widest text-xs">
+                              No records found
+                            </div>
+                          );
+                        }
+                        return filtered.map((leave) => (
                         <div key={leave.id} className="bg-bg-slate/40 rounded-2xl p-4 border border-brand-blue/5 space-y-4">
                           <div className="flex justify-between items-start">
                             <div className="flex flex-col">
@@ -791,7 +812,8 @@ export default function AdminDashboard() {
                             )}
                           </div>
                         </div>
-                      ))}
+                      ))
+                    })()}
                     </div>
                   </div>
                 </div>
