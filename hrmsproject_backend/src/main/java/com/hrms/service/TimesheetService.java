@@ -155,6 +155,10 @@ public class TimesheetService {
             timesheet.setTotalHours(Math.max(0, total));
         }
 
+        if (timesheet.getTotalHours() != null && (timesheet.getTotalHours() < 0.0 || timesheet.getTotalHours() > 24.0)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Working hours cannot exceed 24 hours per day.");
+        }
+
         Timesheet saved = timesheetRepository.save(timesheet);
 
         // Notify RM and HR about new timesheet
@@ -206,6 +210,10 @@ public class TimesheetService {
             Duration duration = Duration.between(dto.getStartTime(), dto.getEndTime());
             double total = duration.toMinutes() / 60.0;
             timesheet.setTotalHours(Math.max(0, total));
+        }
+
+        if (timesheet.getTotalHours() != null && (timesheet.getTotalHours() < 0.0 || timesheet.getTotalHours() > 24.0)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Working hours cannot exceed 24 hours per day.");
         }
 
         Timesheet updated = timesheetRepository.save(timesheet);
@@ -443,6 +451,21 @@ public class TimesheetService {
                                 "Timesheet entries cannot be created for dates before the employee's joining date.");
                     }
                     validateDateAgainstApprovedLeaves(employeeId, dto.getDate(), dto.getCategory());
+                }
+                if (dto.getTotalHours() != null && (dto.getTotalHours() < 0.0 || dto.getTotalHours() > 24.0)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Working hours cannot exceed 24 hours per day.");
+                }
+            }
+
+            // Server-side guard: check total daily hours (max 24 per day)
+            Map<LocalDate, Double> dailyTotalHours = entries.stream()
+                    .filter(e -> e.getDate() != null && e.getTotalHours() != null)
+                    .collect(Collectors.groupingBy(TimesheetDTO::getDate, Collectors.summingDouble(TimesheetDTO::getTotalHours)));
+
+            for (Map.Entry<LocalDate, Double> entry : dailyTotalHours.entrySet()) {
+                double totalForDay = entry.getValue();
+                if (totalForDay < 0.0 || totalForDay > 24.0) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Working hours cannot exceed 24 hours per day.");
                 }
             }
 
