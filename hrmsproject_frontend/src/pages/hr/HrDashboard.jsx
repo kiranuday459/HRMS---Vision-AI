@@ -385,7 +385,7 @@ const weekStatus = getWeekStatus(week.entries, 'HR');
 									<div className="h-px bg-brand-blue/5 mx-2 my-2"></div>
 									<button
 										onClick={() => {
-											setActiveTab("profile");
+											navigate("/hr/profile");
 											setIsProfileDropdownOpen(false);
 										}}
 										className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-brand-text hover:bg-bg-slate transition-colors"
@@ -464,7 +464,7 @@ const weekStatus = getWeekStatus(week.entries, 'HR');
 									<div className="h-px bg-brand-blue/5 mx-2 my-2"></div>
 									<button
 										onClick={() => {
-											setActiveTab("profile");
+											navigate("/hr/profile");
 											setIsProfileDropdownOpen(false);
 										}}
 										className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-brand-text hover:bg-bg-slate transition-colors"
