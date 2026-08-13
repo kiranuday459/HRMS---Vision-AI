@@ -322,9 +322,6 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
 
                                         return (
                                             <div key={monthIdx} className="flex flex-col gap-6">
-                                                <h3 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-3 uppercase text-xs tracking-[0.2em] opacity-40">
-                                                    {months[monthIdx]} {selectedYear}
-                                                </h3>
                                                 <div className="grid grid-cols-7 gap-2">
                                                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                                                         <div key={day} className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-center py-2">{day}</div>
@@ -344,12 +341,12 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                                 </div>
 
                                 <div className="border border-slate-100 rounded-[32px] overflow-hidden bg-slate-50/30">
-                                    <table className="w-full text-left border-collapse">
+                                    <table className="w-full text-left border-collapse table-fixed">
                                         <thead>
                                             <tr className="border-b border-slate-100 bg-white">
-                                                <th className="p-6 pl-10 text-[10px] font-black text-slate-400 uppercase tracking-widest">Holiday</th>
-                                                <th className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Day</th>
-                                                <th className="p-6 pr-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Date</th>
+                                                <th className="w-[52%] p-6 pl-10 text-[10px] font-black text-slate-400 uppercase tracking-widest">Holiday</th>
+                                                <th className="w-[24%] p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Day</th>
+                                                <th className="w-[24%] p-6 pr-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Date</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
@@ -359,18 +356,26 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                                                 <tr><td colSpan="3" className="p-20 text-center text-xs font-black text-slate-300 uppercase tracking-widest">No holidays scheduled for this period</td></tr>
                                             ) : (
                                                 [...holidays].sort((a, b) => a.holidayDate.localeCompare(b.holidayDate)).map(h => (
-                                                    <tr key={h.id} onClick={() => handleDateClick(h.holidayDate)} className="group hover:bg-white transition-all cursor-pointer">
-                                                        <td className="p-6 pl-10">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                                                                <span className="text-sm font-bold text-slate-700 tracking-tight group-hover:text-indigo-500 transition-colors">{h.holidayName}</span>
+                                                    <tr key={h.id} onClick={() => handleDateClick(h.holidayDate)} className="group hover:bg-white transition-all cursor-pointer min-h-[72px]">
+                                                        <td className="p-6 pl-10 align-middle">
+                                                            <div className="flex items-center gap-3 min-w-0">
+                                                                <div className="w-3 shrink-0 flex items-center justify-center">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                                                                </div>
+                                                                <span className="text-sm font-bold text-slate-700 tracking-tight group-hover:text-indigo-500 transition-colors break-words min-w-0 leading-snug">
+                                                                    {h.holidayName}
+                                                                </span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-6">
-                                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{new Date(h.holidayDate).toLocaleDateString('en-GB', { weekday: 'long' })}</span>
+                                                        <td className="p-6 align-middle">
+                                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">
+                                                                {new Date(h.holidayDate).toLocaleDateString('en-GB', { weekday: 'long' })}
+                                                            </span>
                                                         </td>
-                                                        <td className="p-6 pr-10 text-right">
-                                                            <span className="text-sm font-black text-slate-800 tracking-tighter">{new Date(h.holidayDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</span>
+                                                        <td className="p-6 pr-10 text-right align-middle">
+                                                            <span className="text-sm font-black text-slate-800 tracking-tighter block whitespace-nowrap">
+                                                                {new Date(h.holidayDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
+                                                            </span>
                                                         </td>
                                                     </tr>
                                                 ))

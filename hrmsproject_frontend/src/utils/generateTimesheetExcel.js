@@ -99,6 +99,9 @@ export async function generateTimesheetExcel({
             const entriesByDate = {};
             dateFilteredEntries.forEach((e) => {
                 if (e.employeeId !== empId && String(e.employeeId) !== String(empId)) return;
+                // Strict status check: only APPROVED entries are treated as finalized timesheet data
+                const statusUpper = (e.status || "").toUpperCase();
+                if (statusUpper !== "APPROVED") return;
                 const key = e.date ? String(e.date).split("T")[0] : "";
                 if (!key) return;
                 if (!entriesByDate[key]) entriesByDate[key] = [];
