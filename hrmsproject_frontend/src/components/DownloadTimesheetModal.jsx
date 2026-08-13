@@ -151,7 +151,7 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
             // Fetch a broad set of data using the working dashboard pattern to avoid 500 errors
             const year = new Date(fromDate).getFullYear();
             const [res, leavesRes, holidaysRes] = await Promise.all([
-                api(`/api/timesheets?size=10000`),
+                api(`/api/timesheets?status=APPROVED&size=10000`),
                 api(`/api/leaves`),
                 api(`/api/holidays/year/${year}`)
             ]);
@@ -192,12 +192,15 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                 const d = parseLocalDate(entry.date);
                 if (startLimit && d < startLimit) return false;
                 if (endLimit && d > endLimit) return false;
+                // Strict status check: only APPROVED timesheets can be exported as finalized work hours
+                const statusUpper = (entry.status || "").toUpperCase();
+                if (statusUpper !== "APPROVED") return false;
                 return true;
             });
 
-            // Empty range is allowed — an empty/template timesheet is still generated.
+            // Empty range or unapproved range — an empty/template timesheet is still generated.
             const hasData = dateFilteredEntries.some((e) => selectedIds.includes(e.employeeId));
-            setInfo(hasData ? "" : "No timesheet submissions found for this period. An empty timesheet will be downloaded.");
+            setInfo(hasData ? "" : "No approved timesheet submissions found for this period. An empty timesheet template will be downloaded.");
 
             // Generate a continuous list of dates between fromDate and toDate in LOCAL time
             const dateSequence = [];

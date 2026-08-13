@@ -45,6 +45,18 @@ public interface TimesheetRepository extends JpaRepository<Timesheet, Long> {
                         @Param("toDate") LocalDate toDate,
                         @Param("status") TimesheetStatus status);
 
+        @Query("SELECT DISTINCT t FROM Timesheet t JOIN FETCH t.employee e LEFT JOIN FETCH e.user WHERE " +
+                        "(:employeeId IS NULL OR t.employee.id = :employeeId) AND " +
+                        "(:excludeUserId IS NULL OR t.employee.user.id <> :excludeUserId) AND " +
+                        "(:fromDate IS NULL OR t.date >= :fromDate) AND " +
+                        "(:toDate IS NULL OR t.date <= :toDate) AND " +
+                        "(t.status IN :statuses)")
+        List<Timesheet> findWithFiltersAndStatusIn(@Param("employeeId") Long employeeId,
+                        @Param("excludeUserId") Long excludeUserId,
+                        @Param("fromDate") LocalDate fromDate,
+                        @Param("toDate") LocalDate toDate,
+                        @Param("statuses") java.util.Collection<TimesheetStatus> statuses);
+
         @Query("SELECT t FROM Timesheet t JOIN FETCH t.employee e LEFT JOIN FETCH e.user WHERE t.id = :id")
         Optional<Timesheet> findByIdWithEmployeeAndUser(@Param("id") Long id);
 
