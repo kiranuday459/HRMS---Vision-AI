@@ -344,7 +344,7 @@ export default function HrManagerLeaves() {
                         <div className="bg-white rounded-[20px] shadow-xl overflow-hidden border border-brand-blue/5">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-separate border-spacing-0">
-                                    <thead className="bg-bg-slate/50">
+                                    <thead className="bg-bg-slate/50 sticky top-0 z-10">
                                         <tr className="text-brand-text/40 font-black uppercase tracking-[0.15em] text-[11px]">
                                             <th className="p-5 px-8 border-b border-brand-blue/5">Emp ID</th>
                                             <th className="p-5 px-6 border-b border-brand-blue/5">Name</th>

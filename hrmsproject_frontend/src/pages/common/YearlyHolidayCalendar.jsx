@@ -134,8 +134,9 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
     const getFirstDayOfMonth = (y, m) => new Date(y, m, 1).getDay();
 
     const todayStr = new Date().toISOString().split('T')[0];
+    const todaysHoliday = holidays.find(h => h.holidayDate === todayStr);
     const upcomingHoliday = [...holidays]
-        .filter(h => h.holidayDate >= todayStr)
+        .filter(h => h.holidayDate > todayStr)
         .sort((a, b) => a.holidayDate.localeCompare(b.holidayDate))[0];
 
     return createPortal(
@@ -169,10 +170,23 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                             <div className="bg-white/60 p-6 rounded-[24px] border border-white/80 shadow-sm">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Today</p>
                                 <p className="text-lg font-black text-slate-800 tracking-tight">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                                <p className="text-xs font-bold text-indigo-500 mt-1 uppercase tracking-widest">Normal Working Day</p>
+                                <p className="text-xs font-bold text-indigo-500 mt-1 uppercase tracking-widest">
+                                    {todaysHoliday ? todaysHoliday.holidayName : "Normal Working Day"}
+                                </p>
                             </div>
 
-                            {upcomingHoliday && (
+                            {todaysHoliday ? (
+                                <div className="bg-slate-800 p-6 rounded-[24px] shadow-lg shadow-slate-200">
+                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                                        Today's Holiday
+                                    </p>
+                                    <p className="text-lg font-black text-white tracking-tight">{todaysHoliday.holidayName}</p>
+                                    <p className="text-xs font-bold text-white/60 mt-2 uppercase tracking-widest">
+                                        {new Date(todaysHoliday.holidayDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
+                                    </p>
+                                </div>
+                            ) : upcomingHoliday && (
                                 <div className="bg-slate-800 p-6 rounded-[24px] shadow-lg shadow-slate-200">
                                     <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
                                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
