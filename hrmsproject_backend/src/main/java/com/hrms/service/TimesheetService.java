@@ -67,10 +67,31 @@ public class TimesheetService {
 
     public List<TimesheetDTO> getAllTimesheets(Long employeeId, Long excludeUserId, LocalDate fromDate, LocalDate toDate,
             String status, Integer page, Integer size) {
-        TimesheetStatus statusEnum = status != null ? TimesheetStatus.valueOf(status.toUpperCase()) : null;
+        TimesheetStatus statusEnum = null;
+        boolean isPendingGroup = false;
+
+        if (status != null && !status.isBlank()) {
+            String s = status.trim().toUpperCase();
+            if ("PENDING".equals(s) || "PENDING_APPROVAL".equals(s)) {
+                isPendingGroup = true;
+            } else {
+                try {
+                    statusEnum = TimesheetStatus.valueOf(s);
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+        }
 
         List<Timesheet> timesheets;
-        if (employeeId != null || excludeUserId != null || fromDate != null || toDate != null || statusEnum != null) {
+        if (isPendingGroup) {
+            List<TimesheetStatus> pendingList = List.of(
+                TimesheetStatus.PENDING_RM_APPROVAL,
+                TimesheetStatus.PENDING_HR_APPROVAL,
+                TimesheetStatus.PENDING_RM_AS_HR_APPROVAL,
+                TimesheetStatus.PENDING_ADMIN_APPROVAL
+            );
+            timesheets = timesheetRepository.findWithFiltersAndStatusIn(employeeId, excludeUserId, fromDate, toDate, pendingList);
+        } else if (employeeId != null || excludeUserId != null || fromDate != null || toDate != null || statusEnum != null) {
             timesheets = timesheetRepository.findWithFilters(employeeId, excludeUserId, fromDate, toDate, statusEnum);
         } else {
             timesheets = timesheetRepository.findAll();

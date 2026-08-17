@@ -232,9 +232,9 @@ export default function ReportingManagers() {
                             <div className={`font-bold text-sm truncate ${mDisabled && !(selected && selected.id === m.id) ? 'text-brand-text/40' : ''}`}>{m.fullName}</div>
                             {mDisabled && <DisabledBadge />}
                           </div>
-                          <div className={`text-[10px] font-bold uppercase tracking-wider truncate transition-all ${selected && selected.id === m.id ? 'text-white/60' : 'text-brand-text/40 group-hover:text-brand-text/60'
+                          <div className={`text-[10px] font-bold lowercase tracking-wider truncate transition-all ${selected && selected.id === m.id ? 'text-white/60' : 'text-brand-text/40 group-hover:text-brand-text/60'
                             }`}>
-                            {m.corporateEmail || "No Email"}
+                            {(m.corporateEmail || "No Email").toLowerCase()}
                           </div>
                         </div>
                         <button
@@ -334,7 +334,7 @@ export default function ReportingManagers() {
                                   <div className={`font-bold truncate text-sm ${empDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.name}</div>
                                   {empDisabled && <DisabledBadge />}
                                 </div>
-                                <div className="text-[10px] font-bold text-brand-text/40 uppercase tracking-widest truncate">{emp.corporateEmail || "Incomplete Profile"}</div>
+                                <div className="text-[10px] font-bold text-brand-text/40 lowercase tracking-widest truncate">{(emp.corporateEmail || "Incomplete Profile").toLowerCase()}</div>
                               </div>
                               <button
                                 onClick={(e) => handleRemoveMember(e, emp.id, emp.name)}
