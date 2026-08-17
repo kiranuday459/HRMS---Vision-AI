@@ -199,58 +199,38 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
             });
 
             // Empty range or unapproved range — an empty/template timesheet is still generated.
-            const hasData = dateFilteredEntries.some((e) => selectedIds.includes(e.employeeId));
+            const hasData = dateFilteredEntries.some((e) => selectedIds.some(id => String(id) === String(e.employeeId)));
             setInfo(hasData ? "" : "No approved timesheet submissions found for this period. An empty timesheet template will be downloaded.");
 
             // Generate a continuous list of dates between fromDate and toDate in LOCAL time
             const dateSequence = [];
-            let curr = new Date(startLimit);
-            while (curr <= endLimit) {
-                const y = curr.getFullYear();
-                const m = String(curr.getMonth() + 1).padStart(2, '0');
-                const d = String(curr.getDate()).padStart(2, '0');
-                dateSequence.push(`${y}-${m}-${d}`);
-                curr.setDate(curr.getDate() + 1);
+            if (startLimit && endLimit) {
+                let curr = new Date(startLimit);
+                let loopGuard = 0;
+                while (curr <= endLimit && loopGuard < 1000) {
+                    loopGuard++;
+                    const y = curr.getFullYear();
+                    const m = String(curr.getMonth() + 1).padStart(2, '0');
+                    const d = String(curr.getDate()).padStart(2, '0');
+                    dateSequence.push(`${y}-${m}-${d}`);
+                    curr.setDate(curr.getDate() + 1);
+                }
             }
 
-            const finalExportList = [];
+            if (dateSequence.length === 0) {
+                toast.error("Invalid date range selected.");
+                return;
+            }
 
-            // Ensure every selected employee has a record for EVERY date in the sequence
-            selectedIds.forEach(id => {
-                const emp = employees.find(e => e.id === id);
-                const empName = emp ? `${emp.firstName} ${emp.lastName}` : "Unknown";
-                const oryId = emp?.oryfolksId || "-";
+            // Check if "All Employees" export is active
+            const isAllEmployees = (
+                memberType === "ALL" && (
+                    (employees.length > 0 && selectedIds.length >= employees.length) ||
+                    (roleEligible.length > 0 && roleEligible.every((e) => selectedIds.includes(e.id)))
+                )
+            );
 
-                dateSequence.forEach(dateStr => {
-                    const dayEntries = dateFilteredEntries.filter(e => e.employeeId === id && e.date === dateStr);
-
-                    if (dayEntries.length > 0) {
-                        finalExportList.push(...dayEntries.map(e => ({ ...e, oryfolksId: oryId })));
-                    } else {
-                        // Create an exhaustive placeholder for the missing date to keep the sequence intact
-                        finalExportList.push({
-                            id: "-",
-                            employeeId: oryId, // Use Oryfolks ID as the identifier
-                            employeeName: empName,
-                            oryfolksId: oryId,
-                            date: dateStr,
-                            totalHours: 0,
-                            project: "-",
-                            projectName: "-",
-                            task: "-",
-                            taskDescription: "-",
-                            category: "EMPTY",
-                            status: "EMPTY",
-                            billable: null,
-                            onsiteOffshore: "-",
-                            billingLocation: "-",
-                            leaveType: "-"
-                        });
-                    }
-                });
-            });
-
-            // Replace finalExportList CSV approach with standardized generateTimesheetExcel
+            // Generate standard multi-tab / single-tab timesheet Excel workbook
             await generateTimesheetExcel({
                 dateSequence,
                 selectedIds,
@@ -259,7 +239,8 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                 allLeaves,
                 allHolidays,
                 fromDate,
-                toDate
+                toDate,
+                isAllEmployees
             });
             toast.success("Excel Generated successfully.");
 
@@ -282,8 +263,11 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
 
             if (hasData) onClose();
         } catch (error) {
-            console.error(error);
-            toast.error("An unexpected error occurred during generation.");
+            console.error("Timesheet Excel generation error:", error);
+            const userMsg = error?.message && typeof error.message === "string" && !error.message.includes("[object")
+                ? error.message
+                : "Failed to generate Excel timesheet. Please verify your selected dates and try again.";
+            toast.error(userMsg);
         } finally {
             setGenerating(false);
         }
