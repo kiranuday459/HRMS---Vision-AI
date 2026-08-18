@@ -275,8 +275,8 @@ export default function HrReportingManagersPage() {
                       <p className="text-[10px] font-bold uppercase tracking-widest">Fetching Managers...</p>
                     </div>
                   ) : managers.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full space-y-2 opacity-20 py-20 italic">
-                      <p className="text-sm font-bold">No managers found</p>
+                    <div className="flex flex-col items-center justify-center h-full space-y-2 py-20 italic">
+                      <p className="text-sm font-bold text-brand-text/40 uppercase tracking-widest">No records found</p>
                     </div>
                   ) : (
                     managers.map((m) => {
@@ -301,9 +301,9 @@ export default function HrReportingManagersPage() {
                             <div className={`font-bold text-sm truncate ${mDisabled && !(selected && selected.id === m.id) ? 'text-brand-text/40' : ''}`}>{m.fullName}</div>
                             {mDisabled && <DisabledBadge />}
                           </div>
-                          <div className={`text-[10px] font-bold uppercase tracking-wider truncate transition-all ${selected && selected.id === m.id ? 'text-white/60' : 'text-brand-text/40 group-hover:text-brand-text/60'
+                          <div className={`text-[10px] font-bold lowercase tracking-wider truncate transition-all ${selected && selected.id === m.id ? 'text-white/60' : 'text-brand-text/40 group-hover:text-brand-text/60'
                             }`}>
-                            {m.corporateEmail || "No Email"}
+                            {(m.corporateEmail || "No Email").toLowerCase()}
                           </div>
                         </div>
                         <button
@@ -403,7 +403,7 @@ export default function HrReportingManagersPage() {
                                   <div className={`font-bold truncate text-sm ${empDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.name}</div>
                                   {empDisabled && <DisabledBadge />}
                                 </div>
-                                <div className="text-[10px] font-bold text-brand-text/40 uppercase tracking-widest truncate">{emp.corporateEmail || "Incomplete Profile"}</div>
+                                <div className="text-[10px] font-bold text-brand-text/40 lowercase tracking-widest truncate">{(emp.corporateEmail || "Incomplete Profile").toLowerCase()}</div>
                               </div>
                               <button
                                 onClick={(e) => handleRemoveMember(e, emp.id, emp.name)}

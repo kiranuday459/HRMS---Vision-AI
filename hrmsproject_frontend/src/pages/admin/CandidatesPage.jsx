@@ -302,8 +302,8 @@ export default function CandidatesPage() {
                   <tbody className="divide-y divide-brand-blue/5">
                     {filteredEmployees.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-20 text-center italic text-brand-text/20 font-bold uppercase tracking-widest text-xs">
-                          No matching personnel found in directory
+                        <td colSpan={7} className="py-20 text-center italic text-brand-text/40 font-bold uppercase tracking-widest text-xs">
+                          No records found
                         </td>
                       </tr>
                     ) : (
@@ -397,11 +397,18 @@ export default function CandidatesPage() {
             const emp = localEmployees.find((e) => e.id === openMenu.id);
             if (!emp) return null;
             const isInactive = emp.active === false;
-            const left = Math.max(8, openMenu.rect.right - 192);
+            const estimatedHeight = isInactive ? 180 : 230;
+            const spaceBelow = window.innerHeight - openMenu.rect.bottom;
+            const opensUpward = spaceBelow < estimatedHeight + 16 && openMenu.rect.top > estimatedHeight;
+            const top = opensUpward
+              ? Math.max(8, openMenu.rect.top - estimatedHeight - 6)
+              : Math.min(openMenu.rect.bottom + 6, window.innerHeight - estimatedHeight - 8);
+            const left = Math.max(8, Math.min(openMenu.rect.right - 192, window.innerWidth - 200));
+
             return (
               <div
-                className="fixed z-[150] w-48 bg-white rounded-2xl shadow-2xl border border-brand-blue/10 py-2 animate-in fade-in zoom-in duration-150 origin-top-right"
-                style={{ top: openMenu.rect.bottom + 6, left }}
+                className={`fixed z-[150] w-48 bg-white rounded-2xl shadow-2xl border border-brand-blue/10 py-2 max-h-[calc(100vh-24px)] overflow-y-auto animate-in fade-in zoom-in duration-150 ${opensUpward ? "origin-bottom-right" : "origin-top-right"}`}
+                style={{ top, left }}
               >
                 {isInactive ? (
                   <>
@@ -437,6 +444,20 @@ export default function CandidatesPage() {
                   </>
                 ) : (
                   <>
+                    <button
+                      onClick={() => { closeMenu(); handleViewProfile(emp); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-brand-text hover:bg-bg-slate transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() => { closeMenu(); handleViewProfile(emp); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-brand-text hover:bg-bg-slate transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      Edit Profile
+                    </button>
                     <button
                       onClick={() => { closeMenu(); generateEmployeeProfilePDF(emp, showToast); }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-colors"

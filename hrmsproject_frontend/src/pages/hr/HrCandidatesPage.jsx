@@ -269,8 +269,8 @@ export default function HrCandidatesPage() {
                   <tbody className="divide-y divide-brand-blue/5">
                     {filteredEmployees.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-20 text-center italic text-brand-text/20 font-bold uppercase tracking-widest text-xs">
-                          No personnel found matching search criteria
+                        <td colSpan={8} className="py-20 text-center italic text-brand-text/40 font-bold uppercase tracking-widest text-xs">
+                          No records found
                         </td>
                       </tr>
                     ) : (

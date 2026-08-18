@@ -366,9 +366,31 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
         if (!/^[0-9]$/.test(e.key)) e.preventDefault();
     };
 
+    const getOtherHoursForDay = (dayIndex, excludeType, excludeKey) => {
+        let other = 0;
+        projectRows.forEach((r, rIdx) => {
+            if (excludeType === 'project' && rIdx === excludeKey) return;
+            other += (parseFloat(r.hours[dayIndex]?.value) || 0);
+        });
+        Object.keys(leaveRows).forEach((typeKey) => {
+            if (excludeType === 'leave' && typeKey === excludeKey) return;
+            if (leaveRows[typeKey]?.[dayIndex]) {
+                other += (parseFloat(leaveRows[typeKey][dayIndex].value) || 0);
+            }
+        });
+        return other;
+    };
+
     const handleHourChange = (rowIndex, dayIndex, value) => {
-        // Validation removed to allow "two entries in single column" (e.g. 4h Leave + 4h Work)
         const clean = sanitizeHours(value);
+        if (clean !== '') {
+            const valNum = parseFloat(clean);
+            const otherHours = getOtherHoursForDay(dayIndex, 'project', rowIndex);
+            if (valNum > 24 || (otherHours + valNum) > 24) {
+                toast.error("Working hours cannot exceed 24 hours per day.", { toastId: "max-hours-error" });
+                return;
+            }
+        }
         const updated = projectRows.map((row, rIdx) => {
             if (rIdx !== rowIndex) return row;
             const newHours = row.hours.map((h, dIdx) =>
@@ -381,9 +403,32 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
 
     const handleLeaveHourChange = (typeKey, dayIndex, value) => {
         const clean = sanitizeHours(value);
+        if (clean !== '') {
+            const valNum = parseFloat(clean);
+            const otherHours = getOtherHoursForDay(dayIndex, 'leave', typeKey);
+            if (valNum > 24 || (otherHours + valNum) > 24) {
+                toast.error("Working hours cannot exceed 24 hours per day.", { toastId: "max-hours-error" });
+                return;
+            }
+        }
         const updated = { ...leaveRows, [typeKey]: [...leaveRows[typeKey]] };
         updated[typeKey][dayIndex] = { ...updated[typeKey][dayIndex], value: clean };
         setLeaveRows(updated);
+    };
+
+    const handleTruTimeChange = (dayIndex, value) => {
+        const clean = sanitizeHours(value);
+        if (clean !== '') {
+            const valNum = parseFloat(clean);
+            if (valNum > 24) {
+                toast.error("Working hours cannot exceed 24 hours per day.", { toastId: "max-hours-error" });
+                return;
+            }
+        }
+        setTruTimeRows({
+            ...truTimeRows,
+            swipe: truTimeRows.swipe.map((sh, idx) => idx === dayIndex ? { ...sh, value: clean } : sh)
+        });
     };
 
     const calculateRowTotal = (hours) => {
@@ -400,6 +445,19 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
         leaveRows.leaveP.forEach(h => total += (parseFloat(h.value) || 0));
         leaveRows.leaveB.forEach(h => total += (parseFloat(h.value) || 0));
         leaveRows.leaveL.forEach(h => total += (parseFloat(h.value) || 0));
+        return total;
+    };
+
+    const getDailyTotal = (dayIndex) => {
+        let total = 0;
+        projectRows.forEach(r => total += (parseFloat(r.hours[dayIndex]?.value) || 0));
+        if (leaveRows.holiday?.[dayIndex]) total += (parseFloat(leaveRows.holiday[dayIndex].value) || 0);
+        if (leaveRows.leaveS?.[dayIndex]) total += (parseFloat(leaveRows.leaveS[dayIndex].value) || 0);
+        if (leaveRows.leaveC?.[dayIndex]) total += (parseFloat(leaveRows.leaveC[dayIndex].value) || 0);
+        if (leaveRows.leaveM?.[dayIndex]) total += (parseFloat(leaveRows.leaveM[dayIndex].value) || 0);
+        if (leaveRows.leaveP?.[dayIndex]) total += (parseFloat(leaveRows.leaveP[dayIndex].value) || 0);
+        if (leaveRows.leaveB?.[dayIndex]) total += (parseFloat(leaveRows.leaveB[dayIndex].value) || 0);
+        if (leaveRows.leaveL?.[dayIndex]) total += (parseFloat(leaveRows.leaveL[dayIndex].value) || 0);
         return total;
     };
 
@@ -452,12 +510,33 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
 
         // Validate daily hours
         for (let i = 0; i < 7; i++) {
+            // Check individual entry values for day i
+            for (const row of projectRows) {
+                const val = parseFloat(row.hours[i]?.value);
+                if (!isNaN(val) && (val < 0 || val > 24)) {
+                    toast.error("Working hours cannot exceed 24 hours per day.");
+                    return;
+                }
+            }
+            for (const key of Object.keys(leaveRows)) {
+                const val = parseFloat(leaveRows[key]?.[i]?.value);
+                if (!isNaN(val) && (val < 0 || val > 24)) {
+                    toast.error("Working hours cannot exceed 24 hours per day.");
+                    return;
+                }
+            }
+            if (truTimeRows?.swipe?.[i]) {
+                const val = parseFloat(truTimeRows.swipe[i]?.value);
+                if (!isNaN(val) && (val < 0 || val > 24)) {
+                    toast.error("Working hours cannot exceed 24 hours per day.");
+                    return;
+                }
+            }
+
             const leaveType = getApprovedLeaveTypeForDay(i);
-            // Skip weekends, future days, and full approved leave days
-            if (isWeekend(dates[i]) || isFutureDay(dates[i]) || leaveType === 'FULL') continue;
             let projectWorkHours = 0;
             projectRows.forEach(row => {
-                projectWorkHours += (parseFloat(row.hours[i].value) || 0);
+                projectWorkHours += (parseFloat(row.hours[i]?.value) || 0);
             });
 
             if (leaveType === 'HALF' && projectWorkHours > 4) {
@@ -465,21 +544,18 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                 return;
             }
 
-            let dailyTotal = projectWorkHours;
-            dailyTotal += (parseFloat(leaveRows.holiday[i].value) || 0);
-            dailyTotal += (parseFloat(leaveRows.leaveS[i].value) || 0);
-            dailyTotal += (parseFloat(leaveRows.leaveC[i].value) || 0);
-            dailyTotal += (parseFloat(leaveRows.leaveM[i].value) || 0);
-            dailyTotal += (parseFloat(leaveRows.leaveP[i].value) || 0);
-            dailyTotal += (parseFloat(leaveRows.leaveB[i].value) || 0);
-            dailyTotal += (parseFloat(leaveRows.leaveL[i].value) || 0);
+            const dailyTotal = getDailyTotal(i);
+
+            if (dailyTotal > 24 || dailyTotal < 0) {
+                toast.error("Working hours cannot exceed 24 hours per day.");
+                return;
+            }
+
+            // Skip required-field check for weekends, future days, and full approved leave days
+            if (isWeekend(dates[i]) || isFutureDay(dates[i]) || leaveType === 'FULL') continue;
 
             if (dailyTotal <= 0) {
                 toast.error(`Please fill hours for ${dates[i].toDateString()}`);
-                return;
-            }
-            if (dailyTotal >= 24) {
-                toast.error(`Total hours for ${dates[i].toDateString()} must be less than 24.`);
                 return;
             }
         }
@@ -791,16 +867,18 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
 
                                         let dayProjectTotal = 0;
                                         projectRows.forEach(r => dayProjectTotal += (parseFloat(r.hours[i].value) || 0));
+                                        const dailyTotal = getDailyTotal(i);
+                                        const is24Exceeded = dailyTotal > 24 || dailyTotal < 0;
                                         const isHalfDayExceeded = leaveType === 'HALF' && dayProjectTotal > 4;
                                         const isFullDayExceeded = leaveType === 'FULL' && dayProjectTotal > 0;
-                                        const isExceeded = isHalfDayExceeded || isFullDayExceeded;
+                                        const isExceeded = isHalfDayExceeded || isFullDayExceeded || is24Exceeded;
 
                                         return (
-                                            <td key={i} title={isHalfDayExceeded ? "Maximum allowed work hours for a Half-Day Leave is 4 hours." : isFullDayExceeded ? "Work hours are not allowed on a Full-Day Leave date." : preJoining ? "Timesheet entry is not allowed before your joining date." : leaveType === 'FULL' ? "Timesheet entry is not allowed on approved leave days." : undefined} className={`p-0.5 border-r border-[#F1EFE8] ${future || preJoining || leaveType === 'FULL' ? 'bg-[#F1EFE8]' : isExceeded ? 'bg-red-50' : ''}`}>
+                                            <td key={i} title={is24Exceeded ? "Working hours cannot exceed 24 hours per day." : isHalfDayExceeded ? "Maximum allowed work hours for a Half-Day Leave is 4 hours." : isFullDayExceeded ? "Work hours are not allowed on a Full-Day Leave date." : preJoining ? "Timesheet entry is not allowed before your joining date." : leaveType === 'FULL' ? "Timesheet entry is not allowed on approved leave days." : undefined} className={`p-0.5 border-r border-[#F1EFE8] ${future || preJoining || leaveType === 'FULL' ? 'bg-[#F1EFE8]' : isExceeded ? 'bg-red-50' : ''}`}>
                                                 <input
                                                     type="text"
                                                     inputMode="decimal"
-                                                    maxLength={2}
+                                                    maxLength={5}
                                                     value={h.value}
                                                     disabled={isDisabled}
                                                     onKeyDown={handleHoursKeyDown}
@@ -937,7 +1015,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                                     <input
                                                         type="text"
                                                         inputMode="decimal"
-                                                        maxLength={2}
+                                                        maxLength={5}
                                                         value={h.value}
                                                         disabled={isDisabled}
                                                         onKeyDown={handleHoursKeyDown}
@@ -1001,19 +1079,21 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
 
                                             let dayProjectTotal = 0;
                                             projectRows.forEach(r => dayProjectTotal += (parseFloat(r.hours[i].value) || 0));
+                                            const dailyTotal = getDailyTotal(i);
+                                            const is24Exceeded = dailyTotal > 24 || dailyTotal < 0;
                                             const isHalfDayExceeded = leaveType === 'HALF' && dayProjectTotal > 4;
                                             const isFullDayExceeded = leaveType === 'FULL' && dayProjectTotal > 0;
-                                            const isExceeded = isHalfDayExceeded || isFullDayExceeded;
+                                            const isExceeded = isHalfDayExceeded || isFullDayExceeded || is24Exceeded;
 
                                             return (
-                                            <div key={i} className="flex flex-col items-center" title={isHalfDayExceeded ? "Maximum allowed work hours for a Half-Day Leave is 4 hours." : isFullDayExceeded ? "Work hours are not allowed on a Full-Day Leave date." : preJoining ? "Timesheet entry is not allowed before your joining date." : leaveType === 'FULL' ? "Timesheet entry is not allowed on approved leave days." : undefined}>
+                                            <div key={i} className="flex flex-col items-center" title={is24Exceeded ? "Working hours cannot exceed 24 hours per day." : isHalfDayExceeded ? "Maximum allowed work hours for a Half-Day Leave is 4 hours." : isFullDayExceeded ? "Work hours are not allowed on a Full-Day Leave date." : preJoining ? "Timesheet entry is not allowed before your joining date." : leaveType === 'FULL' ? "Timesheet entry is not allowed on approved leave days." : undefined}>
                                                 <span className={`text-[7px] font-bold mb-1 ${future || preJoining || leaveType === 'FULL' ? 'text-[#D3D1C7]' : 'text-slate-400'}`}>
                                                     {formatDateHeader(dates[i])?.name?.charAt(0) || ''}
                                                 </span>
                                                 <input
                                                     type="text"
                                                     inputMode="decimal"
-                                                    maxLength={2}
+                                                    maxLength={5}
                                                     value={h.value}
                                                     disabled={isDisabled}
                                                     onKeyDown={handleHoursKeyDown}
@@ -1083,12 +1163,12 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                                         key={i}
                                                         type="text"
                                                         inputMode="decimal"
-                                                        maxLength={2}
+                                                        maxLength={5}
                                                         value={h.value}
                                                         disabled={isDisabled}
                                                         title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined}
                                                         onKeyDown={handleHoursKeyDown}
-                                                        onChange={(e) => key === 'swipe' ? setTruTimeRows({ ...truTimeRows, swipe: truTimeRows.swipe.map((sh, idx) => idx === i ? { ...sh, value: sanitizeHours(e.target.value) } : sh) }) : handleLeaveHourChange(key, i, e.target.value)}
+                                                        onChange={(e) => key === 'swipe' ? handleTruTimeChange(i, e.target.value) : handleLeaveHourChange(key, i, e.target.value)}
                                                         className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded border-transparent border outline-none disabled:cursor-not-allowed ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9]' : key === 'holiday' ? 'bg-amber-100/50 text-amber-700' : key.startsWith('leave') ? 'bg-white text-slate-500' : 'bg-white text-slate-400'}`}
                                                     />
                                                     );
@@ -1124,6 +1204,14 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                 <div className="mx-4 md:mx-8 mb-2 flex items-center gap-2 bg-red-50 text-red-700 text-[13px] rounded-lg px-4 py-2.5 border border-red-200 font-bold shrink-0">
                     <span className="text-red-500 font-black">⚠</span>
                     <span>Maximum allowed work hours for a Half-Day Leave is 4 hours.</span>
+                </div>
+            )}
+
+            {/* Error banner — shown when daily hours exceed 24 hours */}
+            {!readOnly && dates.some((_, i) => getDailyTotal(i) > 24) && (
+                <div className="mx-4 md:mx-8 mb-2 flex items-center gap-2 bg-red-50 text-red-700 text-[13px] rounded-lg px-4 py-2.5 border border-red-200 font-bold shrink-0">
+                    <span className="text-red-500 font-black">⚠</span>
+                    <span>Working hours cannot exceed 24 hours per day.</span>
                 </div>
             )}
 

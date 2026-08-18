@@ -189,7 +189,7 @@ export default function CompanyDetailsModal({ open, onClose, onSave }) {
                                         </div>
                                         <div>
                                             <div className="text-xl font-bold tracking-tight">{selectedEmployee.firstName} {selectedEmployee.lastName}</div>
-                                            <div className="text-white/40 text-xs font-bold uppercase tracking-wider">{selectedEmployee.email}</div>
+                                            <div className="text-white/40 text-xs font-bold lowercase tracking-wider">{(selectedEmployee.email || "").toLowerCase()}</div>
                                         </div>
                                     </div>
                                 </div>

@@ -31,7 +31,7 @@ public class ClientProjectAssignment {
 
     // 256 to match the agreed Task/Activity Description limit — see
     // migration_widen_client_timesheet_text_columns.sql.
-    @Column(length = 256)
+    @Column(length = 512)
     private String taskDescription;
 
     // ONSITE / OFFSHORE

@@ -560,7 +560,7 @@ export default function HrManagerTimesheets() {
                                         </div>
                                     ) : filteredWeeks.length === 0 ? (
                                         <div className="py-20 text-center bg-white rounded-[32px] border-2 border-dashed border-brand-blue/5">
-                                            <p className="text-brand-text/20 font-bold uppercase tracking-widest text-xs italic">No manager timesheet records found.</p>
+                                            <p className="text-brand-text/40 font-bold uppercase tracking-widest text-xs italic">No records found</p>
                                         </div>
                                     ) : (
                                         filteredWeeks.map((week, wIdx) => (

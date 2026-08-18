@@ -341,7 +341,7 @@ export default function HrManagerLeaves() {
                         <div className="bg-white rounded-[20px] shadow-xl overflow-hidden border border-brand-blue/5">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-separate border-spacing-0">
-                                    <thead className="bg-bg-slate/50">
+                                    <thead className="bg-bg-slate/50 sticky top-0 z-10">
                                         <tr className="text-brand-text/40 font-black uppercase tracking-[0.15em] text-[11px]">
                                             <th className="p-5 px-8 border-b border-brand-blue/5">Emp ID</th>
                                             <th className="p-5 px-6 border-b border-brand-blue/5">Name</th>
@@ -357,17 +357,10 @@ export default function HrManagerLeaves() {
                                             <tr>
                                                 <td colSpan="7" className="p-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Loading Leave Requests...</td>
                                             </tr>
-                                        ) : leaves.length === 0 ? (
-                                            <tr>
-                                                <td colSpan="7" className="p-20 text-center text-brand-text/20 font-bold uppercase tracking-widest text-xs italic">No leave requests found for managers.</td>
-                                            </tr>
-                                        ) : (
-                                            leaves.filter(lv => {
+                                        ) : (() => {
+                                            const filteredLeaves = leaves.filter(lv => {
                                                 const matchesStatus = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
-
                                                 const matchesSearch = !leavesFilter || (lv.employeeName && lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase()));
-
-                                                // Find employee for role check
                                                 const emp = employees.find(e => e.id === lv.employeeId || e.fullName === lv.employeeName);
                                                 const role = emp?.role;
 
@@ -377,7 +370,17 @@ export default function HrManagerLeaves() {
                                                 if (leaveRoleFilter === "OTHERS") return matchesSearch && role !== "REPORTING_MANAGER";
 
                                                 return matchesSearch;
-                                            }).map((leave, index) => {
+                                            });
+
+                                            if (filteredLeaves.length === 0) {
+                                                return (
+                                                    <tr>
+                                                        <td colSpan="7" className="p-20 text-center text-brand-text/40 font-bold uppercase tracking-widest text-xs italic">No records found</td>
+                                                    </tr>
+                                                );
+                                            }
+
+                                            return filteredLeaves.map((leave, index) => {
                                                 const isDisabled = leave.employeeStatus === 'INACTIVE' || leave.employeeStatus === 'DISABLED';
                                                 return (
                                                 <tr key={leave.id || index} className={`transition-colors font-medium group ${isDisabled ? 'bg-[#F1EFE8]' : 'hover:bg-bg-slate/40'}`}>
@@ -422,7 +425,10 @@ export default function HrManagerLeaves() {
                                                                 className="p-2 bg-brand-blue/5 text-brand-text rounded-lg hover:bg-brand-blue-dark hover:text-white transition-all shadow-sm"
                                                                 title="View Details"
                                                             >
-                                                                <Eye size={16} />
+                                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                                </svg>
                                                             </button>
                                                             {leave.status === 'PENDING' && !isDisabled && (
                                                                 <LeaveDecisionButtons
@@ -434,8 +440,8 @@ export default function HrManagerLeaves() {
                                                     </td>
                                                 </tr>
                                                 );
-                                            })
-                                        )}
+                                            });
+                                        })()}
                                     </tbody>
                                 </table>
                             </div>

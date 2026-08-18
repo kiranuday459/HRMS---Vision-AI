@@ -470,8 +470,8 @@ const LeaveRequestPage = ({ employeeId, leaveBalance, onLeaveRequestSuccess }) =
                 })
               ) : (
                 <tr>
-                  <td colSpan="7" className="p-12 text-center text-brand-text/20">
-                    <p className="font-bold uppercase tracking-widest text-[10px] italic">No leave history found</p>
+                  <td colSpan="7" className="p-12 text-center text-brand-text/40">
+                    <p className="font-bold uppercase tracking-widest text-xs italic">No records found</p>
                   </td>
                 </tr>
               )}

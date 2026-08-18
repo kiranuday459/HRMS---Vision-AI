@@ -80,10 +80,22 @@ export default function AuditLogsTab() {
         // A flex column rather than space-y, so the card below can take the remaining height
         // (flex-1/min-h-0) instead of growing with the log. The filter row keeps its own height.
         <div className="flex flex-col gap-4 flex-1 min-h-0">
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-                {/* Fixed w-64, matching the search inputs on the Assigned Members and Access
-                    Management tabs. It used to be flex-1, which stretched it across the whole
-                    row — far wider than the query it holds. */}
+            {/* justify-end puts the controls on the right, with the search box last — the same
+                place and order the Assigned Members tab keeps them, so switching tabs doesn't
+                move the search box. Refresh no longer needs ml-auto now that the row itself is
+                right-aligned. */}
+            <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
+                <button
+                    onClick={fetchLogs}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#E3E8EF] bg-white text-[11px] font-black uppercase tracking-widest text-brand-text/60 hover:text-brand-text hover:border-brand-blue/20 transition-all disabled:opacity-40"
+                >
+                    <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                    Refresh
+                </button>
+                {/* Fixed w-64, matching the search inputs on the Assigned Members tab. It used to
+                    be flex-1, which stretched it across the whole row — far wider than the query
+                    it holds. */}
                 <div className="relative w-64 max-w-full">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/20" size={15} />
                     <input
@@ -94,14 +106,6 @@ export default function AuditLogsTab() {
                         className="w-full pl-9 pr-4 py-2.5 bg-white border border-[#E3E8EF] rounded-lg text-[13px] font-medium outline-none focus:border-brand-blue-dark/30 transition-all placeholder:text-brand-text/20"
                     />
                 </div>
-                <button
-                    onClick={fetchLogs}
-                    disabled={loading}
-                    className="ml-auto flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#E3E8EF] bg-white text-[11px] font-black uppercase tracking-widest text-brand-text/60 hover:text-brand-text hover:border-brand-blue/20 transition-all disabled:opacity-40"
-                >
-                    <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-                    Refresh
-                </button>
             </div>
 
             <div className="bg-white border border-[#E3E8EF] rounded-xl overflow-hidden flex-1 flex flex-col min-h-0">

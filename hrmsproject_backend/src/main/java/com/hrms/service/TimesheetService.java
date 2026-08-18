@@ -67,10 +67,31 @@ public class TimesheetService {
 
     public List<TimesheetDTO> getAllTimesheets(Long employeeId, Long excludeUserId, LocalDate fromDate, LocalDate toDate,
             String status, Integer page, Integer size) {
-        TimesheetStatus statusEnum = status != null ? TimesheetStatus.valueOf(status.toUpperCase()) : null;
+        TimesheetStatus statusEnum = null;
+        boolean isPendingGroup = false;
+
+        if (status != null && !status.isBlank()) {
+            String s = status.trim().toUpperCase();
+            if ("PENDING".equals(s) || "PENDING_APPROVAL".equals(s)) {
+                isPendingGroup = true;
+            } else {
+                try {
+                    statusEnum = TimesheetStatus.valueOf(s);
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+        }
 
         List<Timesheet> timesheets;
-        if (employeeId != null || excludeUserId != null || fromDate != null || toDate != null || statusEnum != null) {
+        if (isPendingGroup) {
+            List<TimesheetStatus> pendingList = List.of(
+                TimesheetStatus.PENDING_RM_APPROVAL,
+                TimesheetStatus.PENDING_HR_APPROVAL,
+                TimesheetStatus.PENDING_RM_AS_HR_APPROVAL,
+                TimesheetStatus.PENDING_ADMIN_APPROVAL
+            );
+            timesheets = timesheetRepository.findWithFiltersAndStatusIn(employeeId, excludeUserId, fromDate, toDate, pendingList);
+        } else if (employeeId != null || excludeUserId != null || fromDate != null || toDate != null || statusEnum != null) {
             timesheets = timesheetRepository.findWithFilters(employeeId, excludeUserId, fromDate, toDate, statusEnum);
         } else {
             timesheets = timesheetRepository.findAll();
@@ -157,6 +178,10 @@ public class TimesheetService {
             timesheet.setTotalHours(Math.max(0, total));
         }
 
+        if (timesheet.getTotalHours() != null && (timesheet.getTotalHours() < 0.0 || timesheet.getTotalHours() > 24.0)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Working hours cannot exceed 24 hours per day.");
+        }
+
         Timesheet saved = timesheetRepository.save(timesheet);
 
         // Notify RM and HR about new timesheet
@@ -210,6 +235,10 @@ public class TimesheetService {
             Duration duration = Duration.between(dto.getStartTime(), dto.getEndTime());
             double total = duration.toMinutes() / 60.0;
             timesheet.setTotalHours(Math.max(0, total));
+        }
+
+        if (timesheet.getTotalHours() != null && (timesheet.getTotalHours() < 0.0 || timesheet.getTotalHours() > 24.0)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Working hours cannot exceed 24 hours per day.");
         }
 
         Timesheet updated = timesheetRepository.save(timesheet);
@@ -447,6 +476,21 @@ public class TimesheetService {
                                 "Timesheet entries cannot be created for dates before the employee's joining date.");
                     }
                     validateDateAgainstApprovedLeaves(employeeId, dto.getDate(), dto.getCategory());
+                }
+                if (dto.getTotalHours() != null && (dto.getTotalHours() < 0.0 || dto.getTotalHours() > 24.0)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Working hours cannot exceed 24 hours per day.");
+                }
+            }
+
+            // Server-side guard: check total daily hours (max 24 per day)
+            Map<LocalDate, Double> dailyTotalHours = entries.stream()
+                    .filter(e -> e.getDate() != null && e.getTotalHours() != null)
+                    .collect(Collectors.groupingBy(TimesheetDTO::getDate, Collectors.summingDouble(TimesheetDTO::getTotalHours)));
+
+            for (Map.Entry<LocalDate, Double> entry : dailyTotalHours.entrySet()) {
+                double totalForDay = entry.getValue();
+                if (totalForDay < 0.0 || totalForDay > 24.0) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Working hours cannot exceed 24 hours per day.");
                 }
             }
 
@@ -1203,4 +1247,5 @@ public class TimesheetService {
         }
         return null;
     }
+    
 }
