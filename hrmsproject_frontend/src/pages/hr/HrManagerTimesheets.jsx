@@ -293,11 +293,11 @@ export default function HrManagerTimesheets() {
             setLoading(true);
             const formattedEntries = payload.entries.map(entry => {
                 const startTime = "09:00:00";
-                const totalHrs = entry.totalHours || 0;
+                const totalHrs = (entry.totalHours !== null && entry.totalHours !== undefined) ? entry.totalHours : 0;
                 const endHour = Math.floor(totalHrs + 9);
                 const endMin = Math.round((totalHrs % 1) * 60);
                 const endTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}:00`;
-                return { ...entry, employeeId: targetEmpId, startTime, endTime };
+                return { ...entry, employeeId: targetEmpId, startTime, endTime, totalHours: totalHrs };
             });
 
             const weeklyPayload = {
@@ -513,52 +513,43 @@ export default function HrManagerTimesheets() {
                         {tsSubView === 'summary' ? (
                             <>
                                 <div className="bg-white rounded-[24px] p-4 shadow-xl border border-brand-blue/5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
-                                    <div className="flex bg-bg-slate/50 p-1.5 rounded-2xl overflow-x-auto scrollbar-hide">
-                                        <div className="px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-brand-blue-dark text-white shadow-lg shadow-brand-blue/20">
-                                            Reporting Managers
-                                        </div>
+                                    <div className="relative flex-1 min-w-[280px]">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/20" size={16} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search by manager name, ID or office..."
+                                            value={tsFilter}
+                                            onChange={(e) => setTsFilter(e.target.value)}
+                                            className="w-full pl-12 pr-4 py-3 bg-bg-slate/50 border border-brand-blue/5 rounded-2xl text-[11px] font-bold outline-none focus:border-brand-blue-dark/20 transition-all placeholder:text-brand-text/20"
+                                        />
                                     </div>
 
-                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-[300px]">
-                                        <div className="relative flex-1 min-w-[300px]">
-                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/20" size={16} />
-                                            <input
-                                                type="text"
-                                                placeholder="Search by manager name, ID or office..."
-                                                value={tsFilter}
-                                                onChange={(e) => setTsFilter(e.target.value)}
-                                                className="w-full pl-12 pr-4 py-3 bg-bg-slate/50 border border-brand-blue/5 rounded-2xl text-[11px] font-bold outline-none focus:border-brand-blue-dark/20 transition-all placeholder:text-brand-text/20"
-                                            />
-                                        </div>
+                                    <div className="flex flex-wrap items-center gap-3">
                                         <div className="flex items-center gap-2">
-                                             <label htmlFor="hr-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
-                                             <select
-                                                 id="hr-status-filter"
-                                                 value={tsStatusFilter}
-                                                 onChange={(e) => setTsStatusFilter(e.target.value)}
-                                                 className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10"
-                                             >
-                                                 <option>All</option>
-                                                 <option>Pending</option>
-                                                 <option>Approved</option>
-                                                 <option>Rejected</option>
-                                             </select>
-                                         </div>
-                                         <div className="flex items-center gap-2 px-3.5 py-2 bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm">
-                                             <span className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Total</span>
-                                             <span className="text-xs font-black text-brand-blue-dark bg-white px-2.5 py-0.5 rounded-xl border border-brand-blue/10 shadow-sm">
-                                                 {totalFilteredCount}
-                                             </span>
-                                         </div>
+                                            <label htmlFor="hr-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
+                                            <select
+                                                id="hr-status-filter"
+                                                value={tsStatusFilter}
+                                                onChange={(e) => setTsStatusFilter(e.target.value)}
+                                                className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10"
+                                            >
+                                                <option>All</option>
+                                                <option>Pending</option>
+                                                <option>Approved</option>
+                                                <option>Rejected</option>
+                                            </select>
+                                        </div>
+                                        <div className="h-10 px-4 flex items-center justify-center bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm text-brand-blue-dark text-[11px] font-black uppercase tracking-wider whitespace-nowrap">
+                                            TOTAL {totalFilteredCount}
+                                        </div>
+                                        <button
+                                            onClick={() => setIsDownloadModalOpen(true)}
+                                            className="bg-brand-blue-dark text-white px-4 py-3 rounded-2xl shadow-xl shadow-brand-blue/10 active:scale-95 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:brightness-110 shrink-0"
+                                        >
+                                            <Download size={14} />
+                                            Download Timesheet
+                                        </button>
                                     </div>
-
-                                    <button
-                                        onClick={() => setIsDownloadModalOpen(true)}
-                                        className="bg-brand-blue-dark text-white px-3 py-3 rounded-2xl shadow-xl shadow-brand-blue/10 active:scale-95 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:brightness-110"
-                                    >
-                                        <Download size={14} />
-                                        Download Timesheet
-                                    </button>
                                 </div>
 
                                 <div className="space-y-8">
@@ -581,7 +572,7 @@ export default function HrManagerTimesheets() {
                                                         </div>
                                                         <div className="bg-brand-blue/5 px-3 py-1 rounded-lg border border-brand-blue/10">
                                                             <span className="text-brand-text font-black text-xs">{week.filteredEmployees.length}</span>
-                                                            <span className="text-brand-text/40 text-[8px] font-bold uppercase tracking-widest ml-2">Managers Recorded</span>
+                                                            <span className="text-brand-text/40 text-[8px] font-bold uppercase tracking-widest ml-2">{week.filteredEmployees.length === 1 ? 'Manager Recorded' : 'Managers Recorded'}</span>
                                                         </div>
                                                     </div>
 

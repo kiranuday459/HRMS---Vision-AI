@@ -416,8 +416,12 @@ export async function generateTimesheetExcel({
                 r.getCell(7).value = billType;
 
                 const hCell = r.getCell(8);
-                hCell.value = Number(totalHours);
-                hCell.numFmt = "0.00";
+                if (entry) {
+                    hCell.value = Number(totalHours);
+                    hCell.numFmt = "0.00";
+                } else {
+                    hCell.value = "";
+                }
 
                 r.getCell(9).value = entry?.notes || entry?.taskDescription || "";
 
@@ -432,6 +436,10 @@ export async function generateTimesheetExcel({
                         wrapText: true
                     };
 
+                    // Row Highlighting Rule:
+                    // Week Off rows (Saturdays/Sundays or Day Type = "Week Off"/Holiday):
+                    // Day Type cell (c === 3) highlighted yellow (#FFF2CC)
+                    // All other cells (A, B, D, E, F, G, H, I) filled with light grey (#D9D9D9)
                     if (isWeekOffRow || dayType === "Public Holiday") {
                         if (c === 3) {
                             cell.fill = GOLD_TINT_FILL;

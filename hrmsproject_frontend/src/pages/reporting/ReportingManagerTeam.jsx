@@ -17,7 +17,7 @@ import HrRerouteBanner from "../../components/HrRerouteBanner";
 import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
 import DownloadTimesheetModal from "../../components/DownloadTimesheetModal";
-import { Eye, Download } from "lucide-react";
+import { Eye, Download, Search } from "lucide-react";
 import { ProjectSuffix } from "../../utils/employeeName";
 
 
@@ -383,11 +383,11 @@ export default function ReportingManagerTeam() {
             setLoading(true);
             const formattedEntries = payload.entries.map(entry => {
                 const startTime = "09:00:00";
-                const totalHrs = entry.totalHours || 0;
+                const totalHrs = (entry.totalHours !== null && entry.totalHours !== undefined) ? entry.totalHours : 0;
                 const endHour = Math.floor(totalHrs + 9);
                 const endMin = Math.round((totalHrs % 1) * 60);
                 const endTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}:00`;
-                return { ...entry, employeeId: targetEmpId, startTime, endTime };
+                return { ...entry, employeeId: targetEmpId, startTime, endTime, totalHours: totalHrs };
             });
 
             const weeklyPayload = {
@@ -505,6 +505,24 @@ export default function ReportingManagerTeam() {
             setSubmittingReject(false);
         }
     };
+
+    const filteredWeeks = groupedWeeks.map(week => {
+        const filteredEmployees = week.employeeList.filter(emp => {
+            const matchesSearch = !tsFilter || emp.employeeName?.toLowerCase().includes(tsFilter.toLowerCase()) || emp.employeeId?.toString().includes(tsFilter);
+            const matchesStatus = tsStatusFilter === "All" ||
+                (tsStatusFilter === "Pending" && [
+                    APPROVAL_STATUS.PENDING_RM_APPROVAL,
+                    APPROVAL_STATUS.PENDING_HR_APPROVAL,
+                    APPROVAL_STATUS.PENDING_RM_AS_HR_APPROVAL,
+                    APPROVAL_STATUS.PENDING_ADMIN_APPROVAL
+                ].includes(emp.status)) ||
+                (tsStatusFilter === "Approved" && emp.status === APPROVAL_STATUS.APPROVED) ||
+                (tsStatusFilter === "Rejected" && emp.status === APPROVAL_STATUS.REJECTED);
+            return matchesSearch && matchesStatus;
+        });
+        return { ...week, filteredEmployees };
+    }).filter(week => week.filteredEmployees.length > 0);
+    const totalFilteredCount = filteredWeeks.reduce((acc, week) => acc + week.filteredEmployees.length, 0);
 
     const navItems = getRmNavItems(view === 'team' ? 'team' : view === 'timesheets' ? 'team-timesheets' : 'team-leaves');
 
@@ -654,84 +672,60 @@ export default function ReportingManagerTeam() {
                         <div className="max-w-[1200px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
                             {tsSubView === 'summary' ? (
                                 <>
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 mb-8">
-                                        <input type="text" placeholder="Filter by Name or ID..." value={tsFilter} onChange={(e) => setTsFilter(e.target.value)} className="w-full sm:w-64 h-10 bg-white border border-brand-blue/10 rounded-xl px-4 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm" />
-                                        <div className="flex items-center gap-2">
-                                            <label htmlFor="rm-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
-                                            <select
-                                                id="rm-status-filter"
-                                                value={tsStatusFilter}
-                                                onChange={(e) => setTsStatusFilter(e.target.value)}
-                                                className="h-10 rounded-xl border border-brand-blue/10 bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm"
+                                    <div className="bg-white rounded-[24px] p-4 shadow-xl border border-brand-blue/5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
+                                        <div className="relative flex-1 min-w-[280px]">
+                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/20" size={16} />
+                                            <input
+                                                type="text"
+                                                placeholder="Filter by Name or ID..."
+                                                value={tsFilter}
+                                                onChange={(e) => setTsFilter(e.target.value)}
+                                                className="w-full pl-12 pr-4 py-3 bg-bg-slate/50 border border-brand-blue/5 rounded-2xl text-[11px] font-bold outline-none focus:border-brand-blue-dark/20 transition-all placeholder:text-brand-text/20"
+                                            />
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <div className="flex items-center gap-2">
+                                                <label htmlFor="rm-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
+                                                <select
+                                                    id="rm-status-filter"
+                                                    value={tsStatusFilter}
+                                                    onChange={(e) => setTsStatusFilter(e.target.value)}
+                                                    className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10"
+                                                >
+                                                    <option>All</option>
+                                                    <option>Pending</option>
+                                                    <option>Approved</option>
+                                                    <option>Rejected</option>
+                                                </select>
+                                            </div>
+
+                                            <div className="h-10 px-4 flex items-center justify-center bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm text-brand-blue-dark text-[11px] font-black uppercase tracking-wider whitespace-nowrap">
+                                                TOTAL {totalFilteredCount}
+                                            </div>
+
+                                            <button
+                                                onClick={() => setIsDownloadModalOpen(true)}
+                                                className="bg-brand-blue-dark text-white px-4 py-3 rounded-2xl shadow-xl shadow-brand-blue/10 active:scale-95 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:brightness-110 shrink-0"
                                             >
-                                                <option>All</option>
-                                                <option>Pending</option>
-                                                <option>Approved</option>
-                                                <option>Rejected</option>
-                                            </select>
+                                                <Download size={14} />
+                                                Download Timesheet
+                                            </button>
                                         </div>
-                                        <div className="flex items-center gap-2 px-3.5 py-2 bg-brand-blue/5 border border-brand-blue/10 rounded-xl shadow-sm">
-                                            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Total</span>
-                                            <span className="text-xs font-black text-brand-blue-dark bg-white px-2.5 py-0.5 rounded-lg border border-brand-blue/10 shadow-sm">
-                                                {groupedWeeks.map(week => ({
-                                                    ...week,
-                                                    filteredEmployees: week.employeeList.filter(emp => {
-                                                        const matchesSearch = !tsFilter || emp.employeeName.toLowerCase().includes(tsFilter.toLowerCase()) || emp.employeeId.toString().includes(tsFilter);
-                                                        const matchesStatus = tsStatusFilter === "All" ||
-                                                            (tsStatusFilter === "Pending" && [
-                                                                APPROVAL_STATUS.PENDING_RM_APPROVAL,
-                                                                APPROVAL_STATUS.PENDING_HR_APPROVAL,
-                                                                APPROVAL_STATUS.PENDING_RM_AS_HR_APPROVAL,
-                                                                APPROVAL_STATUS.PENDING_ADMIN_APPROVAL
-                                                            ].includes(emp.status)) ||
-                                                            (tsStatusFilter === "Approved" && emp.status === APPROVAL_STATUS.APPROVED) ||
-                                                            (tsStatusFilter === "Rejected" && emp.status === APPROVAL_STATUS.REJECTED);
-                                                        return matchesSearch && matchesStatus;
-                                                    })
-                                                })).filter(week => week.filteredEmployees.length > 0).reduce((acc, week) => acc + week.filteredEmployees.length, 0)}
-                                            </span>
-                                        </div>
-                                        <button
-                                            onClick={() => setIsDownloadModalOpen(true)}
-                                            className="h-10 px-4 bg-brand-blue-dark text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 hover:bg-brand-blue-hover transition-all shadow-sm"
-                                        >
-                                            <Download size={14} />
-                                            Download Timesheet
-                                        </button>
                                     </div>
+
                                     <div className="space-y-8">
                                         {tsLoading ? (
                                             <div className="py-20 flex flex-col items-center justify-center space-y-4 bg-white rounded-[32px] border border-brand-blue/5 shadow-sm">
                                                 <div className="w-12 h-12 border-4 border-brand-blue border-t-transparent rounded-full animate-spin" />
                                                 <p className="text-brand-text/40 font-bold uppercase tracking-widest text-[10px]">Filtering Team Evidence...</p>
                                             </div>
-                                        ) : (() => {
-                                            const filteredWeeks = groupedWeeks.map(week => {
-                                                const filteredEmployees = week.employeeList.filter(emp => {
-                                                    const matchesSearch = !tsFilter || emp.employeeName.toLowerCase().includes(tsFilter.toLowerCase()) || emp.employeeId.toString().includes(tsFilter);
-                                                    const matchesStatus = tsStatusFilter === "All" ||
-                                                        (tsStatusFilter === "Pending" && [
-                                                            APPROVAL_STATUS.PENDING_RM_APPROVAL,
-                                                            APPROVAL_STATUS.PENDING_HR_APPROVAL,
-                                                            APPROVAL_STATUS.PENDING_RM_AS_HR_APPROVAL,
-                                                            APPROVAL_STATUS.PENDING_ADMIN_APPROVAL
-                                                        ].includes(emp.status)) ||
-                                                        (tsStatusFilter === "Approved" && emp.status === APPROVAL_STATUS.APPROVED) ||
-                                                        (tsStatusFilter === "Rejected" && emp.status === APPROVAL_STATUS.REJECTED);
-                                                    return matchesSearch && matchesStatus;
-                                                });
-                                                return { ...week, filteredEmployees };
-                                            }).filter(week => week.filteredEmployees.length > 0);
-
-                                            if (filteredWeeks.length === 0) {
-                                                return (
-                                                    <div className="py-20 text-center bg-white rounded-[32px] border-2 border-dashed border-brand-blue/5">
-                                                        <p className="text-brand-text/40 font-bold uppercase tracking-widest text-xs italic">No records found</p>
-                                                    </div>
-                                                );
-                                            }
-
-                                            return filteredWeeks.map((week, wIdx) => (
+                                        ) : filteredWeeks.length === 0 ? (
+                                            <div className="py-20 text-center bg-white rounded-[32px] border-2 border-dashed border-brand-blue/5">
+                                                <p className="text-brand-text/20 font-bold uppercase tracking-widest text-xs italic">No team timesheet records found.</p>
+                                            </div>
+                                        ) : (
+                                            filteredWeeks.map((week, wIdx) => (
                                                 <div key={wIdx} className="bg-white rounded-[32px] shadow-xl border border-brand-blue/5 overflow-hidden">
                                                     <div className="bg-white p-3 px-6 flex items-center justify-between border-b border-brand-blue/5">
                                                         <div>
@@ -740,7 +734,7 @@ export default function ReportingManagerTeam() {
                                                         </div>
                                                         <div className="bg-brand-blue/5 px-3 py-1 rounded-lg border border-brand-blue/10">
                                                             <span className="text-brand-text font-black text-xs">{week.filteredEmployees.length}</span>
-                                                            <span className="text-brand-text/40 text-[8px] font-bold uppercase tracking-widest ml-2">Team Members Recorded</span>
+                                                            <span className="text-brand-text/40 text-[8px] font-bold uppercase tracking-widest ml-2">{week.filteredEmployees.length === 1 ? 'Team Member Recorded' : 'Team Members Recorded'}</span>
                                                         </div>
                                                     </div>
                                                     <div className="p-4 grid grid-cols-1 gap-2">
@@ -776,7 +770,7 @@ export default function ReportingManagerTeam() {
                                                     </div>
                                                 </div>
                                             ))
-                                        })()}
+                                        )}
                                     </div>
                                 </>
                             ) : (
@@ -818,11 +812,8 @@ export default function ReportingManagerTeam() {
                                         <option>Rejected</option>
                                     </select>
                                 </div>
-                                <div className="flex items-center gap-2 px-4 h-[47px] bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Total</span>
-                                    <span className="text-xs font-black text-brand-blue-dark bg-white px-2.5 py-0.5 rounded-lg border border-brand-blue/10 shadow-sm">
-                                        {leaves.filter(lv => (leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase()) && (!leavesFilter || lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase()))).length}
-                                    </span>
+                                <div className="h-[47px] px-4 flex items-center justify-center bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm text-brand-blue-dark text-[11px] font-black uppercase tracking-wider whitespace-nowrap">
+                                    TOTAL {leaves.filter(lv => (leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase()) && (!leavesFilter || lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase()))).length}
                                 </div>
                             </div>
                             <div className="bg-white rounded-[20px] shadow-xl overflow-hidden border border-brand-blue/5">
