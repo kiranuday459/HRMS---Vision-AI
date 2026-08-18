@@ -140,60 +140,44 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
         .sort((a, b) => a.holidayDate.localeCompare(b.holidayDate))[0];
 
     return createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 lg:p-10 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[48px] w-full max-w-4xl h-full max-h-[85vh] overflow-hidden shadow-[0_32px_128px_-16px_rgba(0,0,0,0.2)] flex border border-white/40">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 lg:p-8 animate-in fade-in duration-300">
+            <div className="bg-white rounded-[36px] w-full max-w-4xl max-h-[90vh] lg:h-[540px] overflow-hidden shadow-[0_32px_128px_-16px_rgba(0,0,0,0.2)] flex flex-col md:flex-row border border-white/40">
 
                 {/* Left Sidebar - Illustration & Status */}
-                <div className="w-80 bg-[#e8f0fe] h-full p-10 flex flex-col items-center justify-between border-r border-slate-100 hidden lg:flex shrink-0">
+                <div className="w-full md:w-72 lg:w-80 bg-[#e8f0fe] h-full p-6 lg:p-7 flex flex-col justify-between border-r border-slate-100 hidden md:flex shrink-0">
                     <div className="w-full">
-                        <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Japanese Holiday Calendar</h2>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-10">Japan public holidays for the selected year</p>
-
-                        {/* Illustration Placeholder */}
-                        {/* <div className="relative w-full aspect-square bg-white/40 rounded-[32px] border border-white/60 mb-10 flex items-center justify-center p-8">
-                            <div className="absolute inset-0 bg-gradient-to-br from-brand-blue/20 to-brand-blue-hover/40 rounded-[32px]" />
-                            <div className="relative z-10 flex flex-col items-center gap-6">
-                                <div className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center">
-                                    <CalendarIcon size={48} className="text-indigo-500" strokeWidth={1.5} />
-                                </div>
-                                <div className="flex flex-col items-center gap-2">
-                                    <div className="flex gap-2">
-                                        {[1, 2, 3].map(i => <div key={i} className="w-8 h-2 bg-indigo-200 rounded-full" />)}
-                                    </div>
-                                    <div className="w-16 h-2 bg-indigo-100 rounded-full" />
-                                </div>
-                            </div>
-                        </div> */}
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-1">Japanese Holiday Calendar</h2>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">Japan public holidays for the selected year</p>
 
                         {/* Status Cards */}
-                        <div className="space-y-6 w-full">
-                            <div className="bg-white/60 p-6 rounded-[24px] border border-white/80 shadow-sm">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Today</p>
-                                <p className="text-lg font-black text-slate-800 tracking-tight">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                                <p className="text-xs font-bold text-indigo-500 mt-1 uppercase tracking-widest">
+                        <div className="space-y-3 w-full">
+                            <div className="bg-white/60 p-4 rounded-2xl border border-white/80 shadow-sm">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Today</p>
+                                <p className="text-base font-black text-slate-800 tracking-tight">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                <p className="text-[11px] font-bold text-indigo-500 mt-0.5 uppercase tracking-wider">
                                     {todaysHoliday ? todaysHoliday.holidayName : "Normal Working Day"}
                                 </p>
                             </div>
 
                             {todaysHoliday ? (
-                                <div className="bg-slate-800 p-6 rounded-[24px] shadow-lg shadow-slate-200">
-                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                                <div className="bg-slate-800 p-4 rounded-2xl shadow-lg shadow-slate-200">
+                                    <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] mb-1 flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />
                                         Today's Holiday
                                     </p>
-                                    <p className="text-lg font-black text-white tracking-tight">{todaysHoliday.holidayName}</p>
-                                    <p className="text-xs font-bold text-white/60 mt-2 uppercase tracking-widest">
+                                    <p className="text-base font-black text-white tracking-tight leading-snug line-clamp-2">{todaysHoliday.holidayName}</p>
+                                    <p className="text-[11px] font-bold text-white/60 mt-1 uppercase tracking-wider">
                                         {new Date(todaysHoliday.holidayDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                                     </p>
                                 </div>
                             ) : upcomingHoliday && (
-                                <div className="bg-slate-800 p-6 rounded-[24px] shadow-lg shadow-slate-200">
-                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                                <div className="bg-slate-800 p-4 rounded-2xl shadow-lg shadow-slate-200">
+                                    <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] mb-1 flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />
                                         Upcoming Holiday
                                     </p>
-                                    <p className="text-lg font-black text-white tracking-tight">{upcomingHoliday.holidayName}</p>
-                                    <p className="text-xs font-bold text-white/60 mt-2 uppercase tracking-widest">
+                                    <p className="text-base font-black text-white tracking-tight leading-snug line-clamp-2">{upcomingHoliday.holidayName}</p>
+                                    <p className="text-[11px] font-bold text-white/60 mt-1 uppercase tracking-wider">
                                         {new Date(upcomingHoliday.holidayDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                                     </p>
                                 </div>
@@ -202,14 +186,14 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                     </div>
 
                     {/* Footer Info */}
-                    <div className="w-full pt-10 border-t border-slate-200/50">
+                    <div className="w-full pt-3.5 border-t border-slate-200/50 mt-4">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center shadow-sm">
-                                <MapPin size={18} className="text-slate-400" />
+                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-100 flex items-center justify-center shadow-sm shrink-0">
+                                <MapPin size={16} className="text-slate-400" />
                             </div>
                             <div>
                                 <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none">Global Office</p>
-                                <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Standard Policy Applied</p>
+                                <p className="text-[8px] font-bold text-slate-400 mt-0.5 uppercase">Standard Policy Applied</p>
                             </div>
                         </div>
                     </div>
@@ -218,56 +202,56 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                 {/* Main Content Pane */}
                 <div className="flex-1 flex flex-col min-w-0 bg-white">
                     {/* Header with Toggles & Nav */}
-                    <header className="p-8 pb-4 flex items-center justify-between shrink-0">
-                        <div className="flex items-center gap-3 bg-slate-100/50 p-1.5 rounded-[20px] border border-slate-100">
+                    <header className="p-5 pb-2 lg:px-7 lg:pt-5 lg:pb-2 flex items-center justify-between shrink-0 border-b border-slate-50">
+                        <div className="flex items-center gap-2 bg-slate-100/50 p-1 rounded-2xl border border-slate-100">
                             <button
                                 onClick={() => setView("list")}
-                                className={`px-6 py-2 rounded-[16px] flex items-center gap-2 transition-all ${view === 'list' ? 'bg-white shadow-sm text-slate-800 font-bold' : 'text-slate-400 font-medium hover:text-slate-600'}`}
+                                className={`px-4 py-1.5 rounded-xl flex items-center gap-1.5 transition-all ${view === 'list' ? 'bg-white shadow-sm text-slate-800 font-bold' : 'text-slate-400 font-medium hover:text-slate-600'}`}
                             >
-                                <ListIcon size={16} />
+                                <ListIcon size={14} />
                                 <span className="text-xs uppercase tracking-widest font-black">List</span>
                             </button>
                             <button
                                 onClick={() => setView("calendar")}
-                                className={`px-6 py-2 rounded-[16px] flex items-center gap-2 transition-all ${view === 'calendar' ? 'bg-indigo-500 shadow-lg shadow-indigo-100 text-white font-bold' : 'text-slate-400 font-medium hover:text-slate-600'}`}
+                                className={`px-4 py-1.5 rounded-xl flex items-center gap-1.5 transition-all ${view === 'calendar' ? 'bg-indigo-500 shadow-md shadow-indigo-100 text-white font-bold' : 'text-slate-400 font-medium hover:text-slate-600'}`}
                             >
-                                <CalendarIcon size={16} />
+                                <CalendarIcon size={14} />
                                 <span className="text-xs uppercase tracking-widest font-black">Calendar</span>
                             </button>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
                                 <button
                                     onClick={() => setSelectedYear(prev => prev - 1)}
                                     className="p-1 hover:bg-slate-200 rounded-lg transition-colors"
                                 >
-                                    <ChevronLeft size={16} />
+                                    <ChevronLeft size={14} />
                                 </button>
-                                <span className="px-4 text-sm font-black text-slate-800 tracking-widest">{selectedYear}</span>
+                                <span className="px-3 text-xs font-black text-slate-800 tracking-widest">{selectedYear}</span>
                                 <button
                                     onClick={() => setSelectedYear(prev => prev + 1)}
                                     className="p-1 hover:bg-slate-200 rounded-lg transition-colors"
                                 >
-                                    <ChevronRight size={16} />
+                                    <ChevronRight size={14} />
                                 </button>
                             </div>
                             <button
                                 onClick={onClose}
-                                className="w-10 h-10 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-2xl flex items-center justify-center transition-all border border-slate-100"
+                                className="w-8 h-8 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl flex items-center justify-center transition-all border border-slate-100"
                             >
-                                <X size={20} />
+                                <X size={16} />
                             </button>
                         </div>
                     </header>
 
                     {/* View Area */}
-                    <div className="flex-1 overflow-y-auto p-10 scrollbar-hide">
+                    <div className="flex-1 overflow-y-auto px-5 py-4 lg:px-7 lg:py-4 custom-scrollbar">
                         {view === 'calendar' ? (
-                            <div className="space-y-16">
+                            <div className="flex flex-col justify-between">
                                 {/* Pagination for Calendar (shows 1 month) */}
-                                <div className="flex items-center justify-between mb-8">
-                                    <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => {
                                                 if (startMonthIndex > 0) {
@@ -277,12 +261,12 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                                                     setSelectedYear(prev => prev - 1);
                                                 }
                                             }}
-                                            className="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-600 hover:text-slate-900"
+                                            className="p-1 hover:bg-slate-100 rounded-lg transition-all text-slate-600 hover:text-slate-900"
                                             title="Previous Month"
                                         >
-                                            <ChevronLeft size={24} />
+                                            <ChevronLeft size={18} />
                                         </button>
-                                        <span className="text-sm font-black text-slate-800 tracking-tight px-2 min-w-[150px] text-center select-none">
+                                        <span className="text-sm font-black text-slate-800 tracking-tight px-1 min-w-[130px] text-center select-none">
                                             {months[startMonthIndex]} {selectedYear}
                                         </span>
                                         <button
@@ -294,16 +278,16 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                                                     setSelectedYear(prev => prev + 1);
                                                 }
                                             }}
-                                            className="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-600 hover:text-slate-900"
+                                            className="p-1 hover:bg-slate-100 rounded-lg transition-all text-slate-600 hover:text-slate-900"
                                             title="Next Month"
                                         >
-                                            <ChevronRight size={24} />
+                                            <ChevronRight size={18} />
                                         </button>
                                     </div>
-                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Monthly Overview</p>
+                                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.25em]">Monthly Overview</p>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-12">
+                                <div className="grid grid-cols-1">
                                     {[startMonthIndex].map(monthIdx => {
                                         if (monthIdx > 11) return null;
                                         const daysInMonth = getDaysInMonth(selectedYear, monthIdx);
@@ -319,14 +303,14 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                                                     key={d}
                                                     onClick={() => handleDateClick(dStr)}
                                                     className={`
-                                                        h-10 w-full rounded-[14px] flex items-center justify-center text-sm font-bold cursor-pointer transition-all relative group
-                                                        ${hol ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-100 hover:scale-110 z-10' : 'text-slate-600 hover:bg-slate-50'}
+                                                        h-8 lg:h-9 w-full rounded-xl flex items-center justify-center text-xs font-bold cursor-pointer transition-all relative group
+                                                        ${hol ? 'bg-indigo-500 text-white shadow-md shadow-indigo-100 hover:scale-105 z-10' : 'text-slate-600 hover:bg-slate-50'}
                                                         ${isToday && !hol ? 'text-indigo-500 ring-2 ring-indigo-500 ring-inset' : ''}
                                                     `}
                                                 >
                                                     {d}
                                                     {hol && (
-                                                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-white text-slate-800 text-[9px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-[100] pointer-events-none shadow-2xl border border-slate-100 ring-4 ring-white/50">
+                                                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 px-2.5 py-1 bg-white text-slate-800 text-[9px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-[100] pointer-events-none shadow-xl border border-slate-100 ring-2 ring-white/50">
                                                             {hol.holidayName}
                                                         </div>
                                                     )}
@@ -335,10 +319,10 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                                         }
 
                                         return (
-                                            <div key={monthIdx} className="flex flex-col gap-6">
-                                                <div className="grid grid-cols-7 gap-2">
+                                            <div key={monthIdx} className="flex flex-col gap-2">
+                                                <div className="grid grid-cols-7 gap-1.5">
                                                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                                                        <div key={day} className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-center py-2">{day}</div>
+                                                        <div key={day} className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-center py-1">{day}</div>
                                                     ))}
                                                     {days}
                                                 </div>
@@ -348,46 +332,46 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                                 </div>
                             </div>
                         ) : (
-                            <div className="space-y-6">
-                                <div className="flex items-center justify-between mb-8">
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Full Year List</h3>
-                                    <span className="px-4 py-1.5 bg-indigo-50 text-indigo-500 text-[10px] font-black uppercase tracking-widest rounded-full">{holidays.length} Holidays Scheduled</span>
+                                    <span className="px-3 py-1 bg-indigo-50 text-indigo-500 text-[10px] font-black uppercase tracking-widest rounded-full">{holidays.length} Holidays Scheduled</span>
                                 </div>
 
-                                <div className="border border-slate-100 rounded-[32px] overflow-hidden bg-slate-50/30">
+                                <div className="border border-slate-100 rounded-2xl overflow-hidden bg-slate-50/30">
                                     <table className="w-full text-left border-collapse table-fixed">
                                         <thead>
                                             <tr className="border-b border-slate-100 bg-white">
-                                                <th className="w-[52%] p-6 pl-10 text-[10px] font-black text-slate-400 uppercase tracking-widest">Holiday</th>
-                                                <th className="w-[24%] p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Day</th>
-                                                <th className="w-[24%] p-6 pr-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Date</th>
+                                                <th className="w-[52%] p-3.5 pl-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Holiday</th>
+                                                <th className="w-[24%] p-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Day</th>
+                                                <th className="w-[24%] p-3.5 pr-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Date</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {loading ? (
-                                                <tr><td colSpan="3" className="p-20 text-center animate-pulse text-xs font-black text-slate-300 uppercase tracking-widest">Synchronizing Registry...</td></tr>
+                                                <tr><td colSpan="3" className="p-10 text-center animate-pulse text-xs font-black text-slate-300 uppercase tracking-widest">Synchronizing Registry...</td></tr>
                                             ) : holidays.length === 0 ? (
-                                                <tr><td colSpan="3" className="p-20 text-center text-xs font-black text-slate-300 uppercase tracking-widest">No holidays scheduled for this period</td></tr>
+                                                <tr><td colSpan="3" className="p-10 text-center text-xs font-black text-slate-300 uppercase tracking-widest">No holidays scheduled for this period</td></tr>
                                             ) : (
                                                 [...holidays].sort((a, b) => a.holidayDate.localeCompare(b.holidayDate)).map(h => (
-                                                    <tr key={h.id} onClick={() => handleDateClick(h.holidayDate)} className="group hover:bg-white transition-all cursor-pointer min-h-[72px]">
-                                                        <td className="p-6 pl-10 align-middle">
-                                                            <div className="flex items-center gap-3 min-w-0">
-                                                                <div className="w-3 shrink-0 flex items-center justify-center">
+                                                    <tr key={h.id} onClick={() => handleDateClick(h.holidayDate)} className="group hover:bg-white transition-all cursor-pointer min-h-[52px]">
+                                                        <td className="p-3.5 pl-6 align-middle">
+                                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                                <div className="w-2.5 shrink-0 flex items-center justify-center">
                                                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                                                                 </div>
-                                                                <span className="text-sm font-bold text-slate-700 tracking-tight group-hover:text-indigo-500 transition-colors break-words min-w-0 leading-snug">
+                                                                <span className="text-xs font-bold text-slate-700 tracking-tight group-hover:text-indigo-500 transition-colors break-words min-w-0 leading-snug">
                                                                     {h.holidayName}
                                                                 </span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-6 align-middle">
-                                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">
+                                                        <td className="p-3.5 align-middle">
+                                                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                                                                 {new Date(h.holidayDate).toLocaleDateString('en-GB', { weekday: 'long' })}
                                                             </span>
                                                         </td>
-                                                        <td className="p-6 pr-10 text-right align-middle">
-                                                            <span className="text-sm font-black text-slate-800 tracking-tighter block whitespace-nowrap">
+                                                        <td className="p-3.5 pr-6 text-right align-middle">
+                                                            <span className="text-xs font-black text-slate-800 tracking-tight block whitespace-nowrap">
                                                                 {new Date(h.holidayDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                                                             </span>
                                                         </td>

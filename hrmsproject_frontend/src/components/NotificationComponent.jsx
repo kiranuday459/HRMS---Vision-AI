@@ -36,9 +36,38 @@ const NotificationComponent = () => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
-    const [hoveredId, setHoveredId] = useState(null);
     const [calendarOpen, setCalendarOpen] = useState(false);
     const dropdownRef = useRef(null);
+    const scrollListRef = useRef(null);
+
+    useEffect(() => {
+        const el = scrollListRef.current;
+        if (!el || !isOpen) return;
+
+        const handleWheel = (e) => {
+            const { scrollTop, scrollHeight, clientHeight } = el;
+            const isScrollingUp = e.deltaY < 0;
+            const isScrollingDown = e.deltaY > 0;
+            if (isScrollingUp && scrollTop <= 0) {
+                e.preventDefault();
+            } else if (isScrollingDown && scrollTop + clientHeight >= scrollHeight - 1) {
+                e.preventDefault();
+            }
+            e.stopPropagation();
+        };
+
+        const handleTouchMove = (e) => {
+            e.stopPropagation();
+        };
+
+        el.addEventListener('wheel', handleWheel, { passive: false });
+        el.addEventListener('touchmove', handleTouchMove, { passive: true });
+
+        return () => {
+            el.removeEventListener('wheel', handleWheel);
+            el.removeEventListener('touchmove', handleTouchMove);
+        };
+    }, [isOpen, notifications]);
 
     useEffect(() => {
         fetchNotifications();
@@ -85,20 +114,27 @@ const NotificationComponent = () => {
     };
 
     const deleteNotification = async (id, e) => {
-        e.stopPropagation();
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        // Optimistically remove from state immediately
+        setNotifications(prev => {
+            const deleted = prev.find(n => n.id === id);
+            if (deleted && !deleted.isRead) setUnreadCount(c => Math.max(0, c - 1));
+            return prev.filter(n => n.id !== id);
+        });
+
         try {
             const response = await api(`/api/notifications/${id}`, {
                 method: 'DELETE'
             });
-            if (response.ok) {
-                setNotifications(prev => {
-                    const deleted = prev.find(n => n.id === id);
-                    if (deleted && !deleted.isRead) setUnreadCount(c => Math.max(0, c - 1));
-                    return prev.filter(n => n.id !== id);
-                });
+            if (!response.ok) {
+                fetchNotifications();
             }
         } catch (error) {
             console.error('Error deleting notification:', error);
+            fetchNotifications();
         }
     };
 
@@ -146,7 +182,7 @@ const NotificationComponent = () => {
                 </button>
 
                 {isOpen && (
-                    <div className="fixed sm:absolute right-4 sm:right-0 top-16 sm:top-full mt-2 w-[calc(100vw-32px)] sm:w-80 bg-white rounded-2xl shadow-2xl border border-brand-blue/5 overflow-hidden z-[100] animate-in fade-in zoom-in duration-200 origin-top-right">
+                    <div className="fixed sm:absolute right-4 sm:right-0 top-16 sm:top-full mt-2 w-[calc(100vw-32px)] sm:w-80 bg-white rounded-2xl shadow-2xl border border-brand-blue/5 overflow-hidden z-[100] animate-in fade-in zoom-in duration-200 origin-top-right overscroll-contain">
                         <div className="p-4 border-b border-brand-blue/5 flex justify-between items-center bg-brand-blue-dark text-white">
                             <h3 className="font-bold text-xs uppercase tracking-widest">Notifications</h3>
                             {unreadCount > 0 && (
@@ -156,17 +192,15 @@ const NotificationComponent = () => {
                             )}
                         </div>
 
-                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar bg-slate-50/30">
+                        <div ref={scrollListRef} className="max-h-[400px] overflow-y-auto overscroll-contain custom-scrollbar bg-slate-50/30">
                             {notifications.length > 0 ? (
                                 notifications.map((n) => (
                                     <div
                                         key={n.id}
                                         className={`p-4 border-b border-brand-blue/5 hover:bg-white transition-colors cursor-pointer relative group ${!n.isRead ? 'bg-brand-blue/5' : ''}`}
                                         onClick={() => !n.isRead && markAsRead(n.id)}
-                                        onMouseEnter={() => setHoveredId(n.id)}
-                                        onMouseLeave={() => setHoveredId(null)}
                                     >
-                                        <div className="flex gap-3 pr-6">
+                                        <div className="flex gap-3 pr-14">
                                             <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${!n.isRead ? 'bg-brand-blue' : 'bg-transparent'}`} />
                                             <div className="flex-1 min-w-0">
                                                 <p className={`text-xs font-bold ${!n.isRead ? 'text-brand-text' : 'text-brand-text/60'}`}>{n.title}</p>
@@ -182,27 +216,29 @@ const NotificationComponent = () => {
                                             </div>
                                         </div>
 
-                                        {/* Unread → green tick on hover */}
-                                        {!n.isRead && (
+                                        {/* Action buttons on hover (using CSS group-hover for immediate, flicker-free display) */}
+                                        <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {!n.isRead && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); markAsRead(n.id); }}
+                                                    className="flex items-center justify-center w-6 h-6 rounded-full text-brand-text/30 hover:text-brand-blue hover:bg-brand-blue/10 transition-all"
+                                                    title="Mark as read"
+                                                    aria-label="Mark as read"
+                                                >
+                                                    <CheckCircle size={14} />
+                                                </button>
+                                            )}
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); markAsRead(n.id); }}
-                                                className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 text-brand-text/20 hover:text-brand-text transition-all"
-                                                title="Mark as read"
-                                            >
-                                                <CheckCircle size={14} />
-                                            </button>
-                                        )}
-
-                                        {/* Read → red × on hover to delete */}
-                                        {n.isRead && hoveredId === n.id && (
-                                            <button
+                                                type="button"
                                                 onClick={(e) => deleteNotification(n.id, e)}
-                                                className="absolute right-4 top-4 flex items-center justify-center w-5 h-5 rounded-full bg-red-100 hover:bg-red-500 text-red-500 hover:text-white transition-all duration-150 shadow-sm"
+                                                className="flex items-center justify-center w-6 h-6 rounded-full bg-red-50 hover:bg-red-500 text-red-500 hover:text-white transition-all duration-150 shadow-sm"
                                                 title="Dismiss notification"
+                                                aria-label="Dismiss notification"
                                             >
-                                                <X size={11} strokeWidth={3} />
+                                                <X size={12} strokeWidth={2.5} />
                                             </button>
-                                        )}
+                                        </div>
                                     </div>
                                 ))
                             ) : (

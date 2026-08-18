@@ -215,7 +215,7 @@ export default function ClientTimesheetNotifications() {
                         </div>
                     </div>
 
-                    <div className="max-h-[380px] overflow-y-auto">
+                    <div className="max-h-[380px] overflow-y-auto overscroll-contain">
                         {items.length === 0 ? (
                             <div className="py-14 text-center">
                                 <p className="text-xs font-bold text-[#94a3b8] uppercase tracking-widest">
