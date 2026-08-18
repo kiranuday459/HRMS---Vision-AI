@@ -288,7 +288,7 @@ export default function CandidatesPage() {
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse border-spacing-0">
-                  <thead>
+                  <thead className="sticky top-0 z-10 bg-white shadow-xs">
                     <tr className="bg-brand-blue/[0.02]">
                       <th className="py-5 px-8 text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/40 border-b border-brand-blue/5">EMP ID</th>
                       <th className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/40 border-b border-brand-blue/5">Member Identity</th>
