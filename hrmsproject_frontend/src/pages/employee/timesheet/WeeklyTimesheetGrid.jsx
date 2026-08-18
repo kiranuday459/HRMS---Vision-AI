@@ -129,19 +129,29 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                     comment: entry.notes || ''
                                 };
                             }
-                            projects[key].hours[dayIdx] = { value: entry.totalHours.toString(), id: entry.id };
+                            projects[key].hours[dayIdx] = {
+                                value: (entry.totalHours !== null && entry.totalHours !== undefined) ? entry.totalHours.toString() : '',
+                                id: entry.id
+                            };
                         } else if (entry.category === 'TRUTIME') {
-                            swipes[dayIdx] = { value: entry.totalHours.toString(), id: entry.id };
+                            swipes[dayIdx] = {
+                                value: (entry.totalHours !== null && entry.totalHours !== undefined) ? entry.totalHours.toString() : '',
+                                id: entry.id
+                            };
                         } else if (entry.category === 'HOLIDAY') {
-                            holidayData[dayIdx] = { value: entry.totalHours.toString(), id: entry.id };
+                            holidayData[dayIdx] = {
+                                value: (entry.totalHours !== null && entry.totalHours !== undefined) ? entry.totalHours.toString() : '',
+                                id: entry.id
+                            };
                         } else if (entry.category === 'LEAVE') {
-                            if (entry.leaveType === 'S') leavesS[dayIdx] = { value: entry.totalHours.toString(), id: entry.id };
+                            const valStr = (entry.totalHours !== null && entry.totalHours !== undefined) ? entry.totalHours.toString() : '';
+                            if (entry.leaveType === 'S') leavesS[dayIdx] = { value: valStr, id: entry.id };
                             // 'C' and historical 'E' both route to the merged Casual & Earned row.
-                            else if (entry.leaveType === 'C' || entry.leaveType === 'E') leavesC[dayIdx] = { value: entry.totalHours.toString(), id: entry.id };
-                            else if (entry.leaveType === 'M') leavesM[dayIdx] = { value: entry.totalHours.toString(), id: entry.id };
-                            else if (entry.leaveType === 'P') leavesP[dayIdx] = { value: entry.totalHours.toString(), id: entry.id };
-                            else if (entry.leaveType === 'B') leavesB[dayIdx] = { value: entry.totalHours.toString(), id: entry.id };
-                            else if (entry.leaveType === 'L') leavesL[dayIdx] = { value: entry.totalHours.toString(), id: entry.id };
+                            else if (entry.leaveType === 'C' || entry.leaveType === 'E') leavesC[dayIdx] = { value: valStr, id: entry.id };
+                            else if (entry.leaveType === 'M') leavesM[dayIdx] = { value: valStr, id: entry.id };
+                            else if (entry.leaveType === 'P') leavesP[dayIdx] = { value: valStr, id: entry.id };
+                            else if (entry.leaveType === 'B') leavesB[dayIdx] = { value: valStr, id: entry.id };
+                            else if (entry.leaveType === 'L') leavesL[dayIdx] = { value: valStr, id: entry.id };
                         }
                     }
                 });
@@ -427,8 +437,8 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
         // Validate project rows: a row carrying hours must have Project ID and Name.
         for (let idx = 0; idx < projectRows.length; idx++) {
             const row = projectRows[idx];
-            const rowTotal = calculateRowTotal(row.hours);
-            if (rowTotal > 0) {
+            const hasAnyHours = row.hours.some(h => h.value !== '' && h.value !== null && h.value !== undefined);
+            if (hasAnyHours || row.projectId?.trim() || row.projectName?.trim()) {
                 if (!row.projectId || !row.projectId.trim()) {
                     toast.error(`Project ID is required for project row ${idx + 1}.`);
                     return;
@@ -481,50 +491,60 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
         };
 
         projectRows.forEach(row => {
+            const hasAnyHours = row.hours.some(h => h.value !== '' && h.value !== null && h.value !== undefined);
+            if (!row.projectId?.trim() && !row.projectName?.trim() && !hasAnyHours) {
+                return;
+            }
             row.hours.forEach((h, i) => {
-                const val = parseFloat(h.value);
-                if (val > 0) {
-                    payload.entries.push({
-                        id: h.id,
-                        date: getLocalDateStr(dates[i]),
-                        project: row.projectId,
-                        projectName: row.projectName,
-                        task: row.taskId,
-                        taskDescription: row.taskDesc,
-                        onsiteOffshore: row.onsite,
-                        billingLocation: row.location,
-                        billable: row.billable === 'Billable',
-                        totalHours: val,
-                        category: 'PROJECT',
-                        notes: row.comment
-                    });
+                if (h.value !== '' && h.value !== null && h.value !== undefined) {
+                    const val = parseFloat(h.value);
+                    if (!isNaN(val) && val >= 0) {
+                        payload.entries.push({
+                            id: h.id,
+                            date: getLocalDateStr(dates[i]),
+                            project: row.projectId,
+                            projectName: row.projectName,
+                            task: row.taskId,
+                            taskDescription: row.taskDesc,
+                            onsiteOffshore: row.onsite,
+                            billingLocation: row.location,
+                            billable: row.billable === 'Billable',
+                            totalHours: val,
+                            category: 'PROJECT',
+                            notes: row.comment
+                        });
+                    }
                 }
             });
         });
 
         truTimeRows.swipe.forEach((h, i) => {
-            const val = parseFloat(h.value);
-            if (val > 0) {
-                payload.entries.push({
-                    id: h.id,
-                    date: getLocalDateStr(dates[i]),
-                    totalHours: val,
-                    category: 'TRUTIME',
-                    projectName: 'TruTime Swipe'
-                });
+            if (h.value !== '' && h.value !== null && h.value !== undefined) {
+                const val = parseFloat(h.value);
+                if (!isNaN(val) && val >= 0) {
+                    payload.entries.push({
+                        id: h.id,
+                        date: getLocalDateStr(dates[i]),
+                        totalHours: val,
+                        category: 'TRUTIME',
+                        projectName: 'TruTime Swipe'
+                    });
+                }
             }
         });
 
         leaveRows.holiday.forEach((h, i) => {
-            const val = parseFloat(h.value);
-            if (val > 0) {
-                payload.entries.push({
-                    id: h.id,
-                    date: getLocalDateStr(dates[i]),
-                    totalHours: val,
-                    category: 'HOLIDAY',
-                    projectName: 'Holiday'
-                });
+            if (h.value !== '' && h.value !== null && h.value !== undefined) {
+                const val = parseFloat(h.value);
+                if (!isNaN(val) && val > 0) {
+                    payload.entries.push({
+                        id: h.id,
+                        date: getLocalDateStr(dates[i]),
+                        totalHours: val,
+                        category: 'HOLIDAY',
+                        projectName: 'Holiday'
+                    });
+                }
             }
         });
 
@@ -532,16 +552,18 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
         const fullNames = ['Sick', 'Casual & Earned', 'Maternity', 'Paternity', 'Bereavement', 'LOP'];
         ['leaveS', 'leaveC', 'leaveM', 'leaveP', 'leaveB', 'leaveL'].forEach((key, typeIdx) => {
             leaveRows[key].forEach((h, i) => {
-                const val = parseFloat(h.value);
-                if (val > 0) {
-                    payload.entries.push({
-                        id: h.id,
-                        date: getLocalDateStr(dates[i]),
-                        totalHours: val,
-                        category: 'LEAVE',
-                        leaveType: leaveTypes[typeIdx],
-                        projectName: `Leave (${fullNames[typeIdx]})`
-                    });
+                if (h.value !== '' && h.value !== null && h.value !== undefined) {
+                    const val = parseFloat(h.value);
+                    if (!isNaN(val) && val > 0) {
+                        payload.entries.push({
+                            id: h.id,
+                            date: getLocalDateStr(dates[i]),
+                            totalHours: val,
+                            category: 'LEAVE',
+                            leaveType: leaveTypes[typeIdx],
+                            projectName: `Leave (${fullNames[typeIdx]})`
+                        });
+                    }
                 }
             });
         });

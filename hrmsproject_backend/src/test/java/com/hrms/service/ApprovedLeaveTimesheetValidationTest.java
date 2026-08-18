@@ -106,4 +106,22 @@ class ApprovedLeaveTimesheetValidationTest {
                 timesheetService.saveWeeklyTimesheet(EMPLOYEE_ID, LocalDate.of(2026, 8, 1), Collections.singletonList(leaveDto), Role.EMPLOYEE)
         );
     }
+
+    @Test
+    void saveWeeklyTimesheet_shouldPersistZeroHoursEntry() {
+        TimesheetDTO zeroDto = new TimesheetDTO();
+        zeroDto.setDate(WORKING_DATE);
+        zeroDto.setCategory("PROJECT");
+        zeroDto.setProject("Payroll");
+        zeroDto.setProjectName("payroll");
+        zeroDto.setTotalHours(0.0);
+
+        assertDoesNotThrow(() ->
+                timesheetService.saveWeeklyTimesheet(EMPLOYEE_ID, LocalDate.of(2026, 8, 1), Collections.singletonList(zeroDto), Role.EMPLOYEE)
+        );
+
+        verify(timesheetRepository).save(argThat(t ->
+                t.getTotalHours() != null && Double.compare(t.getTotalHours(), 0.0) == 0 && "Payroll".equals(t.getProject())
+        ));
+    }
 }

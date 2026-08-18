@@ -148,8 +148,10 @@ public class TimesheetService {
         timesheet.setCategory(dto.getCategory());
         timesheet.setLeaveType(dto.getLeaveType());
 
-        // Calculate total hours: (EndTime - StartTime)
-        if (dto.getStartTime() != null && dto.getEndTime() != null) {
+        // Calculate total hours: explicit totalHours or (EndTime - StartTime)
+        if (dto.getTotalHours() != null) {
+            timesheet.setTotalHours(dto.getTotalHours());
+        } else if (dto.getStartTime() != null && dto.getEndTime() != null) {
             Duration duration = Duration.between(dto.getStartTime(), dto.getEndTime());
             double total = duration.toMinutes() / 60.0;
             timesheet.setTotalHours(Math.max(0, total));
@@ -201,8 +203,10 @@ public class TimesheetService {
         timesheet.setCategory(dto.getCategory());
         timesheet.setLeaveType(dto.getLeaveType());
 
-        // Recalculate total hours: (EndTime - StartTime)
-        if (dto.getStartTime() != null && dto.getEndTime() != null) {
+        // Recalculate total hours: explicit totalHours or (EndTime - StartTime)
+        if (dto.getTotalHours() != null) {
+            timesheet.setTotalHours(dto.getTotalHours());
+        } else if (dto.getStartTime() != null && dto.getEndTime() != null) {
             Duration duration = Duration.between(dto.getStartTime(), dto.getEndTime());
             double total = duration.toMinutes() / 60.0;
             timesheet.setTotalHours(Math.max(0, total));
@@ -508,7 +512,7 @@ public class TimesheetService {
                     timesheet.setCategory(dto.getCategory());
                     timesheet.setLeaveType(dto.getLeaveType());
                     // Use totalHours directly from DTO; only compute from times if not provided
-                    if (dto.getTotalHours() != null && dto.getTotalHours() > 0) {
+                    if (dto.getTotalHours() != null) {
                         timesheet.setTotalHours(dto.getTotalHours());
                     } else if (dto.getStartTime() != null && dto.getEndTime() != null) {
                         Duration duration = Duration.between(dto.getStartTime(), dto.getEndTime());

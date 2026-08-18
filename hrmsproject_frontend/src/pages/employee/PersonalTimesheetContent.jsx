@@ -235,11 +235,11 @@ const PersonalTimesheetContent = ({ employeeId, user, profileResolved = true }) 
             setLoading(true);
             const formattedEntries = payload.entries.map(entry => {
                 const startTime = "09:00:00";
-                const totalHrs = entry.totalHours || 0;
+                const totalHrs = (entry.totalHours !== null && entry.totalHours !== undefined) ? entry.totalHours : 0;
                 const endHour = Math.floor(totalHrs + 9);
                 const endMin = Math.round((totalHrs % 1) * 60);
                 const endTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}:00`;
-                return { ...entry, employeeId, startTime, endTime };
+                return { ...entry, employeeId, startTime, endTime, totalHours: totalHrs };
             });
 
             const weeklyPayload = { weekStart: payload.weekStart, entries: formattedEntries };

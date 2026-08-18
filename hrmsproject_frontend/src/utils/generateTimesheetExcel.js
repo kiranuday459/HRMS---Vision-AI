@@ -408,8 +408,12 @@ export async function generateTimesheetExcel({
                     r.getCell(7).value = billType;
 
                     const hCell = r.getCell(8);
-                    hCell.value = Number(totalHours);
-                    hCell.numFmt = "0.00";
+                    if (entry) {
+                        hCell.value = Number(totalHours);
+                        hCell.numFmt = "0.00";
+                    } else {
+                        hCell.value = "";
+                    }
 
                     r.getCell(9).value = ""; // Comments column
 

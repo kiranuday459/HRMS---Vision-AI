@@ -209,11 +209,11 @@ export default function AdminTimesheets() {
             setLoading(true);
             const formattedEntries = payload.entries.map(entry => {
                 const startTime = "09:00:00";
-                const totalHrs = entry.totalHours || 0;
+                const totalHrs = (entry.totalHours !== null && entry.totalHours !== undefined) ? entry.totalHours : 0;
                 const endHour = Math.floor(totalHrs + 9);
                 const endMin = Math.round((totalHrs % 1) * 60);
                 const endTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}:00`;
-                return { ...entry, employeeId: targetEmpId, startTime, endTime };
+                return { ...entry, employeeId: targetEmpId, startTime, endTime, totalHours: totalHrs };
             });
 
             const weeklyPayload = {
@@ -392,7 +392,7 @@ export default function AdminTimesheets() {
                         <div className="flex bg-bg-slate/50 p-1 rounded-xl border border-brand-blue/5">
                             <div className="px-4 py-1.5 flex items-center gap-2">
                                 <Clock size={14} className="text-brand-text/40" />
-                                <span className="text-[10px] font-black text-brand-text uppercase tracking-widest">{groupedWeeks.length} Weeks Recorded</span>
+                                <span className="text-[10px] font-black text-brand-text uppercase tracking-widest">{groupedWeeks.length} {groupedWeeks.length === 1 ? 'Week Recorded' : 'Weeks Recorded'}</span>
                             </div>
                         </div>
                     </div>
@@ -444,11 +444,8 @@ export default function AdminTimesheets() {
                                         </select>
                                     </div>
 
-                                    <div className="flex items-center gap-2 px-3.5 py-2 bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm">
-                                        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Total</span>
-                                        <span className="text-xs font-black text-brand-blue-dark bg-white px-2.5 py-0.5 rounded-xl border border-brand-blue/10 shadow-sm">
-                                            {totalFilteredCount}
-                                        </span>
+                                    <div className="h-10 px-4 flex items-center justify-center bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm text-brand-blue-dark text-[11px] font-black uppercase tracking-wider whitespace-nowrap">
+                                        TOTAL {totalFilteredCount}
                                     </div>
 
                                     <button
@@ -480,7 +477,7 @@ export default function AdminTimesheets() {
                                                     </div>
                                                     <div className="bg-brand-blue/5 px-3 py-1 rounded-lg border border-brand-blue/10">
                                                         <span className="text-brand-text font-black text-xs">{week.filteredEmployees.length}</span>
-                                                        <span className="text-brand-text/40 text-[8px] font-bold uppercase tracking-widest ml-2">Resources Recorded</span>
+                                                        <span className="text-brand-text/40 text-[8px] font-bold uppercase tracking-widest ml-2">{week.filteredEmployees.length === 1 ? 'Resource Recorded' : 'Resources Recorded'}</span>
                                                     </div>
                                                 </div>
 
