@@ -16,6 +16,9 @@
 export const FIELD_LIMITS = {
     COMMENT: 256,
     REJECTION_REASON: 256,
+    // Why a leave was taken. Same cap as the other long free-text fields; enforced server-side
+    // in ClientTimesheetWeekService, and required at submit when the leave row carries hours.
+    LEAVE_REASON: 256,
     PROJECT_NAME: 50,
     PROJECT_ID: 25,
     TASK_DESCRIPTION: 256,

@@ -5,7 +5,6 @@ import com.hrms.dto.ClientAccessStatusDTO;
 import com.hrms.dto.VerificationSummaryDTO;
 import com.hrms.model.CompanyDetail;
 import com.hrms.model.Employee;
-import com.hrms.model.User;
 import com.hrms.repository.CompanyDetailRepository;
 import com.hrms.repository.EmployeeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +48,10 @@ public class ClientVerificationService {
 
     @Autowired
     private ClientTimesheetNotificationService notificationService;
+
+    // The single rule for where a Client Timesheet email goes — see resolveEmail below.
+    @Autowired
+    private CorporateEmailResolver corporateEmailResolver;
 
     // ---------- Admin views ----------
 
@@ -213,33 +216,17 @@ public class ClientVerificationService {
     // ---------- helpers ----------
 
     /**
-     * Recipient for the activation OTP: the address on the employee's HRMS login account,
-     * users.email. That is the single source of truth for "corporate email" — the OTP has to
-     * reach the inbox of whoever signs in to enter it, so the account's own address is the
-     * only one that can be wrong by definition rather than by accident.
+     * Recipient for the activation OTP: the address on the employee's HRMS login account.
      *
-     * It deliberately reads no profile field. The profile's "Corporate Email" is
-     * company_details.oryfolks_mail_id, a different column that merely happens to be seeded
-     * from the same value when an account is created with the employee, and drifts from the
-     * login afterwards:
-     *   - EmployeeService seeds it with dto.getEmail() — the *personal* address — whenever
-     *     Corporate Email is left blank on the create form;
-     *   - editing Corporate Email on the profile rewrites it and never touches users.email;
-     *   - AdminUserController creates logins with an address of their own, unconnected to
-     *     the company detail.
-     * Each of those routes points the OTP at an inbox the employee does not sign in with.
-     * Reading the login makes that unreachable by construction instead of by data hygiene.
+     * The rule itself, and the reasoning behind it, now live in {@link CorporateEmailResolver}
+     * — shared so the Client Timesheet rejection notice and the two scheduled reminders route
+     * through the identical lookup rather than growing a second one that can drift from this.
      *
-     * Null when the employee has no login account, and issueAndSendOtp skips the send —
-     * which is correct: with no account there is nobody who could enter the OTP.
+     * Null when the employee has no login account, and issueAndSendOtp skips the send — which
+     * is correct: with no account there is nobody who could enter the OTP.
      */
     private String resolveEmail(Employee employee) {
-        User account = employee.getUser();
-        if (account == null) {
-            return null;
-        }
-        String login = account.getEmail();
-        return login != null && !login.isBlank() ? login : null;
+        return corporateEmailResolver.resolve(employee);
     }
 
     private AssignedEmployeeDTO toDTO(Employee e) {

@@ -44,6 +44,11 @@ public class ClientTimesheetService {
     @Autowired
     private ClientTimesheetNotificationService notificationService;
 
+    // Emails the employee when their week is rejected. Additive: the bell notification above
+    // is unchanged and still fires on its own.
+    @Autowired
+    private ClientTimesheetEmailService clientTimesheetEmailService;
+
     @Autowired
     private UserDisplayNameResolver userDisplayNameResolver;
 
@@ -139,6 +144,11 @@ public class ClientTimesheetService {
         entry.setReviewedAt(LocalDateTime.now());
         ClientTimesheetDTO result = convertToDTO(clientTimesheetRepository.save(entry));
         notificationService.notifyEmployeeTimesheetRejected(entry.getEmployee(), entry.getWeekStartDate(), reason);
+        // Email in addition to the bell above, never instead of it. Side effect only — the
+        // rejection is already saved and the email service swallows its own failures, so an
+        // unreachable mail server can never fail the admin's decision. Deduped inside for the
+        // week, because rejecting a week posts one request per day row.
+        clientTimesheetEmailService.sendRejectionNotice(entry);
         return result;
     }
 

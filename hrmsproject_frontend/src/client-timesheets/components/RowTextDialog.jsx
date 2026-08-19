@@ -30,6 +30,12 @@ export default function RowTextDialog({
     max,
     /** Field name, used for the heading and the empty/placeholder copy. */
     label = "Comment",
+    /**
+     * Overrides the header's row attribution. Project rows identify themselves by Project ID ·
+     * Name · Task ID; a Holiday/Time off row has none of those and is named by its leave type
+     * instead, so the caller supplies the line.
+     */
+    contextLabel,
     placeholder,
     editable = false,
     onChange,
@@ -59,7 +65,7 @@ export default function RowTextDialog({
                         {/* Which row this belongs to — without it the text in a dialog is
                             unattributed, since the row it sits on is no longer visible. */}
                         <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-brand-text/40 break-words">
-                            {rowContextLabel(row)}
+                            {contextLabel || rowContextLabel(row)}
                         </p>
                     </div>
                     <button onClick={onClose} className="shrink-0 text-brand-text/40 hover:text-brand-text" aria-label="Close">
