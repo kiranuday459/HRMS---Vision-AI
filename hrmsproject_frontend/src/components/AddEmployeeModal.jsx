@@ -172,7 +172,9 @@ export default function AddEmployeeModal({ open, onClose, onEmployeeCreated }) {
             // Validate Date of Birth
             const dobValidation = validateDateOfBirth(formData.dateOfBirth);
             if (!dobValidation.isValid) {
-                newErrors.dateOfBirth = dobValidation.error;
+                newErrors.dateOfBirth = dobValidation.error === "You must be at least 18 years old"
+                    ? "Employee must be at least 18 years old"
+                    : dobValidation.error;
             }
 
             // Validate Gender
@@ -261,8 +263,8 @@ export default function AddEmployeeModal({ open, onClose, onEmployeeCreated }) {
                 maritalStatus: "Single",
                 presentAddress: "To be updated",
                 permanentAddress: "To be updated",
-                emergencyContactName: "To be updated",
-                emergencyRelationship: "To be updated",
+                emergencyContactName: null,
+                emergencyRelationship: null,
                 emergencyPhone: "0000000000"
             };
 
@@ -466,17 +468,14 @@ export default function AddEmployeeModal({ open, onClose, onEmployeeCreated }) {
                                             onChange={(e) => {
                                                 setFormData({ ...formData, dateOfBirth: e.target.value });
                                                 const validation = validateDateOfBirth(e.target.value);
-                                                setFieldErrors({ ...fieldErrors, dateOfBirth: validation.error });
+                                                const dobErr = validation.error === "You must be at least 18 years old"
+                                                    ? "Employee must be at least 18 years old"
+                                                    : validation.error;
+                                                setFieldErrors({ ...fieldErrors, dateOfBirth: dobErr });
                                             }}
                                             className={`w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-medium text-brand-text focus:ring-2 focus:ring-brand-blue-dark/10 focus:border-brand-blue-dark transition-all outline-none ${fieldErrors.dateOfBirth ? 'ring-2 ring-red-500 bg-red-50' : ''}`}
                                         />
                                         <FormFieldError error={fieldErrors.dateOfBirth} show={!!fieldErrors.dateOfBirth} />
-                                        {formData.dateOfBirth && calculateAge(formData.dateOfBirth) < 18 && (
-                                            <p className="text-[10px] text-red-600 font-bold mt-1 flex items-center gap-1 animate-pulse">
-                                                <span>👉</span>
-                                                Employee must be above 18 years and not less than 18 years.
-                                            </p>
-                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-600 mb-2">Gender *</label>

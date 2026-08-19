@@ -134,8 +134,8 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
         aadhar: data.aadhaarNo || '',
         pan: data.panNo || '',
         passport: data.passportNo || "",
-        emergencyContactName: data.emergencyContactName || "",
-        emergencyRelationship: data.emergencyRelationship || "",
+        emergencyContactName: (data.emergencyContactName && data.emergencyContactName !== "To be updated") ? data.emergencyContactName : "",
+        emergencyRelationship: (data.emergencyRelationship && data.emergencyRelationship !== "To be updated") ? data.emergencyRelationship : "",
         emergencyPhoneCountryCode: splitPhone(data.emergencyPhone).countryCode,
         emergencyPhone: splitPhone(data.emergencyPhone).number,
         emergencyAddress: data.emergencyAddress || "",
@@ -336,8 +336,10 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
     const mobileVal = validateMobileNumber(form.mobile, form.mobileCountryCode || '+91');
     if (!mobileVal.isValid) errors.mobile = mobileVal.error;
 
-    const dobVal = validateDateOfBirth(form.dob);
-    if (!dobVal.isValid) errors.dob = dobVal.error;
+    if (form.dob && form.dob.trim()) {
+      const dobVal = validateDateOfBirth(form.dob);
+      if (!dobVal.isValid) errors.dob = dobVal.error;
+    }
 
     if (!form.gender || !form.gender.trim()) {
       errors.gender = "Gender is required";
@@ -467,7 +469,10 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
         const personalFields = ['firstName', 'lastName', 'personalEmail', 'mobile', 'alternateMobile', 'dob', 'gender', 'maritalStatus', 'bloodGroup', 'aadhar', 'pan', 'passport', 'currentAddress', 'permanentAddress'];
         const emergencyFields = ['emergencyContactName', 'emergencyRelationship', 'emergencyPhone', 'emergencyAddress'];
 
-        if (errorFields.some(f => personalFields.includes(f))) {
+        // Priority: keep user on the currently active section if it contains errors
+        if (errorFields.some(f => (activeSection === 'personal' ? personalFields : activeSection === 'emergency' ? emergencyFields : []).includes(f))) {
+          targetSection = activeSection;
+        } else if (errorFields.some(f => personalFields.includes(f))) {
           targetSection = "personal";
         } else if (errorFields.some(f => emergencyFields.includes(f))) {
           targetSection = "emergency";
@@ -478,7 +483,6 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
         }
 
         if (targetSection) setActiveSection(targetSection);
-        alert("Please fix the validation errors before saving.");
         return;
       }
 
@@ -1364,6 +1368,7 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                   onBlur={handleBlur}
                                   disabled={!editing}
                                   maxLength="100"
+                                  placeholder={field.name === 'emergencyContactName' ? 'Enter contact name' : ''}
                                   className={`w-full bg-[#F8F7F4] border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${fieldErrors[field.name] && touched[field.name] ? 'ring-2 ring-red-500 bg-red-50' : ''} ${!editing ? 'cursor-not-allowed opacity-80' : ''}`}
                                 />
                                 {fieldErrors[field.name] && touched[field.name] && (
