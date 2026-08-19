@@ -196,8 +196,8 @@ export default function EmployeeProfile() {
           aadhar: data.aadhaarNo || '',
           pan: data.panNo || '',
           passport: data.passportNo || "",
-          emergencyContactName: data.emergencyContactName || "",
-          emergencyRelationship: data.emergencyRelationship || "",
+          emergencyContactName: (data.emergencyContactName && data.emergencyContactName !== "To be updated") ? data.emergencyContactName : "",
+          emergencyRelationship: (data.emergencyRelationship && data.emergencyRelationship !== "To be updated") ? data.emergencyRelationship : "",
           emergencyPhoneCountryCode: splitPhone(data.emergencyPhone).countryCode,
           emergencyPhone: splitPhone(data.emergencyPhone).number,
           emergencyAddress: data.emergencyAddress || "",
@@ -1091,6 +1091,7 @@ export default function EmployeeProfile() {
                                 onBlur={handleBlur}
                                 disabled={!editing}
                                 maxLength="32"
+                                placeholder={field.name === 'emergencyContactName' ? 'Enter contact name' : ''}
                                 className={`w-full bg-[#F8F7F4] border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${fieldErrors[field.name] && touched[field.name] ? 'ring-2 ring-red-500 bg-red-50' : ''} ${(!editing) ? 'opacity-60 cursor-not-allowed' : ''}`}
                               />
                               {fieldErrors[field.name] && touched[field.name] && <FormFieldError error={fieldErrors[field.name]} show={true} />}

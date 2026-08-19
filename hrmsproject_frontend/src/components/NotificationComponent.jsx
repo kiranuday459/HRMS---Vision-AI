@@ -175,7 +175,7 @@ const NotificationComponent = () => {
                 >
                     <Bell size={20} strokeWidth={2.5} />
                     {unreadCount > 0 && (
-                        <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                        <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-[20px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-xs leading-none select-none">
                             {unreadCount > 9 ? '9+' : unreadCount}
                         </span>
                     )}
