@@ -186,6 +186,23 @@ public class ClientTimesheetWeekService {
                 .orElse(null);
     }
 
+    /**
+     * The leave reason for one time-off type in a week.
+     *
+     * The value is written onto every day line of that type, so reading the first non-blank one
+     * is enough — the same shape as a project row's comment, which is likewise copied onto each
+     * of the row's day lines and read back from a sample. Null for a type with no leave, and for
+     * weeks saved before the field existed.
+     */
+    private String leaveReasonFor(String type, List<ClientTimesheet> lines) {
+        return lines.stream()
+                .filter(l -> type.equalsIgnoreCase(l.getCategory()))
+                .map(ClientTimesheet::getLeaveReason)
+                .filter(r -> r != null && !r.isBlank())
+                .findFirst()
+                .orElse(null);
+    }
+
     private String deriveStatus(ClientTimesheetWeek header, List<ClientTimesheet> lines) {
         if (lines.isEmpty()) {
             return "NOT_STARTED"; // week exists in the list but nothing was ever saved
@@ -301,6 +318,7 @@ public class ClientTimesheetWeekService {
             }
             row.setDays(days);
             row.setTotalHours(total);
+            row.setReason(leaveReasonFor(type, lines));
             timeOffRows.add(row);
         }
         dto.setTimeOffRows(timeOffRows);
@@ -536,6 +554,12 @@ public class ClientTimesheetWeekService {
 
         // ---- Validate all non-zero entries against the assignment gate + future ----
         validateEntries(payload, gate, today);
+        // Submit only. A draft is allowed to be incomplete — the employee saves as they go, and
+        // gating Save would stop them parking a half-filled week — so this matches the other
+        // required-field rules, which are all enforced at submit and not before.
+        if (submit) {
+            requireLeaveReasons(payload);
+        }
 
         // Replace existing (non-approved) line rows for the week.
         if (!existing.isEmpty()) {
@@ -594,6 +618,9 @@ public class ClientTimesheetWeekService {
                     line.setCategory(type);
                     line.setBillable(null);
                     line.setHours(h);
+                    // One reason for the leave-type row, copied onto each of its day lines —
+                    // the same way a project row's comment is stored.
+                    line.setLeaveReason(trimToNull(r.getReason()));
                     line.setStatus(lineStatus);
                     if (submit) line.setSubmittedAt(LocalDateTime.now());
                     toSave.add(line);
@@ -639,6 +666,9 @@ public class ClientTimesheetWeekService {
     private static final int MAX_TASK_ID = 25;
     private static final int MAX_TASK_DESCRIPTION = 256;
     private static final int MAX_COMMENT = 256;
+    // Same limit as Comment and Rejection Reason — one cap for every long free-text field in
+    // the module. Mirrored in the frontend by utils/fieldLimits.js.
+    private static final int MAX_LEAVE_REASON = 256;
     // Not part of the agreed limits table; unchanged, and still matches its VARCHAR(64) column.
     private static final int MAX_BILLING_LOCATION = 64;
 
@@ -689,6 +719,7 @@ public class ClientTimesheetWeekService {
         }
         if (payload.getTimeOffRows() != null) {
             for (ClientTimesheetWeekDTO.TimeOffRowDTO r : payload.getTimeOffRows()) {
+                requireMaxLength(r.getReason(), MAX_LEAVE_REASON, "Leave reason");
                 for (ClientTimesheetWeekDTO.DayHourDTO d : r.getDays()) {
                     double h = d.getHours() != null ? d.getHours() : 0;
                     requireHourRange(h, MAX_LEAVE_HOURS_PER_DAY, "Leave hours", d.getDate());
@@ -726,6 +757,58 @@ public class ClientTimesheetWeekService {
                                 + hrs(MAX_HOURS_PER_DAY) + ".");
             }
         }
+    }
+
+    /**
+     * Every leave-type row carrying hours must say why.
+     *
+     * Submit-time only, and package-private so the rule can be exercised directly in
+     * ClientTimesheetLeaveReasonTest without a database — the same arrangement as
+     * validateEntries. The frontend blocks Submit and highlights the row before it ever gets
+     * here; this is what makes it a rule rather than a UI convenience, since a direct API call
+     * bypasses that entirely.
+     *
+     * Names the leave types that are missing one. The employee may have used several in a week
+     * and "a leave reason is missing" would not say which row to open.
+     */
+    void requireLeaveReasons(ClientTimesheetWeekDTO payload) {
+        if (payload.getTimeOffRows() == null) {
+            return;
+        }
+        List<String> missing = new ArrayList<>();
+        for (ClientTimesheetWeekDTO.TimeOffRowDTO r : payload.getTimeOffRows()) {
+            boolean hasHours = r.getDays() != null && r.getDays().stream()
+                    .anyMatch(d -> d.getHours() != null && d.getHours() > 0);
+            if (hasHours && trimToNull(r.getReason()) == null) {
+                missing.add(leaveTypeLabel(r.getType()));
+            }
+        }
+        if (!missing.isEmpty()) {
+            boolean one = missing.size() == 1;
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Please give a reason for your leave — " + String.join(", ", missing)
+                            + (one ? " has hours but no reason." : " have hours but no reason."));
+        }
+    }
+
+    /** Employee-facing name for a leave type, matching the labels on the entry page. */
+    private String leaveTypeLabel(String type) {
+        if (type == null) return "Leave";
+        return switch (type.toUpperCase()) {
+            case "SICK" -> "Paid Sick Leave";
+            case "HOLIDAY" -> "Holiday (Public/National)";
+            case "PTO" -> "Paid Time Off";
+            case "LOP" -> "Unpaid Leave (LOP)";
+            case "EARNED" -> "Leave (Earned)";
+            default -> type;
+        };
+    }
+
+    /** Blank and absent mean the same thing for a reason: nothing was given. */
+    private static String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     /** Rejects a single cell that is negative or over its cap. */

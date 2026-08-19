@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -54,6 +55,15 @@ class ClientOtpEmailRecipientTest {
     @Mock private EmailService emailService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private ClientTimesheetNotificationService notificationService;
+
+    /**
+     * The real resolver, not a mock. The recipient rule has been lifted out of this service
+     * into {@link CorporateEmailResolver} so the Client Timesheet rejection notice and the two
+     * scheduled reminders route through the same lookup instead of each growing their own.
+     * Every assertion below therefore now pins the shared rule itself, which is the point —
+     * stubbing it would test nothing.
+     */
+    @Spy private CorporateEmailResolver corporateEmailResolver = new CorporateEmailResolver();
 
     @InjectMocks private ClientVerificationService service;
 

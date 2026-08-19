@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MessageSquare, Plus, Minus, ArrowLeft, Maximize2 } from "lucide-react";
+import { MessageSquare, MessageSquareText, Plus, Minus, ArrowLeft, Maximize2 } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
@@ -27,6 +27,7 @@ const MAX_TASK_ID = FIELD_LIMITS.TASK_ID;
 const MAX_TASK_DESCRIPTION = FIELD_LIMITS.TASK_DESCRIPTION;
 const MAX_COMMENT = FIELD_LIMITS.COMMENT;
 const MAX_BILLING_LOCATION = FIELD_LIMITS.BILLING_LOCATION;
+const MAX_LEAVE_REASON = FIELD_LIMITS.LEAVE_REASON;
 
 // Billing Location holds a place name, so it takes letters and spaces only — "New York" is
 // allowed, "Bldg 4" and "St. Louis" are not. Everything else is stripped as it arrives rather
@@ -186,6 +187,10 @@ export default function ClientTimesheetEntry() {
     // The row-text dialog, shared by Comment and Task/Activity Description. `field` is which of
     // the two is open, so one dialog and one save path serve both.
     const [textModal, setTextModal] = useState({ open: false, rowId: null, field: null, text: "" });
+    // The leave-reason dialog. Separate state from textModal because it is keyed by leave type
+    // rather than by project rowId, and because it opens by itself on blur — mixing the two
+    // would make "which dialog is open, and why" ambiguous.
+    const [leaveModal, setLeaveModal] = useState({ open: false, type: null, text: "" });
     // Projects the employee may log against — the options for the Project ID cell on a newly
     // added row. Project ID/Name are owned by the assignment, never typed.
     const [assignmentOptions, setAssignmentOptions] = useState([]);
@@ -255,7 +260,13 @@ export default function ClientTimesheetEntry() {
         setProjectRows(serverRows.length === 0 && hasProjectContext ? [makeBlankRow(days)] : serverRows);
         setTimeOffRows(TIMEOFF_ORDER.map((type) => {
             const found = (dto.timeOffRows || []).find((t) => (t.type || "").toUpperCase() === type);
-            return { type, days: found ? mapDays(found.days) : days.map((d) => ({ date: d.ymd, hours: "" })) };
+            return {
+                type,
+                days: found ? mapDays(found.days) : days.map((d) => ({ date: d.ymd, hours: "" })),
+                // Blank for a week saved before leave reasons existed, and for a type with no
+                // leave. Only rows carrying hours are ever asked for one.
+                reason: found?.reason || "",
+            };
         }));
         // Everything above is now the sheet's saved state. Bumping the token tells the effect
         // below to re-baseline against it, so "changed" means changed since this load — not
@@ -587,6 +598,17 @@ export default function ClientTimesheetEntry() {
         if (Object.keys(missing).length > 0) rowIssues[row.rowId] = missing;
     });
     const incompleteRowCount = Object.keys(rowIssues).length;
+
+    // ── Leave reason: required on any leave row that carries hours ──────────────
+    // Same rule and same timing as the project-row fields above — Submit only, never Save, so
+    // a draft can be parked half-filled. Mirrored server-side by
+    // ClientTimesheetWeekService.requireLeaveReasons, which is the actual contract.
+    const rowHasLeaveHours = (r) => r.days.some((d) => numOr0(d.hours) > 0);
+    const leaveRowsMissingReason = timeOffRows.filter(
+        (r) => rowHasLeaveHours(r) && !String(r.reason ?? "").trim()
+    );
+    const leaveReasonIssue = (type) =>
+        showErrors && leaveRowsMissingReason.some((r) => r.type === type);
     // Errors are only painted after a Submit attempt.
     const issueFor = (rowId, key) => showErrors && Boolean(rowIssues[rowId]?.[key]);
 
@@ -623,7 +645,8 @@ export default function ClientTimesheetEntry() {
             days: r.days.map((d) => ({ date: d.date, hours: numOr0(d.hours) })),
         })),
         timeOffRows: timeOffRows.map((r) => ({
-            type: r.type, days: r.days.map((d) => ({ date: d.date, hours: numOr0(d.hours) })),
+            type: r.type, reason: r.reason || "",
+            days: r.days.map((d) => ({ date: d.date, hours: numOr0(d.hours) })),
         })),
     });
 
@@ -703,6 +726,14 @@ export default function ClientTimesheetEntry() {
             toast.error(incompleteDayMessage());
             return;
         }
+        // Named rather than counted: a week can use several leave types and "a reason is
+        // missing" would not say which row to open.
+        if (leaveRowsMissingReason.length > 0) {
+            const names = leaveRowsMissingReason.map((r) => TIMEOFF_LABELS[r.type]).join(", ");
+            toast.error(`Please give a reason for your leave — ${names} ${
+                leaveRowsMissingReason.length === 1 ? "has" : "have"} hours but no reason.`);
+            return;
+        }
         setSaving(true);
         try {
             const res = await api(`/api/client-timesheets/weeks/${weekStart}/submit`, { method: "PATCH", body: JSON.stringify(buildPayload()) });
@@ -742,6 +773,41 @@ export default function ClientTimesheetEntry() {
         setTextModal({ open: true, rowId, field, text: row?.[field] || "" });
     };
     const closeRowText = () => setTextModal({ open: false, rowId: null, field: null, text: "" });
+
+    /**
+     * The leave-reason dialog, opened either by the row's icon or by leaving a leave cell that
+     * has just taken hours.
+     */
+    const openLeaveReason = (type) => {
+        const row = timeOffRows.find((r) => r.type === type);
+        setLeaveModal({ open: true, type, text: row?.reason || "" });
+    };
+    const closeLeaveReason = () => setLeaveModal({ open: false, type: null, text: "" });
+    const saveLeaveReason = () => {
+        if (leaveModal.type) {
+            const text = leaveModal.text;
+            setTimeOffRows((rows) => rows.map((r) => r.type !== leaveModal.type ? r : { ...r, reason: text }));
+        }
+        closeLeaveReason();
+    };
+
+    /**
+     * Asks for the reason once the employee has finished typing hours and moved on.
+     *
+     * On blur rather than on change: prompting mid-keystroke would throw a dialog over the grid
+     * while they are still entering the number, and stealing focus would make the field
+     * impossible to finish typing in. It fires only when the row has just become a leave row
+     * with no reason yet — an employee who already answered is not asked again, and clearing a
+     * row back to zero asks nothing.
+     */
+    const maybePromptLeaveReason = (rowIdx) => {
+        if (!weekEditable) return;
+        const row = timeOffRows[rowIdx];
+        if (!row || leaveModal.open) return;
+        if (!rowHasLeaveHours(row)) return;
+        if (String(row.reason ?? "").trim()) return;
+        openLeaveReason(row.type);
+    };
     const saveRowText = () => {
         if (textModal.rowId && textModal.field) {
             setRowField(textModal.rowId, textModal.field, textModal.text);
@@ -762,7 +828,9 @@ export default function ClientTimesheetEntry() {
     // does nothing on a text input, it is here for assistive tech and for the record.
     // `lockReason` names a third way a cell can be closed — currently "another leave type
     // already holds this date" — and wins over the two generic reasons below when given.
-    const dayCell = (ymd, value, editable, onChange, lockedByFullLeave = false, invalid = false, max = MAX_HOURS_PER_DAY, capNotice = null, lockReason = null) => (
+    // `onBlur` is how the leave grid asks for a reason once the employee has finished typing
+    // and moved on; the project grid passes nothing and behaves exactly as before.
+    const dayCell = (ymd, value, editable, onChange, lockedByFullLeave = false, invalid = false, max = MAX_HOURS_PER_DAY, capNotice = null, lockReason = null, onBlur = null) => (
         <>
             <input
                 type="text"
@@ -775,6 +843,7 @@ export default function ClientTimesheetEntry() {
                 placeholder="hrs"
                 aria-label={`Hours for ${ymd} (maximum ${max})`}
                 onKeyDown={handleHourKeyDown}
+                onBlur={onBlur || undefined}
                 onChange={(e) => onChange(e.target.value)}
                 onPaste={(e) => {
                     e.preventDefault();
@@ -1132,11 +1201,13 @@ export default function ClientTimesheetEntry() {
                                             <h3 className="text-sm font-black text-brand-text uppercase tracking-wide">Holiday/Time off</h3>
                                         </div>
                                         <table className="w-full border-collapse table-fixed" style={{ minWidth: LOWER_GRID_MIN_W }}>
-                                            {/* Same geometry as the OT block above — see the note there. */}
+                                            {/* Same geometry as the OT block above — see the note there, plus a
+                                                Reason column matching the project grid's Comment column. */}
                                             <colgroup>
                                                 <col />
                                                 {days.map((d) => <col key={d.ymd} style={{ width: GRID_DAY_W }} />)}
                                                 <col style={{ width: GRID_TOTAL_W }} />
+                                                <col style={{ width: 64 }} />
                                             </colgroup>
                                             <thead>
                                                 <tr className="text-[11px] text-brand-text/40 uppercase">
@@ -1147,6 +1218,7 @@ export default function ClientTimesheetEntry() {
                                                         </th>
                                                     ))}
                                                     <th className="px-2 py-2 font-bold text-center">Total</th>
+                                                    <th className="px-2 py-2 font-bold text-center">Reason</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -1176,12 +1248,46 @@ export default function ClientTimesheetEntry() {
                                                                             capNotices[leaveCellKey(r.type, d.date)],
                                                                             claimedBy
                                                                                 ? `Not available — ${TIMEOFF_LABELS[claimedBy]} is already logged for this date`
-                                                                                : null
+                                                                                : null,
+                                                                            () => maybePromptLeaveReason(rowIdx)
                                                                         )}
                                                                     </td>
                                                                 );
                                                             })}
                                                             <td className="px-2 py-2 text-center text-xs font-bold text-brand-text">{rowTotal(r).toFixed(2)}</td>
+                                                            {/* Icon only, exactly like the project grid's Comment cell: the
+                                                                text lives in the dialog this opens, never inline in the
+                                                                table. A row that carries a reason gets the filled emerald
+                                                                treatment plus a dot; a row that owes one is outlined red
+                                                                after a Submit attempt, matching how the project rows'
+                                                                missing fields are flagged. */}
+                                                            <td className="px-2 py-2 text-center">
+                                                                {rowHasLeaveHours(r) ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => openLeaveReason(r.type)}
+                                                                        className={`relative p-1.5 rounded transition-all ${r.reason
+                                                                            ? "text-emerald-600 bg-emerald-50"
+                                                                            : leaveReasonIssue(r.type)
+                                                                                ? "text-red-600 bg-red-50 ring-1 ring-red-500"
+                                                                                : "text-brand-text/40 hover:bg-bg-slate"}`}
+                                                                        title={weekEditable
+                                                                            ? (r.reason ? "View or edit leave reason" : "Add a reason for this leave")
+                                                                            : "View leave reason"}
+                                                                        aria-label={r.reason
+                                                                            ? `View reason for ${TIMEOFF_LABELS[r.type]}`
+                                                                            : `Add reason for ${TIMEOFF_LABELS[r.type]}`}
+                                                                    >
+                                                                        <MessageSquareText size={16} />
+                                                                        {r.reason && (
+                                                                            <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                                        )}
+                                                                    </button>
+                                                                ) : (
+                                                                    // No leave on this row, so there is nothing to explain.
+                                                                    <span className="text-brand-text/20 text-xs">—</span>
+                                                                )}
+                                                            </td>
                                                         </tr>
                                                     );
                                                 })}
@@ -1266,6 +1372,23 @@ export default function ClientTimesheetEntry() {
                     onChange={(text) => setTextModal((p) => ({ ...p, text }))}
                     onClose={closeRowText}
                     onSave={saveRowText}
+                />
+            )}
+
+            {/* Leave reason — the same dialog, so it looks and behaves exactly like Comment and
+                Task/Activity Description. Named by leave type rather than by project row, since
+                a Holiday/Time off row carries no project identity. */}
+            {leaveModal.open && (
+                <RowTextDialog
+                    value={leaveModal.text}
+                    max={MAX_LEAVE_REASON}
+                    label="Leave Reason"
+                    contextLabel={TIMEOFF_LABELS[leaveModal.type] || "Leave"}
+                    placeholder="Why are you taking this leave?"
+                    editable={weekEditable}
+                    onChange={(text) => setLeaveModal((p) => ({ ...p, text }))}
+                    onClose={closeLeaveReason}
+                    onSave={saveLeaveReason}
                 />
             )}
         </div>

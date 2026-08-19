@@ -107,12 +107,21 @@ public class ClientTimesheetWeekDTO {
         private Double totalHours;
         private List<DayHourDTO> days = new ArrayList<>();
 
+        /**
+         * Why this leave was taken — one reason for the whole leave-type row, exactly as a
+         * project row carries one comment. Required at submit time when the row holds hours;
+         * null on a row with no leave, and on rows saved before the field existed.
+         */
+        private String reason;
+
         public String getType() { return type; }
         public void setType(String type) { this.type = type; }
         public Double getTotalHours() { return totalHours; }
         public void setTotalHours(Double totalHours) { this.totalHours = totalHours; }
         public List<DayHourDTO> getDays() { return days; }
         public void setDays(List<DayHourDTO> days) { this.days = days; }
+        public String getReason() { return reason; }
+        public void setReason(String reason) { this.reason = reason; }
     }
 
     public Long getEmployeeId() { return employeeId; }

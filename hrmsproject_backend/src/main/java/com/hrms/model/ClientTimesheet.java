@@ -82,6 +82,24 @@ public class ClientTimesheet {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
+    /**
+     * Why this leave was taken. Set only on time-off lines (category != PROJECT); always null
+     * on project work, which carries {@link #comment} instead.
+     *
+     * Deliberately a separate field from comment rather than a reuse of it. A row comment
+     * explains project work to the reviewer; this answers a different question, is required
+     * where a comment is optional, and the two would otherwise overwrite each other on a week
+     * carrying both.
+     *
+     * Scoped per leave type per week, matching how comment is scoped per project row: the
+     * value is written onto every day line of that type in the week, so any one of them can
+     * answer for the row. Same 512 headroom over the agreed 256-character limit as the other
+     * long-text columns — see migration_task_text_headroom.sql for why the column is not sized
+     * to exactly the limit.
+     */
+    @Column(length = 512)
+    private String leaveReason;
+
     // PROJECT for billable/non-billable project work, or a time-off type:
     // SICK / HOLIDAY / PTO / LOP / EARNED.
     private String category;
@@ -300,6 +318,14 @@ public class ClientTimesheet {
 
     public void setComment(String comment) {
         this.comment = comment;
+    }
+
+    public String getLeaveReason() {
+        return leaveReason;
+    }
+
+    public void setLeaveReason(String leaveReason) {
+        this.leaveReason = leaveReason;
     }
 
     public String getCategory() {

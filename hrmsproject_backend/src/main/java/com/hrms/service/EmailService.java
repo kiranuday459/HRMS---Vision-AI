@@ -47,16 +47,32 @@ public class EmailService {
     }
 
     public synchronized void sendEmail(String[] to, String[] cc, String subject, String body) {
+        // Plain-text body: newlines are the layout, so they become <br> on the way out.
+        dispatch(to, cc, subject, body.replace("\n", "<br>"));
+    }
+
+    /**
+     * Sends a body that is already HTML.
+     *
+     * Separate from {@link #sendEmail} because that one rewrites every newline as a &lt;br&gt;,
+     * which is right for plain text and ruinous for markup — it would inject a line break
+     * between every tag, pushing blank lines through tables and blowing the layout apart. The
+     * templates built by {@link HtmlEmailTemplate} come through here untouched.
+     */
+    public synchronized void sendHtmlEmail(String[] to, String[] cc, String subject, String html) {
+        dispatch(to, cc, subject, html);
+    }
+
+    private void dispatch(String[] to, String[] cc, String subject, String htmlBody) {
         try {
             ensureGraphClient();
 
             Message message = new Message();
             message.setSubject(subject);
-            
+
             ItemBody itemBody = new ItemBody();
             itemBody.setContentType(BodyType.Html);
-            // Replace newlines with <br> to support both plain text and basic HTML formatting
-            itemBody.setContent(body.replace("\n", "<br>"));
+            itemBody.setContent(htmlBody);
             message.setBody(itemBody);
 
             List<Recipient> toRecipients = new ArrayList<>();
@@ -114,6 +130,150 @@ public class EmailService {
         body.append("If you did not expect this, please contact your admin.\n\n");
         body.append("— VisionAI HRMS");
         sendEmail(new String[] { to }, null, subject, body.toString());
+    }
+
+    /**
+     * Client Timesheet rejected by an admin. Sent to the employee the moment the rejection is
+     * recorded, alongside — never instead of — the existing bell notification.
+     *
+     * Carries everything the employee needs to act without signing in first to find out why:
+     * the week, the project it was logged against, the admin's own words, and who decided it
+     * when. {@code rejectedOn} arrives pre-formatted as "Monday, 04-Aug-2026" — day name
+     * included, because "rejected on the 4th" reads as older news than it is.
+     *
+     * One email covers the whole week. A week is stored as one row per day and the admin's
+     * single click rejects every one of them, so the days are consolidated into the
+     * {@code missingDays} section here rather than becoming an email each.
+     *
+     * @param missingDays workdays of the week left blank, pre-formatted as
+     *                    "Wed 8-Jul, Thu 9-Jul", or null/blank when the week is fully filled —
+     *                    the section is then omitted rather than printed empty, since a week can
+     *                    be rejected for reasons that have nothing to do with missing days.
+     */
+    public void sendClientTimesheetRejection(String to, String employeeName, String employeeId,
+            String projectName, String projectId, String weekRange, String reason,
+            String rejectedByName, String rejectedOn, String missingDays) {
+        String subject = "Your Client Timesheet for " + weekRange + " was rejected.";
+
+        StringBuilder b = new StringBuilder();
+        b.append(HtmlEmailTemplate.greeting(employeeName));
+        b.append(HtmlEmailTemplate.paragraph(
+                "Your Client Timesheet has been rejected. Please correct it and submit it again."));
+
+        b.append(HtmlEmailTemplate.sectionLabel("Timesheet details"));
+        b.append(HtmlEmailTemplate.detailRows(java.util.List.of(
+                new String[] { "Employee Name", employeeName },
+                new String[] { "Employee ID", employeeId },
+                new String[] { "Project", projectName },
+                new String[] { "Project ID", projectId },
+                new String[] { "Week", weekRange })));
+
+        b.append(HtmlEmailTemplate.sectionLabel("Rejection reason"));
+        b.append(HtmlEmailTemplate.quote(reason == null || reason.isBlank()
+                ? "No reason was recorded." : reason));
+
+        if (missingDays != null && !missingDays.isBlank() && !"—".equals(missingDays.trim())) {
+            b.append(HtmlEmailTemplate.sectionLabel("Days to complete"));
+            b.append(HtmlEmailTemplate.highlight("Missing/incomplete days:", missingDays.trim()));
+        }
+
+        b.append(HtmlEmailTemplate.sectionLabel("Reviewed by"));
+        b.append(HtmlEmailTemplate.detailRows(java.util.List.of(
+                new String[] { "Rejected By", rejectedByName },
+                new String[] { "Rejected On", rejectedOn })));
+
+        b.append("<div style=\"height:8px;\"></div>");
+        b.append(HtmlEmailTemplate.paragraph(
+                "Sign in to VisionAI HRMS and open Client Timesheet to correct this week and resubmit it."));
+        b.append(HtmlEmailTemplate.closing());
+
+        sendHtmlEmail(new String[] { to }, null, subject,
+                HtmlEmailTemplate.page("Client Timesheet Rejected", weekRange, b.toString()));
+    }
+
+    /**
+     * Client Timesheet incomplete for the current week. Scheduled reminder, Fridays at 13:00
+     * JST, sent only to employees who actually have days outstanding.
+     *
+     * {@code missingDays} names them — "Wed 8-Jul, Thu 9-Jul, Fri 10-Jul" — rather than saying
+     * some days are missing, so the employee can open the week and fill in exactly those.
+     */
+    public void sendClientTimesheetWeeklyReminder(String to, String employeeName, String employeeId,
+            String weekRange, String missingDays) {
+        String subject = "Reminder: Client Timesheet incomplete for " + weekRange + ".";
+
+        StringBuilder b = new StringBuilder();
+        b.append(HtmlEmailTemplate.greeting(employeeName));
+        b.append(HtmlEmailTemplate.paragraph("Your Client Timesheet for this week is not complete yet."));
+
+        b.append(HtmlEmailTemplate.sectionLabel("Days to complete"));
+        b.append(HtmlEmailTemplate.highlight("Missing:", blankTo(missingDays, "—")));
+
+        b.append(HtmlEmailTemplate.sectionLabel("Timesheet details"));
+        b.append(HtmlEmailTemplate.detailRows(java.util.List.of(
+                new String[] { "Employee Name", employeeName },
+                new String[] { "Employee ID", employeeId },
+                new String[] { "Week", weekRange })));
+
+        b.append("<div style=\"height:8px;\"></div>");
+        b.append(HtmlEmailTemplate.paragraph(
+                "Please fill in the days listed above and submit the week before the end of today."));
+        b.append(HtmlEmailTemplate.closing());
+
+        sendHtmlEmail(new String[] { to }, null, subject,
+                HtmlEmailTemplate.page("Client Timesheet Reminder", weekRange, b.toString()));
+    }
+
+    /**
+     * Client Timesheet submission status for the week that just ended. Scheduled summary,
+     * Mondays at 10:00 JST, to the admins who approve and reject these timesheets.
+     *
+     * Leads with the count, because that is the whole answer on a week where everyone
+     * submitted; the per-employee detail below it exists to be chased.
+     */
+    public void sendClientTimesheetAdminSummary(String to, String adminName, String weekRange,
+            int submittedCount, int totalCount,
+            java.util.List<com.hrms.dto.ClientTimesheetPendingDTO> pending) {
+        int pendingCount = pending == null ? 0 : pending.size();
+        String subject = "Weekly Client Timesheet Summary — " + weekRange + ": "
+                + (pendingCount == 0
+                        ? "all submitted."
+                        : pendingCount + (pendingCount == 1 ? " employee pending." : " employees pending."));
+
+        StringBuilder b = new StringBuilder();
+        b.append(HtmlEmailTemplate.greeting(adminName));
+        b.append(HtmlEmailTemplate.paragraph("Client Timesheet submission status for the week below."));
+
+        // The whole answer on a clean week, and the first thing worth seeing on any other.
+        b.append(HtmlEmailTemplate.statBlock(
+                submittedCount + " of " + totalCount + " submitted",
+                pendingCount == 0 ? null : (totalCount - submittedCount) + " pending"));
+
+        if (pendingCount == 0) {
+            b.append(HtmlEmailTemplate.paragraph(
+                    "Every employee with an active client project assignment submitted this week."));
+        } else {
+            b.append(HtmlEmailTemplate.sectionLabel("Not submitted"));
+            java.util.List<java.util.List<String>> rows = new ArrayList<>();
+            for (com.hrms.dto.ClientTimesheetPendingDTO p : pending) {
+                rows.add(java.util.List.of(
+                        p.getEmployeeName() == null ? "—" : p.getEmployeeName(),
+                        p.getEmployeeId() == null ? "—" : p.getEmployeeId(),
+                        p.getMissingDays() == null ? "—" : p.getMissingDays()));
+            }
+            b.append(HtmlEmailTemplate.table(
+                    java.util.List.of("Employee", "Employee ID", "Missing Days"), rows));
+        }
+
+        b.append(HtmlEmailTemplate.closing());
+
+        sendHtmlEmail(new String[] { to }, null, subject,
+                HtmlEmailTemplate.page("Weekly Client Timesheet Summary", weekRange, b.toString()));
+    }
+
+    /** Placeholder for a value that is missing rather than printing an empty column. */
+    private String blankTo(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value.trim();
     }
 
     public void sendOtpEmail(String to, String otp) {
@@ -218,45 +378,62 @@ public class EmailService {
 
     public void sendTimesheetWeeklyReminder(String to, String userName) {
         String subject = "Timesheet Weekly Reminder";
-        StringBuilder body = new StringBuilder();
-        body.append("Hi ").append(userName == null || userName.isBlank() ? "there" : userName).append(",\n\n");
-        body.append("Your timesheet isn't filled — please submit by end of day.\n\n");
-        body.append("Best regards,\n");
-        body.append("HRMS Notification System");
+        StringBuilder b = new StringBuilder();
+        b.append(HtmlEmailTemplate.greeting(userName));
+        b.append(HtmlEmailTemplate.paragraph("Your timesheet isn't filled in yet."));
+        b.append(HtmlEmailTemplate.highlight("Action needed:", "Please submit your timesheet by end of day."));
+        b.append(HtmlEmailTemplate.closing());
 
-        sendEmail(new String[] { to }, null, subject, body.toString());
+        sendHtmlEmail(new String[] { to }, null, subject,
+                HtmlEmailTemplate.page("Timesheet Reminder", null, b.toString()));
     }
 
+    /**
+     * Pending internal-timesheet submissions for the week, to each admin.
+     *
+     * Carries the same three columns it always has — name, employee id, role. The rows arrive as
+     * maps because that is what the caller has built for years; only the rendering changed here,
+     * from a fixed-width text block to a real table. The old %-25s padding could not hold a name
+     * longer than its column and pushed the remaining columns out of line whenever one appeared.
+     */
     public void sendAdminPendingSummary(String to, String adminName, java.util.List<java.util.Map<String, String>> pendingEmployees, String weekRange) {
         String subject = "Timesheet Pending Submissions Summary";
-        StringBuilder body = new StringBuilder();
-        body.append("Hi ").append(adminName == null || adminName.isBlank() ? "there" : adminName).append(",\n\n");
-        body.append("The following employees have pending timesheet submissions for the week of ").append(weekRange).append(":\n\n");
-        
-        body.append(String.format("%-25s %-15s %-20s\n", "Name", "Employee ID", "Role"));
-        body.append("------------------------------------------------------------\n");
-        for (java.util.Map<String, String> emp : pendingEmployees) {
-            body.append(String.format("%-25s %-15s %-20s\n", 
-                emp.getOrDefault("name", "N/A"), 
-                emp.getOrDefault("oryfolksId", "N/A"), 
-                emp.getOrDefault("role", "N/A")));
-        }
-        body.append("\nTotal Pending Employees: ").append(pendingEmployees.size()).append("\n\n");
-        body.append("Best regards,\n");
-        body.append("HRMS Notification System");
+        int pendingCount = pendingEmployees == null ? 0 : pendingEmployees.size();
 
-        sendEmail(new String[] { to }, null, subject, body.toString());
+        StringBuilder b = new StringBuilder();
+        b.append(HtmlEmailTemplate.greeting(adminName));
+        b.append(HtmlEmailTemplate.paragraph(
+                "The following employees have pending timesheet submissions for the week below."));
+        b.append(HtmlEmailTemplate.statBlock(
+                pendingCount + (pendingCount == 1 ? " employee pending" : " employees pending"), null));
+
+        b.append(HtmlEmailTemplate.sectionLabel("Pending submissions"));
+        java.util.List<java.util.List<String>> rows = new ArrayList<>();
+        if (pendingEmployees != null) {
+            for (java.util.Map<String, String> emp : pendingEmployees) {
+                rows.add(java.util.List.of(
+                        emp.getOrDefault("name", "N/A"),
+                        emp.getOrDefault("oryfolksId", "N/A"),
+                        emp.getOrDefault("role", "N/A")));
+            }
+        }
+        b.append(HtmlEmailTemplate.table(java.util.List.of("Name", "Employee ID", "Role"), rows));
+        b.append(HtmlEmailTemplate.closing());
+
+        sendHtmlEmail(new String[] { to }, null, subject,
+                HtmlEmailTemplate.page("Timesheet Pending Submissions", weekRange, b.toString()));
     }
 
     public void sendAdminAllClearSummary(String to, String adminName, String weekRange) {
         String subject = "Timesheet Submissions All-Clear";
-        StringBuilder body = new StringBuilder();
-        body.append("Hi ").append(adminName == null || adminName.isBlank() ? "there" : adminName).append(",\n\n");
-        body.append("All employees submitted — no pending timesheets this week (").append(weekRange).append(").\n\n");
-        body.append("Best regards,\n");
-        body.append("HRMS Notification System");
+        StringBuilder b = new StringBuilder();
+        b.append(HtmlEmailTemplate.greeting(adminName));
+        b.append(HtmlEmailTemplate.statBlock("All employees submitted", "0 pending"));
+        b.append(HtmlEmailTemplate.paragraph("There are no pending timesheets for this week."));
+        b.append(HtmlEmailTemplate.closing());
 
-        sendEmail(new String[] { to }, null, subject, body.toString());
+        sendHtmlEmail(new String[] { to }, null, subject,
+                HtmlEmailTemplate.page("Timesheet Submissions All-Clear", weekRange, b.toString()));
     }
 
     public void sendBulkTimesheetExportConfirmation(String to, String hrName, int recordCount, String timestamp, String filtersApplied) {

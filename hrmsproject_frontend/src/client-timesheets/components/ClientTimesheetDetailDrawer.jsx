@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { X, Check, MessageSquare, Maximize2 } from "lucide-react";
+import { X, Check, MessageSquare, MessageSquareText, Maximize2 } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
@@ -51,6 +51,9 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, timesheetIds,
     // "taskDescription". Both outgrow their column, so both open the same dialog. Read-only
     // here: the reviewer never edits what the employee wrote.
     const [textDialog, setTextDialog] = useState(null);
+    // Which leave type's reason is open, or null. Keyed by type rather than row index — the
+    // five Holiday/Time off rows are fixed and identified by type, not position.
+    const [leaveDialog, setLeaveDialog] = useState(null);
 
     const currentUserId = useMemo(() => { const u = JSON.parse(localStorage.getItem("user")) || {}; return u.id || u.userId; }, []);
 
@@ -352,9 +355,12 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, timesheetIds,
                                             marooned in its column and made the block read far wider than the
                                             grid above it. Keep the three totalling 100 — table-fixed rescales
                                             columns proportionally otherwise, re-stretching every day cell. */}
-                                        <th className="px-3 py-2 text-right font-bold w-[67%]"></th>
+                                        <th className="px-3 py-2 text-right font-bold w-[62%]"></th>
                                         {days.map((d, i) => (<th key={i} className="px-0.5 py-2 font-bold text-center w-[4%]"><div className="text-brand-text/70">{d.dom}</div><div className="text-[7px]">{d.wd}</div></th>))}
                                         <th className="px-1 py-2 font-bold text-center w-[5%]">Total</th>
+                                        {/* Reason column, taken out of the label column's share so the three
+                                            still total 100 — see the note above on why that matters. */}
+                                        <th className="px-1 py-2 font-bold text-center w-[5%]">Reason</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -363,6 +369,30 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, timesheetIds,
                                             <td className="px-3 py-1.5 text-right font-semibold text-brand-text/70">{TIMEOFF_LABELS[r.type]}</td>
                                             {dayHours(r).map((h, i) => (<td key={i} className="px-0.5 py-1.5 text-center text-brand-text">{hourCell(h)}</td>))}
                                             <td className="px-1 py-1.5 text-center font-bold text-brand-text">{rowTotal(r).toFixed(2)}</td>
+                                            {/* Same icon-and-dialog treatment as the project rows' Comment,
+                                                so the reviewer reads a leave reason exactly the way they read
+                                                a comment. Weeks submitted before leave reasons existed carry
+                                                none, and the icon is simply inert. */}
+                                            <td className="px-1 py-1.5">
+                                                <div className="flex items-center justify-center">
+                                                    <button
+                                                        onClick={() => setLeaveDialog(r.type)}
+                                                        disabled={!r.reason}
+                                                        className={`relative p-1 rounded transition-all ${r.reason
+                                                            ? "text-emerald-600 bg-emerald-50 hover:brightness-95"
+                                                            : "text-brand-text/20 cursor-default"}`}
+                                                        title={r.reason ? "View leave reason" : "No reason on this row"}
+                                                        aria-label={r.reason
+                                                            ? `View reason for ${TIMEOFF_LABELS[r.type]}`
+                                                            : "No reason on this row"}
+                                                    >
+                                                        <MessageSquareText size={14} />
+                                                        {r.reason && (
+                                                            <span className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -449,6 +479,18 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, timesheetIds,
                     label={textDialog.field === "comment" ? "Row Comment" : "Task/Activity Description"}
                     editable={false}
                     onClose={() => setTextDialog(null)}
+                />
+            )}
+
+            {/* Leave reason, read-only — the same dialog again, so the reviewer reads it exactly
+                as the employee wrote it and exactly as they read a row comment. */}
+            {leaveDialog && (
+                <RowTextDialog
+                    value={timeOffRows.find((r) => r.type === leaveDialog)?.reason || ""}
+                    label="Leave Reason"
+                    contextLabel={TIMEOFF_LABELS[leaveDialog] || "Leave"}
+                    editable={false}
+                    onClose={() => setLeaveDialog(null)}
                 />
             )}
         </div>
