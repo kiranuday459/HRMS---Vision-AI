@@ -340,7 +340,7 @@ export default function AdminTimesheets() {
             const matchesSearch = !tsFilter ||
                 (emp.employeeName && emp.employeeName.toLowerCase().includes(tsFilter.toLowerCase())) ||
                 emp.employeeId.toString().includes(tsFilter) ||
-                (profile?.officeId && profile.officeId.toLowerCase().includes(tsFilter.toLowerCase()));
+                (profile?.oryfolksId && profile.oryfolksId.toLowerCase().includes(tsFilter.toLowerCase()));
 
             if (!matchesSearch) return false;
 

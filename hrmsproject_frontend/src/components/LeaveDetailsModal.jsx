@@ -1,6 +1,7 @@
 import React from 'react';
 import HrRerouteBanner from './HrRerouteBanner';
 import { isHrDisabledReroute } from '../utils/leaveStatus';
+import { formatLeaveDuration } from '../utils/leaveDuration';
 
 const LeaveDetailsModal = ({ isOpen, onClose, leave }) => {
     if (!isOpen || !leave) return null;
@@ -80,8 +81,7 @@ const LeaveDetailsModal = ({ isOpen, onClose, leave }) => {
                         <div className="space-y-1.5">
                             <label className="text-[9px] font-black text-brand-text/30 uppercase tracking-[0.2em]">Total Duration</label>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-xl font-black text-brand-text">{(leave.daysCount || 0).toFixed(1)}</span>
-                                <span className="text-[10px] font-bold text-brand-text/40 uppercase">Days</span>
+                                <span className="text-xl font-black text-brand-text">{formatLeaveDuration(leave.daysCount)}</span>
                             </div>
                         </div>
                     </div>
