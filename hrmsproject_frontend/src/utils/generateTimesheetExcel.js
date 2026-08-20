@@ -124,7 +124,7 @@ export async function generateTimesheetExcel({
         titleDateRangeStr,
         titleYearStr,
         summaryTitle = "SUMMARY",
-        totalFooterLabel
+        totalFooterLabel = "TOTAL"
     }) => {
         const empName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.name || emp.fullName || "Employee";
         const empCode = emp.oryfolksId || `EMP${empId}`;
@@ -511,26 +511,18 @@ export async function generateTimesheetExcel({
         const totalRowIdx = rowIdx + 1;
         const totalRow = worksheet.getRow(totalRowIdx);
 
-        worksheet.mergeCells(`A${totalRowIdx}:F${totalRowIdx}`);
+        worksheet.mergeCells(`A${totalRowIdx}:G${totalRowIdx}`);
         const totLabelCell = worksheet.getCell(`A${totalRowIdx}`);
-        totLabelCell.value = totalFooterLabel;
+        totLabelCell.value = "TOTAL";
         totLabelCell.fill = BLUE_FILL;
         totLabelCell.font = FONT_HEADER_10;
         totLabelCell.alignment = wrap({ horizontal: "center" });
 
-        ["A", "B", "C", "D", "E", "F"].forEach((colL) => {
+        ["A", "B", "C", "D", "E", "F", "G"].forEach((colL) => {
             const c = worksheet.getCell(`${colL}${totalRowIdx}`);
             c.fill = BLUE_FILL;
             c.border = thinBorder;
         });
-
-        const gTotCell = worksheet.getCell(`G${totalRowIdx}`);
-        gTotCell.value = 0;
-        gTotCell.numFmt = "0";
-        gTotCell.fill = BLUE_FILL;
-        gTotCell.font = FONT_HEADER_10;
-        gTotCell.alignment = wrap({ horizontal: "center" });
-        gTotCell.border = thinBorder;
 
         const hTotCell = worksheet.getCell(`H${totalRowIdx}`);
         hTotCell.value = grandTotalHours === 0 ? 0 : Number(grandTotalHours);
@@ -562,7 +554,6 @@ export async function generateTimesheetExcel({
         const startYear = parseLocalDate(firstDs)?.getFullYear() || new Date().getFullYear();
         const endYear = parseLocalDate(lastDs)?.getFullYear() || startYear;
         const titleYearStr = startYear === endYear ? String(startYear) : `${startYear}-${endYear}`;
-        const totalFooterLabel = `TOTAL - ${titleDateRangeStr} - ${titleYearStr}`;
 
         selectedIds.forEach((empId) => {
             const emp = employees.find((e) => e.id === empId || String(e.id) === String(empId)) || {};
@@ -580,8 +571,7 @@ export async function generateTimesheetExcel({
                 sheetName,
                 titleDateRangeStr,
                 titleYearStr,
-                summaryTitle: "PERIOD SUMMARY",
-                totalFooterLabel
+                summaryTitle: "PERIOD SUMMARY"
             });
         });
     } else {
@@ -621,7 +611,6 @@ export async function generateTimesheetExcel({
                 const firstMonthDs = monthDates[0];
                 const lastMonthDs = monthDates[monthDates.length - 1];
                 const titleDateRangeStr = `[${formatShortDate(firstMonthDs)} - ${formatShortDate(lastMonthDs)}]`;
-                const totalFooterLabel = `TOTAL - ${monthYearStr}`;
 
                 renderEmployeeSheet({
                     emp,
@@ -630,8 +619,7 @@ export async function generateTimesheetExcel({
                     sheetName,
                     titleDateRangeStr,
                     titleYearStr: String(yearFull),
-                    summaryTitle: "MONTHLY SUMMARY",
-                    totalFooterLabel
+                    summaryTitle: "MONTHLY SUMMARY"
                 });
             });
         });
