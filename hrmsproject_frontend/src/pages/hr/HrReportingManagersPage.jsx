@@ -357,16 +357,16 @@ export default function HrReportingManagersPage() {
                 ) : (
                   <div className="flex-1 flex flex-col">
                     {/* Team List */}
-                    <div className="flex-1 p-8 space-y-6 overflow-y-auto max-h-[500px] scrollbar-hide">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand-text/30">Managed Resources ({(selected.team || []).length})</h4>
+                    <div className="flex-1 p-8 space-y-6 overflow-y-auto overflow-x-hidden max-h-[500px] scrollbar-hide">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand-text/30 whitespace-nowrap">Managed Resources ({(selected.team || []).length})</h4>
 
                         {/* Add Member Dropdown */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <select
                             value={selectedEmployeeToAdd}
                             onChange={(e) => setSelectedEmployeeToAdd(e.target.value)}
-                            className="bg-brand-blue/5 border-none rounded-xl px-4 py-2 text-[10px] font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all outline-none"
+                            className="w-40 sm:w-48 bg-brand-blue/5 border-none rounded-xl px-4 py-2 text-[10px] font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all outline-none truncate"
                           >
                             <option value="">Select Employee to Add</option>
                             {availableEmployees.filter(ae => !(selected.team || []).some(tm => tm.id === ae.id) && !ae.designation?.includes("HR") && !isDisabled(ae)).map(ae => (
@@ -378,7 +378,7 @@ export default function HrReportingManagersPage() {
                           <button
                             onClick={handleAddMember}
                             disabled={!selectedEmployeeToAdd || addingMember}
-                            className={`px-4 py-2 bg-brand-yellow text-brand-text font-black text-[10px] uppercase tracking-widest rounded-xl shadow-lg hover:shadow-brand-yellow/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
+                            className={`shrink-0 px-4 py-2 bg-brand-yellow text-brand-text font-black text-[10px] uppercase tracking-widest rounded-xl shadow-lg hover:shadow-brand-yellow/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
                           >
                             {addingMember ? "..." : "Add Member"}
                           </button>
