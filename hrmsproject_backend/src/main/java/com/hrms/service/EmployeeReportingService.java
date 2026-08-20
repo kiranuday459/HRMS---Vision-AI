@@ -182,9 +182,14 @@ public class EmployeeReportingService {
         }
 
         // Fetch all relevant company details in one go
-        Map<Long, String> corpEmailMap = companyDetailRepository.findByEmployee_IdIn(allIds).stream()
+        List<CompanyDetail> companyDetails = companyDetailRepository.findByEmployee_IdIn(allIds).stream()
                 .filter(cd -> cd.getEmployee() != null)
+                .collect(Collectors.toList());
+        Map<Long, String> corpEmailMap = companyDetails.stream()
                 .collect(Collectors.toMap(cd -> cd.getEmployee().getId(), CompanyDetail::getOryfolksMailId,
+                        (a, b) -> a));
+        Map<Long, String> oryfolksIdMap = companyDetails.stream()
+                .collect(Collectors.toMap(cd -> cd.getEmployee().getId(), CompanyDetail::getOryfolksId,
                         (a, b) -> a));
 
         List<EmployeeSimpleDTO> teamWithCorp = items.stream()
@@ -196,7 +201,8 @@ public class EmployeeReportingService {
                             e.getFirstName() + " " + (e.getLastName() == null ? "" : e.getLastName()),
                             e.getEmail(),
                             corpEmail,
-                            e.getActive());
+                            e.getActive(),
+                            oryfolksIdMap.get(e.getId()));
                 })
                 .collect(Collectors.toList());
 
@@ -215,13 +221,15 @@ public class EmployeeReportingService {
                 .filter(e -> e.getUser() != null && e.getUser().getRole() == Role.EMPLOYEE) // Double check it's only
                                                                                             // employees
                 .map(e -> {
-                    String corpEmail = companyDetailRepository.findByEmployee_Id(e.getId())
-                            .map(CompanyDetail::getOryfolksMailId).orElse(null);
+                    CompanyDetail companyDetail = companyDetailRepository.findByEmployee_Id(e.getId()).orElse(null);
+                    String corpEmail = companyDetail != null ? companyDetail.getOryfolksMailId() : null;
+                    String oryfolksId = companyDetail != null ? companyDetail.getOryfolksId() : null;
                     return new EmployeeSimpleDTO(e.getId(),
                             e.getFirstName() + " " + (e.getLastName() == null ? "" : e.getLastName()),
                             e.getEmail(),
                             corpEmail,
-                            e.getActive());
+                            e.getActive(),
+                            oryfolksId);
                 })
                 .collect(Collectors.toList());
     }

@@ -402,11 +402,11 @@ export default function HrManagerTimesheets() {
 
     const filteredWeeks = groupedWeeks.map(week => {
         const filteredEmployees = week.employeeList.filter(emp => {
-            const manager = managers.find(m => String(m.id || m.employeeId) === String(emp.employeeId));
+            const profile = employees.find(e => String(e.id) === String(emp.employeeId));
             const matchesSearch = !tsFilter ||
                 emp.employeeName.toLowerCase().includes(tsFilter.toLowerCase()) ||
                 emp.employeeId.toString().includes(tsFilter) ||
-                (manager?.officeId && manager.officeId.toLowerCase().includes(tsFilter.toLowerCase()));
+                (profile?.oryfolksId && profile.oryfolksId.toLowerCase().includes(tsFilter.toLowerCase()));
             const matchesStatus = tsStatusFilter === "All" ||
                 (tsStatusFilter === "Pending" && [
                     APPROVAL_STATUS.PENDING_RM_APPROVAL,
@@ -605,8 +605,8 @@ export default function HrManagerTimesheets() {
                                                                     <div className="flex items-center gap-2">
                                                                         <h4 className={`font-black text-sm uppercase tracking-tight ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.employeeName}</h4>
                                                                         <span className="text-[10px] font-bold text-brand-text/20 uppercase tracking-widest">ID: {(() => {
-                                                                            const manager = managers.find(m => String(m.id || m.employeeId) === String(emp.employeeId));
-                                                                            return manager?.officeId || emp.employeeId;
+                                                                            const profile = employees.find(e => String(e.id) === String(emp.employeeId));
+                                                                            return profile?.oryfolksId || emp.employeeId;
                                                                         })()}</span>
                                                                         {isDisabled && (
 <DisabledBadge />

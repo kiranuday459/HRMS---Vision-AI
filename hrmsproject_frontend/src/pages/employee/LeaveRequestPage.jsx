@@ -7,6 +7,7 @@ import LeaveDetailsModal from '../../components/LeaveDetailsModal';
 import { FormFieldError, CharacterCounter } from '../../components/FormValidation';
 import { validateRequired, isFormValid } from '../../utils/formValidation';
 import { getLeaveStatusLabel } from '../../utils/leaveStatus';
+import { formatLeaveDuration } from '../../utils/leaveDuration';
 import '../../styles/formValidation.css';
 
 const REASON_MAX_LENGTH = 255;
@@ -608,7 +609,7 @@ const LeaveRequestPage = ({ employeeId, leaveBalance, onLeaveRequestSuccess }) =
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest block ml-1">Total Duration</label>
                     <div className="w-full px-5 py-4 bg-bg-slate border-2 border-transparent rounded-2xl text-sm font-bold text-brand-text shadow-sm">
-                      {formData.daysCount} Days
+                      {formatLeaveDuration(formData.daysCount)}
                     </div>
                   </div>
                 </div>
@@ -730,7 +731,7 @@ const LeaveRequestPage = ({ employeeId, leaveBalance, onLeaveRequestSuccess }) =
                     </div>
                     <div className="bg-brand-blue/5 p-3 flex justify-between items-center border-t border-brand-blue/5">
                       <span className="text-[10px] font-black text-brand-text uppercase tracking-wider">Total Duration</span>
-                      <span className="text-xs font-black text-brand-text">{formData.daysCount} Days</span>
+                      <span className="text-xs font-black text-brand-text">{formatLeaveDuration(formData.daysCount)}</span>
                     </div>
                   </div>
                 )}

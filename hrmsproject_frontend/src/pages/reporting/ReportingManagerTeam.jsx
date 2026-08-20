@@ -651,7 +651,7 @@ export default function ReportingManagerTeam() {
                                             {member.active === false && (
                                                 <span className="inline-flex px-2 py-0.5 mb-1 bg-[#D3D1C7] text-[#5F5E5A] text-[10px] font-medium rounded-[4px]">DISABLED</span>
                                             )}
-                                            <p className="text-[10px] text-brand-text/40 font-bold mb-4 tracking-wider">ID: {member.id}</p>
+                                            <p className="text-[10px] text-brand-text/40 font-bold mb-4 tracking-wider">ID: {member.oryfolksId || member.id}</p>
                                             <div className="w-full space-y-3 pt-4 border-t border-brand-blue/5 mt-auto">
                                                 <div className="flex flex-col items-center">
                                                     <span className="text-[8px] uppercase font-bold text-brand-text/30 tracking-[0.2em] mb-1">Position</span>
@@ -746,7 +746,10 @@ export default function ReportingManagerTeam() {
                                                                 <div className="flex-1">
                                                                     <div className="flex items-center gap-2">
                                                                         <h4 className={`font-black text-sm uppercase tracking-tight ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.employeeName}</h4>
-                                                                        <span className="text-[10px] font-bold text-brand-text/20 uppercase tracking-widest">ID: {emp.employeeId}</span>
+                                                                        <span className="text-[10px] font-bold text-brand-text/20 uppercase tracking-widest">ID: {(() => {
+                                                                            const member = teamMembers.find(m => m.id === emp.employeeId);
+                                                                            return member?.oryfolksId || emp.employeeId;
+                                                                        })()}</span>
                                                                         {isDisabled && (
                                                                             <span className="inline-flex px-2 py-0.5 bg-[#D3D1C7] text-[#5F5E5A] text-[10px] font-medium rounded-[4px]">DISABLED ACCOUNT</span>
                                                                         )}
@@ -821,16 +824,16 @@ export default function ReportingManagerTeam() {
                                     <table className="w-full text-left">
                                         <thead className="bg-bg-slate/50 sticky top-0 z-10">
                                             <tr className="text-brand-text/40 font-black uppercase tracking-[0.15em] text-[11px]">
-                                                <th className="p-5 px-8">Emp ID</th><th className="p-5 px-6">Name</th><th className="p-5 px-6">Type</th><th className="p-5 px-6 text-center">Dates</th><th className="p-5 px-6 text-center">Status</th><th className="p-5 px-8 text-right">Actions</th>
+                                                <th className="p-5 px-8">Emp ID</th><th className="p-5 px-6">Name</th><th className="p-5 px-6">Type</th><th className="p-5 px-6 text-center">Dates</th><th className="p-5 px-6 text-center">Days</th><th className="p-5 px-6 text-center">Status</th><th className="p-5 px-8 text-right">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-brand-blue/5">
-                                            {leavesLoading ? (<tr><td colSpan="6" className="p-20 text-center animate-pulse">Loading Team Leaves...</td></tr>) : leavesError ? (<tr><td colSpan="6" className="p-20 text-center text-red-500">{leavesError}</td></tr>) : (() => {
+                                            {leavesLoading ? (<tr><td colSpan="7" className="p-20 text-center animate-pulse">Loading Team Leaves...</td></tr>) : leavesError ? (<tr><td colSpan="7" className="p-20 text-center text-red-500">{leavesError}</td></tr>) : (() => {
                                                  const filteredLeaves = leaves.filter(lv => (leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase()) && (!leavesFilter || lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase())));
                                                  if (filteredLeaves.length === 0) {
                                                      return (
                                                          <tr>
-                                                             <td colSpan="6" className="p-20 text-center text-brand-text/40 font-bold uppercase tracking-widest text-xs italic">No records found</td>
+                                                             <td colSpan="7" className="p-20 text-center text-brand-text/40 font-bold uppercase tracking-widest text-xs italic">No records found</td>
                                                          </tr>
                                                      );
                                                  }
@@ -838,7 +841,10 @@ export default function ReportingManagerTeam() {
                                                      const isDisabled = leave.employeeStatus === 'INACTIVE' || leave.employeeStatus === 'DISABLED';
                                                      return (
                                                      <tr key={leave.id} className={`transition-colors font-medium ${isDisabled ? 'bg-[#F1EFE8]' : 'hover:bg-bg-slate/40'}`}>
-                                                         <td className="p-5 px-8 text-xs font-black text-brand-text/40">#{leave.employeeId}</td>
+                                                         <td className="p-5 px-8 text-xs font-black text-brand-text/40">#{(() => {
+                                                             const member = teamMembers.find(m => m.id === leave.employeeId);
+                                                             return member?.oryfolksId || leave.employeeId;
+                                                         })()}</td>
                                                          <td className={`p-5 px-6 font-bold uppercase text-xs ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>
                                                              <div className="flex items-center gap-2">
                                                                  <span>{leave.employeeName}</span>
@@ -854,6 +860,11 @@ export default function ReportingManagerTeam() {
                                                          </td>
                                                          <td className="p-5 px-6 text-brand-text/70 text-xs font-bold">{leave.type || leave.leaveType}</td>
                                                          <td className="p-5 px-6 text-brand-text/60 text-xs text-center">{leave.startDate}{leave.endDate && leave.endDate !== leave.startDate ? ` → ${leave.endDate}` : ''}</td>
+                                                         <td className="p-5 px-6 text-center">
+                                                             <span className="bg-brand-blue/5 text-brand-text px-3 py-1 rounded-lg font-black text-[11px]">
+                                                                 {leave.daysCount != null ? leave.daysCount.toFixed(1) : calculateLeaveDays(leave.startDate, leave.endDate)}
+                                                             </span>
+                                                         </td>
                                                          <td className="p-5 px-6 text-center"><span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all inline-block whitespace-nowrap ${leave.status === 'PENDING' ? 'bg-brand-yellow/10 text-brand-yellow-dark' : leave.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{getLeaveStatusLabel(leave, 'REPORTING_MANAGER')}</span></td>
                                                          <td className="p-5 px-8 text-right">
                                                              <div className="flex justify-end gap-2">

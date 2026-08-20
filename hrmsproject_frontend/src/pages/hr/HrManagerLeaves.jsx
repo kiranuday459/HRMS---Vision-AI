@@ -386,7 +386,7 @@ export default function HrManagerLeaves() {
                                                 <tr key={leave.id || index} className={`transition-colors font-medium group ${isDisabled ? 'bg-[#F1EFE8]' : 'hover:bg-bg-slate/40'}`}>
                                                     <td className="p-5 px-8 font-black text-brand-text/40 text-xs">#{(() => {
                                                         const emp = employees.find(e => e.id === leave.employeeId || e.fullName === leave.employeeName);
-                                                        return emp?.officeId || leave.employeeId;
+                                                        return emp?.oryfolksId || leave.employeeId;
                                                     })()}</td>
                                                     <td className={`p-5 px-6 font-bold uppercase text-xs ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>
                                                         <div className="flex items-center gap-2">

@@ -13,6 +13,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, Label } from
 import { Calendar as CalendarIconSVG, Eye, ShieldCheck } from "lucide-react";
 import YearlyHolidayCalendar from "../common/YearlyHolidayCalendar";
 import LeaveDetailsModal from "../../components/LeaveDetailsModal";
+import { formatLeaveDuration } from "../../utils/leaveDuration";
 import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";
 import RejectRequestModal from "../../components/RejectRequestModal";
 import ConfirmActionModal from "../../components/ConfirmActionModal";
@@ -727,7 +728,7 @@ export default function AdminDashboard() {
                                     <span className="text-[8px] font-black text-brand-text/10 font-bold">to</span>
                                     <span className="text-[10px] font-black text-brand-text">{formatDate(leave.endDate)}</span>
                                   </div>
-                                  <span className="mt-1 px-2 py-0.5 bg-brand-yellow text-brand-text text-[8px] font-black rounded-md">{leave.daysCount} Days</span>
+                                  <span className="mt-1 px-2 py-0.5 bg-brand-yellow text-brand-text text-[8px] font-black rounded-md">{formatLeaveDuration(leave.daysCount)}</span>
                                 </div>
                               </td>
                               <td className="py-3 px-6 text-center">
@@ -790,7 +791,7 @@ export default function AdminDashboard() {
 
                           <div className="flex flex-wrap gap-2">
                             <span className="px-2 py-0.5 bg-brand-blue/5 text-brand-text text-[8px] font-black uppercase tracking-widest rounded-md border border-brand-blue/10">{leave.leaveType}</span>
-                            <span className="px-2 py-0.5 bg-brand-yellow/20 text-brand-text text-[8px] font-black rounded-md">{leave.daysCount} Days</span>
+                            <span className="px-2 py-0.5 bg-brand-yellow/20 text-brand-text text-[8px] font-black rounded-md">{formatLeaveDuration(leave.daysCount)}</span>
                           </div>
 
                           <div className="flex justify-between items-center text-[10px] font-black text-brand-text/60">
