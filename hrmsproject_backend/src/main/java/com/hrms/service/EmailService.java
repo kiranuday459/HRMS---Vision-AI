@@ -1,5 +1,6 @@
 package com.hrms.service;
 
+import com.azure.core.credential.TokenRequestContext;
 import com.azure.identity.ClientSecretCredential;
 import com.azure.identity.ClientSecretCredentialBuilder;
 import com.microsoft.graph.models.BodyType;
@@ -11,6 +12,8 @@ import com.microsoft.graph.serviceclient.GraphServiceClient;
 import com.microsoft.graph.users.item.sendmail.SendMailPostRequestBody;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -32,10 +35,13 @@ public class EmailService {
     private String senderEmail;
 
     private GraphServiceClient graphClient;
+    // Held as a field so the startup health check can ask it for a token without building a
+    // second credential that could drift from the one actually used to send.
+    private ClientSecretCredential credential;
 
     private void ensureGraphClient() {
         if (graphClient == null) {
-            final ClientSecretCredential credential = new ClientSecretCredentialBuilder()
+            credential = new ClientSecretCredentialBuilder()
                     .clientId(clientId)
                     .tenantId(tenantId)
                     .clientSecret(clientSecret)
@@ -43,6 +49,45 @@ public class EmailService {
 
             // v6 SDK uses the credential directly
             graphClient = new GraphServiceClient(credential);
+        }
+    }
+
+    /**
+     * Proves at startup that the application can still authenticate to Graph, and says so
+     * loudly when it cannot.
+     *
+     * Every email this application sends — client timesheet OTP, rejection notice, the Friday
+     * and Monday schedules, leave request and status mail, password-reset OTP — goes through
+     * one Graph call using one credential. So the credential is a single point of failure for
+     * all of them at once, and when it lapses nothing throws anywhere a user can see: the
+     * rejection still saves, the assignment still completes, the bell still rings, and only the
+     * mail silently stops. That is how an expired client secret went unnoticed until someone
+     * reported a missing email.
+     *
+     * A token request costs one HTTP call at boot and turns that class of outage into a line in
+     * the startup log. It never throws: mail is a side channel, and a mail problem must not
+     * stop the application from serving.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void reportMailCredentialHealth() {
+        try {
+            ensureGraphClient();
+            credential.getToken(new TokenRequestContext()
+                    .addScopes("https://graph.microsoft.com/.default")).block();
+            System.out.println("[Email] credential OK — Graph token acquired, sender=" + senderEmail);
+        } catch (Exception e) {
+            System.err.println("========================================================");
+            System.err.println("[Email] EMAIL IS DOWN — could not authenticate to Graph.");
+            System.err.println("[Email] EVERY email in this application will fail silently.");
+            System.err.println("[Email] cause=" + e.getClass().getName() + ": " + e.getMessage());
+            // AADSTS7000222 is the expired-client-secret code. Naming the fix here saves the
+            // next person the round trip through the Azure error reference.
+            if (e.getMessage() != null && e.getMessage().contains("AADSTS7000222")) {
+                System.err.println("[Email] The Azure client secret has EXPIRED. Create a new one");
+                System.err.println("[Email] (Azure portal > App registrations > Certificates &");
+                System.err.println("[Email] secrets) and set AZURE_CLIENT_SECRET to the new value.");
+            }
+            System.err.println("========================================================");
         }
     }
 
@@ -107,10 +152,21 @@ public class EmailService {
                     .sendMail()
                     .post(sendMailPostRequestBody);
 
-            System.out.println("Email sent successfully via Graph API to: " + String.join(", ", to));
+            System.out.println("[Email] sent | to=" + String.join(", ", to) + " | subject=" + subject);
         } catch (Exception e) {
-            System.err.println("Failed to send email via Graph API: " + e.getMessage());
-            // Optional: log full stack trace or throw exception if needed
+            // Every send failure is swallowed here so a mail outage can never fail the action
+            // that triggered it — that part is deliberate. What was not deliberate is that this
+            // printed e.getMessage() alone: a NullPointerException carries a null message, so
+            // the entire record of a failed send was the line "Failed to send email via Graph
+            // API: null". No exception type, no stack trace, no recipient, no subject — nothing
+            // to act on, and nothing to distinguish a Graph auth failure from a bad sender
+            // address or a throttle. A silent send is now a loud log line.
+            System.err.println("[Email] FAILED to send via Graph API"
+                    + " | to=" + String.join(", ", to)
+                    + " | subject=" + subject
+                    + " | cause=" + e.getClass().getName()
+                    + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

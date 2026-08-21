@@ -35,7 +35,6 @@ public class DataSeeder implements CommandLineRunner {
     private JdbcTemplate jdbcTemplate;
 
     @Override
-    @Transactional
     public void run(String... args) {
         System.out.println("=== DataSeeder: Starting Fresh Reset ===");
 

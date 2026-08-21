@@ -29,6 +29,18 @@ const MAX_COMMENT = FIELD_LIMITS.COMMENT;
 const MAX_BILLING_LOCATION = FIELD_LIMITS.BILLING_LOCATION;
 const MAX_LEAVE_REASON = FIELD_LIMITS.LEAVE_REASON;
 
+/**
+ * How long a leave cell waits after the last keystroke before asking for a reason.
+ *
+ * Short enough to read as "right after typing", long enough not to land mid-number. These
+ * cells take digits only and at most two of them (sanitizeHourDigits), and leave is clamped
+ * to 8, so the only real two-keystroke entry is something like "10" — which passes through a
+ * perfectly valid "1" on the way. Prompting on that first digit would throw a dialog over
+ * the grid and take the focus still needed to finish typing, which is why this is debounced
+ * rather than fired on the keystroke itself.
+ */
+const LEAVE_REASON_PROMPT_DELAY_MS = 400;
+
 // Billing Location holds a place name, so it takes letters and spaces only — "New York" is
 // allowed, "Bldg 4" and "St. Louis" are not. Everything else is stripped as it arrives rather
 // than flagged on Submit, which is how the app's other restricted fields behave (sanitizeName
@@ -191,6 +203,9 @@ export default function ClientTimesheetEntry() {
     // rather than by project rowId, and because it opens by itself on blur — mixing the two
     // would make "which dialog is open, and why" ambiguous.
     const [leaveModal, setLeaveModal] = useState({ open: false, type: null, text: "" });
+    // The pending prompt, and a handle on the newest maybePromptLeaveReason for it to call.
+    const leaveReasonTimerRef = useRef(null);
+    const latestLeavePromptRef = useRef(null);
     // Projects the employee may log against — the options for the Project ID cell on a newly
     // added row. Project ID/Name are owned by the assignment, never typed.
     const [assignmentOptions, setAssignmentOptions] = useState([]);
@@ -406,6 +421,11 @@ export default function ClientTimesheetEntry() {
             ...r, days: r.days.map((d, j) => j !== dayIdx ? d : { ...d, hours }),
         });
         setTimeOffRows(nextRows);
+
+        // Ask why once the typing settles, rather than waiting for the cell to lose focus.
+        // Armed on every change including a clear: the guard re-reads the row when the timer
+        // fires, so a cell emptied again simply asks nothing.
+        scheduleLeaveReasonPrompt(rowIdx);
 
         // This date's other four cells just changed state — disabled if this row now holds
         // hours, released if it was cleared. Either way any notice still sitting under them is
@@ -774,11 +794,41 @@ export default function ClientTimesheetEntry() {
     };
     const closeRowText = () => setTextModal({ open: false, rowId: null, field: null, text: "" });
 
+    /** Drops a pending prompt, so it cannot reopen a dialog the employee has just dealt with. */
+    const cancelLeaveReasonPrompt = () => {
+        if (leaveReasonTimerRef.current) {
+            clearTimeout(leaveReasonTimerRef.current);
+            leaveReasonTimerRef.current = null;
+        }
+    };
+
+    // A pending timer outliving the page would fire into an unmounted component.
+    useEffect(() => cancelLeaveReasonPrompt, []);
+
     /**
-     * The leave-reason dialog, opened either by the row's icon or by leaving a leave cell that
-     * has just taken hours.
+     * Asks for the reason once the typing settles, without waiting for the cell to lose
+     * focus — an employee who enters their hours and stops is asked there and then.
+     *
+     * Each keystroke replaces the pending timer, so a burst of typing asks once at the end
+     * rather than once per key. It defers to maybePromptLeaveReason for whether to ask at
+     * all, reached through a ref because the timer lands several hundred milliseconds after
+     * the keystroke that armed it: the guard captured back then would be looking at a sheet
+     * the employee may since have typed into, cleared, or answered from the row icon.
+     */
+    const scheduleLeaveReasonPrompt = (rowIdx) => {
+        cancelLeaveReasonPrompt();
+        leaveReasonTimerRef.current = setTimeout(() => {
+            leaveReasonTimerRef.current = null;
+            latestLeavePromptRef.current?.(rowIdx);
+        }, LEAVE_REASON_PROMPT_DELAY_MS);
+    };
+
+    /**
+     * The leave-reason dialog, opened by the row's icon, by leaving a leave cell that has
+     * just taken hours, or by the settle-timer above.
      */
     const openLeaveReason = (type) => {
+        cancelLeaveReasonPrompt();
         const row = timeOffRows.find((r) => r.type === type);
         setLeaveModal({ open: true, type, text: row?.reason || "" });
     };
@@ -808,6 +858,12 @@ export default function ClientTimesheetEntry() {
         if (String(row.reason ?? "").trim()) return;
         openLeaveReason(row.type);
     };
+
+    // Republished every render so a pending prompt runs the guard against the sheet as it is
+    // when the timer fires, not as it was when the key went down.
+    useEffect(() => {
+        latestLeavePromptRef.current = maybePromptLeaveReason;
+    });
     const saveRowText = () => {
         if (textModal.rowId && textModal.field) {
             setRowField(textModal.rowId, textModal.field, textModal.text);

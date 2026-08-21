@@ -97,6 +97,14 @@ public class ClientTimesheetEmailService {
             if (to == null) {
                 // No login account behind this employee — no inbox they sign in with, and
                 // guessing a profile address is exactly what the OTP fix removed.
+                //
+                // Logged rather than returned in silence: this is the one skip that is a real
+                // problem to fix (the employee needs a login, or its address filled in), and
+                // from the admin's side it is indistinguishable from a broken mailer.
+                System.err.println("[ClientTimesheetEmail] rejection notice NOT sent"
+                        + " | employee=" + displayName(employee)
+                        + " (id=" + (employee == null ? "null" : employee.getId()) + ")"
+                        + " | reason=no login account or blank users.email");
                 return;
             }
 
@@ -108,6 +116,16 @@ public class ClientTimesheetEmailService {
                     : lineRepository.findByEmployeeIdAndWeekStartDate(employee.getId(), weekStart);
 
             if (!isSpokespersonRow(rejectedLine, weekLines)) {
+                // Expected for every row but one, so this is a trace line, not a warning. It
+                // exists because the opposite case is otherwise undiagnosable: if the elected
+                // row is never posted — rejecting a strict subset of a week — then EVERY row
+                // takes this branch and no email is sent, with nothing anywhere to say why.
+                // Naming the winner makes that visible: five "yields to id=N" lines and no
+                // "sent" line means row N was never rejected.
+                System.out.println("[ClientTimesheetEmail] rejection notice skipped"
+                        + " | line=" + rejectedLine.getId()
+                        + " | yields to id=" + spokespersonId(weekLines)
+                        + " | week=" + weekStart);
                 return; // another row of this same week carries the email
             }
 
@@ -126,6 +144,14 @@ public class ClientTimesheetEmailService {
                     userDisplayNameResolver.resolve(rejectedLine.getApprovedBy()),
                     reviewedAt.toLocalDate().format(STAMP_FMT),
                     formatMissingDays(missingDaysFor(employee, weekStart, weekLines)));
+
+            // Handed to the mail layer. That layer logs its own outcome, so "handed over" and
+            // "delivered" stay distinguishable in the log: this line without an [Email] sent
+            // line after it means the send itself failed, not the trigger.
+            System.out.println("[ClientTimesheetEmail] rejection notice handed to mailer"
+                    + " | line=" + rejectedLine.getId()
+                    + " | to=" + to
+                    + " | week=" + weekStart);
         } catch (Exception ex) {
             logFailure("rejection notice", ex);
         }
@@ -160,15 +186,24 @@ public class ClientTimesheetEmailService {
         if (line.getId() == null) {
             return true; // unsaved row: nothing to compare against, so it speaks for itself
         }
-        Long lowest = weekLines.stream()
+        Long lowest = spokespersonId(weekLines);
+        // No reviewable rows found (an empty or stale read) — fall back to sending rather than
+        // swallowing the notice: a duplicate is recoverable, silence is not.
+        return lowest == null || lowest.equals(line.getId());
+    }
+
+    /**
+     * The id of the row elected to carry the week's email, or null when the week has no
+     * reviewable rows. Extracted so the election and the log line that reports it cannot
+     * disagree about who won.
+     */
+    private static Long spokespersonId(Collection<ClientTimesheet> weekLines) {
+        return weekLines.stream()
                 .filter(l -> l.getId() != null)
                 .filter(ClientTimesheetEmailService::isReviewable)
                 .map(ClientTimesheet::getId)
                 .min(Long::compareTo)
                 .orElse(null);
-        // No reviewable rows found (an empty or stale read) — fall back to sending rather than
-        // swallowing the notice: a duplicate is recoverable, silence is not.
-        return lowest == null || lowest.equals(line.getId());
     }
 
     /** Rows a rejection can act on, and therefore the rows that compete to carry its email. */
@@ -367,7 +402,16 @@ public class ClientTimesheetEmailService {
         return v != null && !v.isBlank();
     }
 
+    /**
+     * Every send in this class is a side effect of an action that has already been committed, so
+     * a failure must never propagate. It must, however, leave a trace worth reading: this used
+     * to print ex.getMessage() alone, and the commonest failure in here — a null dereference
+     * while assembling the message — carries a null message, so the whole record of a lost email
+     * was "Could not send 'rejection notice': null".
+     */
     private void logFailure(String what, Exception ex) {
-        System.err.println("[ClientTimesheetEmail] Could not send '" + what + "': " + ex.getMessage());
+        System.err.println("[ClientTimesheetEmail] FAILED '" + what + "'"
+                + " | cause=" + ex.getClass().getName() + ": " + ex.getMessage());
+        ex.printStackTrace();
     }
 }
