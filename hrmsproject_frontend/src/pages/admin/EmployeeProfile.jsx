@@ -214,6 +214,39 @@ export default function EmployeeProfile() {
           joiningDate: data.joiningDate || "",
         });
 
+  const triggerFileDownload = async (fileUrl, fileName = "document") => {
+    if (!fileUrl) return;
+    try {
+      if (fileUrl.startsWith('data:') || fileUrl.startsWith('blob:')) {
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("Download error", err);
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
         // Populate documents
         if (data.documentList) {
           const files = {
@@ -1217,8 +1250,8 @@ export default function EmployeeProfile() {
                                     <>
                                       <button
                                         type="button"
-                                        onClick={(e) => { e.stopPropagation(); window.open(uploadedFiles[edu.id].preview, '_blank'); }}
-                                        title="Download / View"
+                                        onClick={(e) => { e.stopPropagation(); triggerFileDownload(uploadedFiles[edu.id].preview, uploadedFiles[edu.id].name || edu.label); }}
+                                        title="Download"
                                         className="text-brand-text/60 hover:text-brand-blue p-1 rounded-lg hover:bg-gray-100 transition-all"
                                       >
                                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1255,7 +1288,7 @@ export default function EmployeeProfile() {
                               </div>
                               <div className="h-[100px] flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden border border-dashed border-brand-blue/10 relative">
                                 {uploadedFiles[edu.id] ? (
-                                  <div className="w-full h-full relative group cursor-pointer" onClick={() => window.open(uploadedFiles[edu.id].preview, '_blank')}>
+                                  <div className="w-full h-full relative group cursor-pointer" onClick={() => triggerFileDownload(uploadedFiles[edu.id].preview, uploadedFiles[edu.id].name || edu.label)}>
                                     {uploadedFiles[edu.id].type.startsWith('image/') ? (
                                       <img src={uploadedFiles[edu.id].preview} alt={edu.label} className="w-full h-full object-cover" />
                                     ) : (
@@ -1296,7 +1329,7 @@ export default function EmployeeProfile() {
                             )}
                             <div className="flex flex-wrap gap-2 mt-2">
                               {uploadedFiles.educational.map((file, idx) => (
-                                <div key={file.id} className="group relative w-12 h-12 rounded bg-gray-100 border border-brand-blue/5 flex items-center justify-center cursor-pointer" onClick={() => window.open(file.preview, '_blank')}>
+                                <div key={file.id} className="group relative w-12 h-12 rounded bg-gray-100 border border-brand-blue/5 flex items-center justify-center cursor-pointer" onClick={() => triggerFileDownload(file.preview, file.name || file.label)}>
                                   <span className="text-[8px] font-bold text-brand-text/40">{file.label.substring(0, 3)}...</span>
                                   {editing && (
                                     <button onClick={(e) => { e.stopPropagation(); removeFile('educational', idx); }} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
@@ -1325,7 +1358,7 @@ export default function EmployeeProfile() {
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                             {uploadedFiles[cat].map((file, idx) => (
-                              <div key={file.id} className="relative group aspect-square rounded-xl bg-gray-50 border border-brand-blue/5 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all" onClick={() => window.open(file.preview, '_blank')}>
+                              <div key={file.id} className="relative group aspect-square rounded-xl bg-gray-50 border border-brand-blue/5 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all" onClick={() => triggerFileDownload(file.preview, file.name || file.label)}>
                                 {file.type.startsWith('image/') ? (
                                   <img src={file.preview} alt={file.label} className="w-full h-full object-cover" />
                                 ) : (

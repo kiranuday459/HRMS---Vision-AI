@@ -162,6 +162,7 @@ export default function AdminDashboard() {
   const [employees, setEmployees] = useState([]);
   const [leaveSearch, setLeaveSearch] = useState("");
   const [leaveRoleFilter, setLeaveRoleFilter] = useState("ALL");
+  const [leaveStatusFilter, setLeaveStatusFilter] = useState("All");
 
   // Map employeeId -> role for the leave role filter
   const employeeRoleMap = employees.reduce((acc, emp) => {
@@ -478,6 +479,20 @@ export default function AdminDashboard() {
                         </button>
                       ))}
                     </div>
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="admin-leave-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
+                      <select
+                        id="admin-leave-status-filter"
+                        value={leaveStatusFilter}
+                        onChange={(e) => setLeaveStatusFilter(e.target.value)}
+                        className="h-[38px] rounded-xl border border-[#E3E8EF] bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 shadow-sm"
+                      >
+                        <option>All</option>
+                        <option>Pending</option>
+                        <option>Approved</option>
+                        <option>Rejected</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
             ) : (
@@ -705,7 +720,8 @@ export default function AdminDashboard() {
                                 : leaveRoleFilter === "MANAGERS"
                                   ? empRole === "REPORTING_MANAGER"
                                   : empRole !== "HR" && empRole !== "REPORTING_MANAGER";
-                            return nameMatch && roleMatch;
+                            const statusMatch = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
+                            return nameMatch && roleMatch && statusMatch;
                           });
                           if (filtered.length === 0) {
                             return (
@@ -768,7 +784,8 @@ export default function AdminDashboard() {
                               : leaveRoleFilter === "MANAGERS"
                                 ? empRole === "REPORTING_MANAGER"
                                 : empRole !== "HR" && empRole !== "REPORTING_MANAGER";
-                          return nameMatch && roleMatch;
+                          const statusMatch = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
+                          return nameMatch && roleMatch && statusMatch;
                         });
                         if (filtered.length === 0) {
                           return (

@@ -32,17 +32,30 @@ export default function RejectRequestModal({
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault();
-    if (!reason || !reason.trim()) {
+    const trimmed = reason ? reason.trim() : "";
+    if (!trimmed) {
       setError("Rejection reason is required.");
       return;
     }
+    if (trimmed.length > 500) {
+      setError("Exceeded maximum characters limit");
+      return;
+    }
     setError("");
-    onConfirm(reason.trim());
+    onConfirm(trimmed);
   };
 
   const handleReasonChange = (e) => {
-    setReason(e.target.value);
-    if (error && e.target.value.trim()) {
+    const val = e.target.value;
+    setReason(val);
+    const trimmed = val.trim();
+    if (!trimmed) {
+      if (error && error !== "Exceeded maximum characters limit") {
+        setError("");
+      }
+    } else if (trimmed.length > 500) {
+      setError("Exceeded maximum characters limit");
+    } else {
       setError("");
     }
   };
