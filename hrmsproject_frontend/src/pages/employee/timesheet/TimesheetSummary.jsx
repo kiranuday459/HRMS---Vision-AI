@@ -13,8 +13,29 @@ const TimesheetSummary = ({ weeks, onSelectWeek }) => {
 
     const filteredWeeks = weeks.filter(week => {
         if (statusFilter === 'All') return true;
-        const label = week.statusLabel || week.status || '';
-        return label.toLowerCase() === statusFilter.toLowerCase();
+        const rawStatus = (week.status || '').toUpperCase();
+        const label = (week.statusLabel || '').toLowerCase();
+        const filterLower = statusFilter.toLowerCase();
+
+        if (statusFilter === 'Not Filled') {
+            return rawStatus === 'NOT_FILLED' || label === 'not filled';
+        }
+        if (statusFilter === 'Approved') {
+            return rawStatus === 'APPROVED' || label.startsWith('approved');
+        }
+        if (statusFilter === 'Rejected') {
+            return rawStatus === 'REJECTED' || label.startsWith('rejected');
+        }
+        if (statusFilter === 'Pending approval from Reporting Manager') {
+            return rawStatus === 'PENDING_RM_APPROVAL' || label === filterLower;
+        }
+        if (statusFilter === 'Pending approval from HR') {
+            return rawStatus === 'PENDING_HR_APPROVAL' || rawStatus === 'PENDING_RM_AS_HR_APPROVAL' || label === filterLower || label.includes('hr');
+        }
+        if (statusFilter === 'Pending approval from Admin') {
+            return rawStatus === 'PENDING_ADMIN_APPROVAL' || label === filterLower || label.includes('admin');
+        }
+        return label === filterLower || rawStatus.toLowerCase() === filterLower;
     });
 
     return (

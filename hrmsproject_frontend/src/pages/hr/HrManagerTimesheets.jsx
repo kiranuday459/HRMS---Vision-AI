@@ -408,13 +408,9 @@ export default function HrManagerTimesheets() {
                 emp.employeeId.toString().includes(tsFilter) ||
                 (profile?.oryfolksId && profile.oryfolksId.toLowerCase().includes(tsFilter.toLowerCase()));
             const matchesStatus = tsStatusFilter === "All" ||
-                (tsStatusFilter === "Pending" && [
-                    APPROVAL_STATUS.PENDING_RM_APPROVAL,
-                    APPROVAL_STATUS.PENDING_HR_APPROVAL,
-                    APPROVAL_STATUS.PENDING_ADMIN_APPROVAL
-                ].includes(emp.status)) ||
-                (tsStatusFilter === "Approved" && emp.status === APPROVAL_STATUS.APPROVED) ||
-                (tsStatusFilter === "Rejected" && emp.status === APPROVAL_STATUS.REJECTED);
+                (tsStatusFilter === "Pending" && (isPendingStatus(emp.status) || (emp.status || '').toUpperCase().includes('PENDING'))) ||
+                (tsStatusFilter === "Approved" && (emp.status || '').toUpperCase() === 'APPROVED') ||
+                (tsStatusFilter === "Rejected" && (emp.status || '').toUpperCase() === 'REJECTED');
             return matchesSearch && matchesStatus;
         });
         return { ...week, filteredEmployees };

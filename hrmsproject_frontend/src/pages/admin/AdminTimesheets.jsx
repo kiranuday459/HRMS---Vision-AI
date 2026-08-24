@@ -151,15 +151,15 @@ export default function AdminTimesheets() {
             else empWeek.nonBillableHrs += entry.totalHours;
 
             // Preserve actual workflow status codes so admin can approve the correct stage
-            if (entry.status === 'PENDING_RM_APPROVAL') {
-                empWeek.status = 'PENDING_RM_APPROVAL';
-            } else if (entry.status === 'PENDING_HR_APPROVAL' && empWeek.status !== 'PENDING_RM_APPROVAL') {
+            if (entry.status === 'PENDING_RM_APPROVAL' || entry.status === 'PENDING_RM_AS_HR_APPROVAL') {
+                empWeek.status = entry.status;
+            } else if (entry.status === 'PENDING_HR_APPROVAL' && !['PENDING_RM_APPROVAL', 'PENDING_RM_AS_HR_APPROVAL'].includes(empWeek.status)) {
                 empWeek.status = 'PENDING_HR_APPROVAL';
-            } else if (entry.status === 'PENDING_ADMIN_APPROVAL' && empWeek.status !== 'PENDING_RM_APPROVAL' && empWeek.status !== 'PENDING_HR_APPROVAL') {
+            } else if (entry.status === 'PENDING_ADMIN_APPROVAL' && !['PENDING_RM_APPROVAL', 'PENDING_RM_AS_HR_APPROVAL', 'PENDING_HR_APPROVAL'].includes(empWeek.status)) {
                 empWeek.status = 'PENDING_ADMIN_APPROVAL';
-            } else if (entry.status === 'REJECTED' && !['PENDING_RM_APPROVAL', 'PENDING_HR_APPROVAL', 'PENDING_ADMIN_APPROVAL'].includes(empWeek.status)) {
+            } else if (entry.status === 'REJECTED' && !['PENDING_RM_APPROVAL', 'PENDING_RM_AS_HR_APPROVAL', 'PENDING_HR_APPROVAL', 'PENDING_ADMIN_APPROVAL'].includes(empWeek.status)) {
                 empWeek.status = 'REJECTED';
-            } else if (entry.status === 'APPROVED' && !['PENDING_RM_APPROVAL', 'PENDING_HR_APPROVAL', 'PENDING_ADMIN_APPROVAL', 'REJECTED'].includes(empWeek.status)) {
+            } else if (entry.status === 'APPROVED' && !['PENDING_RM_APPROVAL', 'PENDING_RM_AS_HR_APPROVAL', 'PENDING_HR_APPROVAL', 'PENDING_ADMIN_APPROVAL', 'REJECTED'].includes(empWeek.status)) {
                 empWeek.status = 'APPROVED';
             }
         });
@@ -173,11 +173,12 @@ export default function AdminTimesheets() {
     };
 
     const getStatusLabel = (status) => {
-        if (status === 'PENDING_RM_APPROVAL' || status === 'PENDING_HR_APPROVAL' || status === 'PENDING_ADMIN_APPROVAL') {
+        const s = (status || '').toUpperCase();
+        if (s.includes('PENDING')) {
             return 'Pending';
         }
-        if (status === 'REJECTED') return 'Rejected';
-        if (status === 'APPROVED') return 'Approved';
+        if (s === 'REJECTED') return 'Rejected';
+        if (s === 'APPROVED') return 'Approved';
         return status;
     };
 
