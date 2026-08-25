@@ -686,14 +686,15 @@ export default function AdminDashboard() {
                           <th className="py-3 px-4 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 w-20">Record ID</th>
                           <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Requester</th>
                           <th className="py-3 px-4 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Category</th>
-                          <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-center min-w-[200px]">Duration</th>
+                          <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-center">Dates</th>
+                          <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-center">Days</th>
                           <th className="py-3 px-5 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-center">Status</th>
                           <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-right">Decision Control</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-brand-blue/5">
                         {loading ? (
-                          <tr><td colSpan={6} className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Syncing Personnel Records...</td></tr>
+                          <tr><td colSpan={7} className="py-20 text-center text-brand-text/30 font-bold uppercase tracking-widest text-xs animate-pulse">Syncing Personnel Records...</td></tr>
                         ) : (() => {
                           const filtered = leaveRequests.filter(lv => {
                             const nameMatch = !leaveSearch || lv.employeeName.toLowerCase().includes(leaveSearch.toLowerCase());
@@ -710,7 +711,7 @@ export default function AdminDashboard() {
                           if (filtered.length === 0) {
                             return (
                               <tr>
-                                <td colSpan={6} className="py-20 text-center italic text-brand-text/40 font-bold uppercase tracking-widest text-xs">
+                                <td colSpan={7} className="py-20 text-center italic text-brand-text/40 font-bold uppercase tracking-widest text-xs">
                                   No records found
                                 </td>
                               </tr>
@@ -721,15 +722,13 @@ export default function AdminDashboard() {
                               <td className="py-3 px-4"><span className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest">#{leave.id}</span></td>
                               <td className="py-3 px-6"><div className="flex flex-col"><span className="text-sm font-black text-brand-text tracking-tight uppercase">{leave.employeeName}</span></div></td>
                               <td className="py-3 px-6"><span className="px-3 py-1 bg-brand-blue/5 text-brand-text text-[8px] font-black uppercase tracking-widest rounded-lg border border-brand-blue/10">{leave.leaveType}</span></td>
+                              <td className="py-3 px-6 text-brand-text/60 text-xs text-center whitespace-nowrap">
+                                {leave.startDate}{leave.endDate && leave.endDate !== leave.startDate ? ` → ${leave.endDate}` : ''}
+                              </td>
                               <td className="py-3 px-6 text-center">
-                                <div className="flex flex-col items-center">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black text-brand-text">{formatDate(leave.startDate)}</span>
-                                    <span className="text-[8px] font-black text-brand-text/10 font-bold">to</span>
-                                    <span className="text-[10px] font-black text-brand-text">{formatDate(leave.endDate)}</span>
-                                  </div>
-                                  <span className="mt-1 px-2 py-0.5 bg-brand-yellow text-brand-text text-[8px] font-black rounded-md">{formatLeaveDuration(leave.daysCount)}</span>
-                                </div>
+                                <span className="bg-brand-blue/5 text-brand-text px-3 py-1 rounded-lg font-black text-[11px]">
+                                  {leave.daysCount != null ? leave.daysCount.toFixed(1) : calculateLeaveDays(leave.startDate, leave.endDate)}
+                                </span>
                               </td>
                               <td className="py-3 px-6 text-center">
                                 <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${leave.status === 'PENDING' ? 'bg-brand-yellow/10 text-brand-yellow-dark border-brand-yellow/20' : leave.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
@@ -791,7 +790,7 @@ export default function AdminDashboard() {
 
                           <div className="flex flex-wrap gap-2">
                             <span className="px-2 py-0.5 bg-brand-blue/5 text-brand-text text-[8px] font-black uppercase tracking-widest rounded-md border border-brand-blue/10">{leave.leaveType}</span>
-                            <span className="px-2 py-0.5 bg-brand-yellow/20 text-brand-text text-[8px] font-black rounded-md">{formatLeaveDuration(leave.daysCount)}</span>
+                            <span className="px-2 py-0.5 bg-brand-yellow/20 text-brand-text text-[8px] font-black rounded-md">{formatLeaveDuration(leave.daysCount != null ? leave.daysCount : calculateLeaveDays(leave.startDate, leave.endDate))}</span>
                           </div>
 
                           <div className="flex justify-between items-center text-[10px] font-black text-brand-text/60">
