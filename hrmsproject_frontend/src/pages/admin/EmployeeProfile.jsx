@@ -191,8 +191,8 @@ export default function EmployeeProfile() {
           gender: data.gender || "",
           maritalStatus: data.maritalStatus || "",
           bloodGroup: data.bloodGroup || "",
-          currentAddress: data.presentAddress || "",
-          permanentAddress: data.permanentAddress || "",
+          currentAddress: (data.presentAddress && data.presentAddress.trim().toLowerCase() !== "to be updated") ? data.presentAddress : "",
+          permanentAddress: (data.permanentAddress && data.permanentAddress.trim().toLowerCase() !== "to be updated") ? data.permanentAddress : "",
           aadhar: data.aadhaarNo || '',
           pan: data.panNo || '',
           passport: data.passportNo || "",
@@ -511,19 +511,13 @@ export default function EmployeeProfile() {
           finalLabel = otherEduLabel;
           docType = 'OTHER';
         } else if (category === 'technical') {
-          const label = window.prompt("Please enter the name for this Technical Certification:");
-          if (!label || !label.trim()) return;
-          finalLabel = label.trim();
+          finalLabel = file.name;
           docType = 'TECHNICAL';
         } else if (category === 'employment') {
-          const label = window.prompt("Please enter the name for this Employment Certification/Letter:");
-          if (!label || !label.trim()) return;
-          finalLabel = label.trim();
+          finalLabel = file.name;
           docType = 'EMPLOYMENT';
         } else if (category === 'course') {
-          const label = window.prompt("Please enter the name for this Course Certification:");
-          if (!label || !label.trim()) return;
-          finalLabel = label.trim();
+          finalLabel = file.name;
           docType = 'COURSE';
         }
       }
@@ -955,19 +949,19 @@ export default function EmployeeProfile() {
                         </div>
 
                         {[
-                          { label: 'Designation', name: 'role' },
-                          { label: 'Company ID', name: 'companyId' },
-                          { label: 'Corporate Email', name: 'companyMail' },
-                          { label: 'Joining Date', name: 'joiningDate', type: 'date' },
-                          { label: 'Personal Email', name: 'personalEmail' },
-                          { label: 'Mobile No', name: 'mobile' },
-                          { label: 'Date of Birth', name: 'dob', type: 'date' },
+                          { label: 'Designation', name: 'role', placeholder: 'Enter designation' },
+                          { label: 'Company ID', name: 'companyId', placeholder: 'Enter company ID' },
+                          { label: 'Corporate Email', name: 'companyMail', placeholder: 'Enter corporate email' },
+                          { label: 'Joining Date', name: 'joiningDate', type: 'date', placeholder: 'Select joining date' },
+                          { label: 'Personal Email', name: 'personalEmail', placeholder: 'Enter personal email' },
+                          { label: 'Mobile No', name: 'mobile', placeholder: 'Enter mobile number' },
+                          { label: 'Date of Birth', name: 'dob', type: 'date', placeholder: 'Select date of birth' },
                           { label: 'Gender', name: 'gender' },
                           { label: 'Marital Status', name: 'maritalStatus' },
-                          { label: 'Blood Group', name: 'bloodGroup' },
-                          { label: 'Aadhar No', name: 'aadhar' },
-                          { label: 'PAN No', name: 'pan' },
-                          { label: 'Passport No', name: 'passport' },
+                          { label: 'Blood Group', name: 'bloodGroup', placeholder: 'Enter blood group' },
+                          { label: 'Aadhar No', name: 'aadhar', placeholder: 'Enter Aadhar number' },
+                          { label: 'PAN No', name: 'pan', placeholder: 'Enter PAN number' },
+                          { label: 'Passport No', name: 'passport', placeholder: 'Enter passport number' },
                         ].map((field) => {
                           const isAdminField = ['role', 'companyId', 'companyMail', 'joiningDate'].includes(field.name);
                           const isDisabled = !editing || (userRole === 'HR' && isAdminField);
@@ -1024,6 +1018,7 @@ export default function EmployeeProfile() {
                                       disabled={isDisabled}
                                       inputMode="numeric"
                                       maxLength={getMobileMaxDigits(form[`${field.name}CountryCode`] || '+91')}
+                                      placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
                                       className={`flex-1 bg-[#F8F7F4] border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${fieldErrors[field.name] && touched[field.name] ? 'ring-2 ring-red-500 bg-red-50' : ''} ${isDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
                                     />
                                   </div>
@@ -1039,6 +1034,7 @@ export default function EmployeeProfile() {
                                     onBlur={handleBlur}
                                     disabled={isDisabled}
                                     maxLength={maxLengths[field.name] || 100}
+                                    placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
                                     className={`w-full bg-[#F8F7F4] border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${fieldErrors[field.name] && touched[field.name] ? 'ring-2 ring-red-500 bg-red-50' : ''} ${isDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
                                   />
                                   {fieldErrors[field.name] && touched[field.name] && <FormFieldError error={fieldErrors[field.name]} show={true} />}
@@ -1049,13 +1045,13 @@ export default function EmployeeProfile() {
                         })}
                         <div className="space-y-2">
                           <label className="text-[11px] font-bold text-brand-text/50 uppercase tracking-[0.06em] ml-1">Current Address</label>
-                          <textarea name="currentAddress" value={form.currentAddress || ''} onChange={handleChange} onBlur={handleBlur} disabled={!editing || userRole === 'ADMIN'} rows="2" maxLength="252" className={`w-full bg-[#F8F7F4] border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${fieldErrors.currentAddress && touched.currentAddress ? 'ring-2 ring-red-500 bg-red-50' : ''} ${(!editing || userRole === 'ADMIN') ? 'opacity-60 cursor-not-allowed' : ''}`} />
+                          <textarea name="currentAddress" value={form.currentAddress || ''} onChange={handleChange} onBlur={handleBlur} disabled={!editing || userRole === 'ADMIN'} rows="2" maxLength="252" placeholder="Enter current address" className={`w-full bg-[#F8F7F4] border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${fieldErrors.currentAddress && touched.currentAddress ? 'ring-2 ring-red-500 bg-red-50' : ''} ${(!editing || userRole === 'ADMIN') ? 'opacity-60 cursor-not-allowed' : ''}`} />
                           {fieldErrors.currentAddress && touched.currentAddress && <FormFieldError error={fieldErrors.currentAddress} show={true} />}
                           <CharacterCounter current={(form.currentAddress || '').length} max={252} />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[11px] font-bold text-brand-text/50 uppercase tracking-[0.06em] ml-1">Permanent Address</label>
-                          <textarea name="permanentAddress" value={form.permanentAddress || ''} onChange={handleChange} onBlur={handleBlur} disabled={!editing || userRole === 'ADMIN'} rows="2" maxLength="252" className={`w-full bg-[#F8F7F4] border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${fieldErrors.permanentAddress && touched.permanentAddress ? 'ring-2 ring-red-500 bg-red-50' : ''} ${(!editing || userRole === 'ADMIN') ? 'opacity-60 cursor-not-allowed' : ''}`} />
+                          <textarea name="permanentAddress" value={form.permanentAddress || ''} onChange={handleChange} onBlur={handleBlur} disabled={!editing || userRole === 'ADMIN'} rows="2" maxLength="252" placeholder="Enter permanent address" className={`w-full bg-[#F8F7F4] border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${fieldErrors.permanentAddress && touched.permanentAddress ? 'ring-2 ring-red-500 bg-red-50' : ''} ${(!editing || userRole === 'ADMIN') ? 'opacity-60 cursor-not-allowed' : ''}`} />
                           {fieldErrors.permanentAddress && touched.permanentAddress && <FormFieldError error={fieldErrors.permanentAddress} show={true} />}
                           <CharacterCounter current={(form.permanentAddress || '').length} max={252} />
                         </div>

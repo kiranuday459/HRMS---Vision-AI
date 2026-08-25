@@ -129,8 +129,8 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
         gender: data.gender || "",
         maritalStatus: data.maritalStatus || "",
         bloodGroup: data.bloodGroup || "",
-        currentAddress: data.presentAddress || "",
-        permanentAddress: data.permanentAddress || "",
+        currentAddress: (data.presentAddress && data.presentAddress.trim().toLowerCase() !== "to be updated") ? data.presentAddress : "",
+        permanentAddress: (data.permanentAddress && data.permanentAddress.trim().toLowerCase() !== "to be updated") ? data.permanentAddress : "",
         aadhar: data.aadhaarNo || '',
         pan: data.panNo || '',
         passport: data.passportNo || "",
@@ -914,19 +914,13 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
           finalLabel = otherEduLabel;
           docType = 'OTHER';
         } else if (category === 'technical') {
-          const label = window.prompt("Please enter the name for this Technical Certification:");
-          if (!label || !label.trim()) return;
-          finalLabel = label.trim();
+          finalLabel = file.name;
           docType = 'TECHNICAL';
         } else if (category === 'employment') {
-          const label = window.prompt("Please enter the name for this Employment Certification/Letter:");
-          if (!label || !label.trim()) return;
-          finalLabel = label.trim();
+          finalLabel = file.name;
           docType = 'EMPLOYMENT';
         } else if (category === 'course') {
-          const label = window.prompt("Please enter the name for this Course Certification:");
-          if (!label || !label.trim()) return;
-          finalLabel = label.trim();
+          finalLabel = file.name;
           docType = 'COURSE';
         }
       }
@@ -1212,19 +1206,19 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                             </div>
                           </div>
                           {[
-                            { label: 'Company ID', name: 'companyId', disabled: true },
-                            { label: 'Corporate Email', name: 'companyMail', disabled: true },
-                            { label: 'Joining Date', name: 'joiningDate', type: 'date', disabled: true },
-                            { label: 'Personal Email', name: 'personalEmail' },
-                            { label: 'Mobile No', name: 'mobile' },
-                            { label: 'Alternate Mobile', name: 'alternateMobile' },
-                            { label: 'Date of Birth', name: 'dob', type: 'date' },
+                            { label: 'Company ID', name: 'companyId', disabled: true, placeholder: 'Enter company ID' },
+                            { label: 'Corporate Email', name: 'companyMail', disabled: true, placeholder: 'Enter corporate email' },
+                            { label: 'Joining Date', name: 'joiningDate', type: 'date', disabled: true, placeholder: 'Select joining date' },
+                            { label: 'Personal Email', name: 'personalEmail', placeholder: 'Enter personal email' },
+                            { label: 'Mobile No', name: 'mobile', placeholder: 'Enter mobile number' },
+                            { label: 'Alternate Mobile', name: 'alternateMobile', placeholder: 'Enter alternate mobile number' },
+                            { label: 'Date of Birth', name: 'dob', type: 'date', placeholder: 'Select date of birth' },
                             { label: 'Gender', name: 'gender' },
                             { label: 'Marital Status', name: 'maritalStatus' },
-                            { label: 'Blood Group', name: 'bloodGroup' },
-                            { label: 'Aadhar No', name: 'aadhar' },
-                            { label: 'PAN No', name: 'pan' },
-                            { label: 'Passport No', name: 'passport' },
+                            { label: 'Blood Group', name: 'bloodGroup', placeholder: 'Enter blood group' },
+                            { label: 'Aadhar No', name: 'aadhar', placeholder: 'Enter Aadhar number' },
+                            { label: 'PAN No', name: 'pan', placeholder: 'Enter PAN number' },
+                            { label: 'Passport No', name: 'passport', placeholder: 'Enter passport number' },
                           ].map((field) => {
                             const isDropdown = ['gender', 'maritalStatus'].includes(field.name);
                             const isDisabled = !editing || field.disabled;
@@ -1280,6 +1274,7 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                         disabled={isDisabled}
                                         inputMode="numeric"
                                         maxLength={getMobileMaxDigits(form[`${field.name}CountryCode`] || '+91')}
+                                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
                                         className={`flex-1 bg-[#F8F7F4] border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${fieldErrors[field.name] && touched[field.name] ? 'ring-2 ring-red-500 bg-red-50' : ''} ${isDisabled ? 'cursor-not-allowed opacity-80' : ''}`}
                                       />
                                     </div>
@@ -1295,6 +1290,7 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                       onBlur={handleBlur}
                                       disabled={isDisabled}
                                       maxLength={maxLengths[field.name] || 100}
+                                      placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
                                       className={`w-full bg-[#F8F7F4] border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${fieldErrors[field.name] && touched[field.name] ? 'ring-2 ring-red-500 bg-red-50' : ''} ${isDisabled ? 'cursor-not-allowed opacity-80' : ''}`}
                                     />
                                     {fieldErrors[field.name] && touched[field.name] && <FormFieldError error={fieldErrors[field.name]} show={true} />}
@@ -1313,6 +1309,7 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                               disabled={!editing}
                               rows="2"
                               maxLength="252"
+                              placeholder="Enter current address"
                               className={`w-full bg-[#F8F7F4] border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all ${fieldErrors.currentAddress && touched.currentAddress ? 'ring-2 ring-red-500 bg-red-50' : ''} ${!editing ? 'cursor-not-allowed opacity-80' : ''}`}
                             />
                             {fieldErrors.currentAddress && touched.currentAddress && <FormFieldError error={fieldErrors.currentAddress} show={true} />}
