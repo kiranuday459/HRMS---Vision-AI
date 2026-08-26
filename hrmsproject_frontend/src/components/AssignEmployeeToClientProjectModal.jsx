@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Briefcase, X, Search, Check } from "lucide-react";
+import { Briefcase, X, Search, Check, Users } from "lucide-react";
 import { toast } from "react-toastify";
 import api from "../utils/api";
 import { isDisabled } from "../utils/employeeStatus";
@@ -237,34 +237,59 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
 
   if (!open) return null;
 
-  const sectionHeader = "text-[11px] font-black uppercase tracking-[0.18em] text-brand-text/40";
+  // Labels read as labels, not headings: a step down in size and weight from the values
+  // they sit above, with the wide tracking eased off.
+  const sectionHeader = "text-[10px] font-medium uppercase tracking-[0.1em] text-brand-text/50";
+
+  /**
+   * One input style, shared by every field in the modal.
+   *
+   * Previously each input repeated its own copy of this string, which is how the date field
+   * had already drifted a shade away from the rest. Defining it once means a field cannot
+   * quietly stop matching its neighbours.
+   *
+   * White ground with a hairline border rather than a filled grey box, and a ring on focus so
+   * there is unmistakable feedback about which field has the caret.
+   */
+  const inputBase =
+    "w-full px-3.5 py-2 bg-white border rounded-xl text-[13px] font-semibold text-brand-text outline-none transition-all " +
+    "placeholder:text-brand-text/25 placeholder:font-normal " +
+    "focus:ring-4 focus:ring-brand-blue-dark/10";
+  const inputIdle = "border-brand-blue/15 hover:border-brand-blue/25 focus:border-brand-blue-dark";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="absolute inset-0 bg-brand-blue/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white w-full max-w-[600px] rounded-xl shadow-2xl border border-brand-blue/5 flex flex-col max-h-[90vh] modal-scale">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4 p-5 border-b border-brand-blue/5">
+      {/* Wide, low-opacity shadow so the card reads as floating above the blur rather than
+          pasted onto it — a tight dark shadow is what made it look flat. */}
+      <div className="relative bg-white w-full max-w-[520px] rounded-2xl shadow-[0_24px_64px_-12px_rgba(4,44,83,0.22)] border border-brand-blue/5 flex flex-col max-h-[80vh] modal-scale">
+        {/* Header — tinted band rather than a hairline rule, so it separates from the body
+            by weight instead of by a single pixel. Mirrored by the footer. */}
+        <div className="flex items-center justify-between gap-3 px-5 py-3.5 bg-bg-slate/50 border-b border-brand-blue/10 rounded-t-2xl">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue-dark">
-              <Briefcase className="w-6 h-6" />
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-blue-dark/20 to-brand-blue-dark/5 flex items-center justify-center text-brand-blue-dark shrink-0">
+              <Briefcase className="w-[18px] h-[18px]" />
             </div>
-            <div>
-              <h3 className="text-base font-black text-brand-text tracking-tight">Assign Employees to Client Project</h3>
-              <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-[0.15em] mt-0.5">Project staffing</p>
+            <div className="min-w-0">
+              <h3 className="text-[14px] font-black text-brand-text tracking-tight truncate">Assign Employees to Client Project</h3>
+              <p className="text-[10px] font-medium text-brand-text/40 uppercase tracking-[0.1em] mt-0.5">Project staffing</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-brand-text/40 hover:bg-bg-slate hover:text-brand-text transition-all">
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-brand-text/40 hover:bg-brand-blue/10 hover:text-brand-text active:scale-95 transition-all shrink-0"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-6 overflow-y-auto">
+        <div className="px-5 sm:px-6 py-4 space-y-4 overflow-y-auto">
           {/* Client + Project */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3.5 gap-y-3.5">
+            <div className="space-y-1">
               <label className={sectionHeader}>Client</label>
               <input
                 type="text"
@@ -272,7 +297,7 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
                 placeholder="e.g. Acme Corp"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
-                className="w-full px-4 py-3 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-sm font-bold text-brand-text outline-none focus:border-brand-blue-dark/30 transition-all placeholder:text-brand-text/20 placeholder:font-medium"
+                className={`${inputBase} ${inputIdle}`}
               />
               <datalist id="modal-clients-datalist">
                 {clientOptions.map((c) => (
@@ -280,7 +305,7 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
                 ))}
               </datalist>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1">
               <label className={sectionHeader}>Project</label>
               <input
                 type="text"
@@ -288,11 +313,13 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
                 value={projectName}
                 maxLength={FIELD_LIMITS.PROJECT_NAME}
                 onChange={(e) => setProjectName(e.target.value)}
-                className="w-full px-4 py-3 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-sm font-bold text-brand-text outline-none focus:border-brand-blue-dark/30 transition-all placeholder:text-brand-text/20 placeholder:font-medium"
+                className={`${inputBase} ${inputIdle}`}
               />
-              <CharCounter value={projectName} max={FIELD_LIMITS.PROJECT_NAME} />
+              {/* Right-aligned: the counter answers a question about the end of the field, and
+                  under the left edge it competed with the label above it. */}
+              <CharCounter value={projectName} max={FIELD_LIMITS.PROJECT_NAME} className="text-right" />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1">
               <label className={sectionHeader}>Project ID</label>
               <input
                 type="text"
@@ -300,11 +327,11 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
                 value={projectId}
                 maxLength={FIELD_LIMITS.PROJECT_ID}
                 onChange={(e) => setProjectId(e.target.value)}
-                className="w-full px-4 py-3 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-sm font-bold text-brand-text outline-none focus:border-brand-blue-dark/30 transition-all placeholder:text-brand-text/20 placeholder:font-medium"
+                className={`${inputBase} ${inputIdle}`}
               />
-              <CharCounter value={projectId} max={FIELD_LIMITS.PROJECT_ID} />
+              <CharCounter value={projectId} max={FIELD_LIMITS.PROJECT_ID} className="text-right" />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1">
               <label className={sectionHeader}>Assignment start date</label>
               {/* `min` greys out every day before the selected employees joined, so the
                   calendar cannot produce an invalid date at all. Typing goes around the
@@ -316,9 +343,18 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
                 onChange={(e) => setAssignmentStartDate(e.target.value)}
                 aria-invalid={dateBelowFloor}
                 aria-describedby="assignment-date-help"
-                className={`w-full px-4 py-3 bg-bg-slate/50 border rounded-lg text-sm font-bold text-brand-text outline-none transition-all ${dateBelowFloor
-                  ? "border-red-400 focus:border-red-500"
-                  : "border-brand-blue/10 focus:border-brand-blue-dark/30"}`}
+                /* The calendar glyph is the browser's own control, so it is reachable only
+                   through its pseudo-element: dimmed to sit inside the field rather than on
+                   top of it, and brought up on hover so it still reads as a button. */
+                className={`${inputBase} cursor-pointer
+                  [&::-webkit-calendar-picker-indicator]:cursor-pointer
+                  [&::-webkit-calendar-picker-indicator]:opacity-40
+                  [&::-webkit-calendar-picker-indicator]:transition-opacity
+                  hover:[&::-webkit-calendar-picker-indicator]:opacity-80
+                  focus:[&::-webkit-calendar-picker-indicator]:opacity-80
+                  ${dateBelowFloor
+                    ? "border-red-400 focus:border-red-500 focus:ring-red-500/10"
+                    : inputIdle}`}
               />
             </div>
           </div>
@@ -326,7 +362,7 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
               it — one line rather than two competing ones. */}
           <p
             id="assignment-date-help"
-            className={`text-[10px] font-medium -mt-2 ${dateBelowFloor ? "text-red-600 font-semibold" : "text-brand-text/40"}`}
+            className={`text-[11px] leading-relaxed font-medium -mt-2 ${dateBelowFloor ? "text-red-600 font-semibold" : "text-brand-text/45"}`}
             role={dateBelowFloor ? "alert" : undefined}
           >
             {dateBelowFloor ? dateFloorMessage : (
@@ -344,7 +380,7 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
               {filteredEmployees.length > 0 && (
                 <button
                   onClick={toggleSelectAll}
-                  className="text-[10px] font-black uppercase tracking-widest text-brand-blue-dark hover:underline"
+                  className="text-[10px] font-bold uppercase tracking-[0.1em] text-brand-blue-dark hover:underline"
                 >
                   {allSelected ? "Deselect All" : "Select All"}
                 </button>
@@ -352,28 +388,40 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
             </div>
 
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/20" size={15} />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-text/25 pointer-events-none" size={15} />
               <input
                 type="text"
                 placeholder="Search by name or ID..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-[12px] font-medium outline-none focus:border-brand-blue-dark/30 transition-all placeholder:text-brand-text/20"
+                className="w-full pl-9 pr-3.5 py-2 bg-white border border-brand-blue/15 hover:border-brand-blue/25 rounded-xl text-[12px] font-medium text-brand-text outline-none focus:border-brand-blue-dark focus:ring-4 focus:ring-brand-blue-dark/10 transition-all placeholder:text-brand-text/25 placeholder:font-normal"
               />
             </div>
 
-            <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
               {loading ? (
-                <p className="text-[12px] text-brand-text/40 italic py-2">Loading employees...</p>
+                <p className="text-[12px] text-brand-text/40 py-5 text-center">Loading employees...</p>
               ) : filteredEmployees.length === 0 ? (
-                <p className="text-[12px] text-brand-text/40 italic py-2">No employees found</p>
+                /* A centred icon and a plain sentence, so an empty roster reads as a state the
+                   modal knows about rather than a line that failed to render. */
+                <div className="flex flex-col items-center justify-center gap-1.5 py-5 text-center">
+                  <div className="w-10 h-10 rounded-full bg-brand-blue/5 flex items-center justify-center text-brand-text/25">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <p className="text-[12px] font-semibold text-brand-text/50">No employees found</p>
+                  <p className="text-[11px] text-brand-text/35 max-w-[260px]">
+                    {search
+                      ? "No one matches that name or ID. Try a different search."
+                      : "Everyone assignable already holds a client project assignment."}
+                  </p>
+                </div>
               ) : (
                 filteredEmployees.map((e) => {
                   const checked = checkedIds.has(e.id);
                   return (
                     <label
                       key={e.id}
-                      className={`flex items-center gap-3 border-[0.5px] rounded-lg p-3 transition-all cursor-pointer ${checked ? "bg-brand-blue/[0.03] border-brand-blue-dark/40" : "bg-white border-brand-blue/10 hover:border-brand-blue/20"}`}
+                      className={`flex items-center gap-3 border rounded-lg p-2 transition-all cursor-pointer ${checked ? "bg-brand-blue/[0.04] border-brand-blue-dark/40" : "bg-white border-brand-blue/15 hover:border-brand-blue/30 hover:bg-bg-slate/40"}`}
                     >
                       <span
                         className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all shrink-0 ${checked ? "bg-brand-blue-dark border-brand-blue-dark text-white" : "border-brand-blue/20 bg-white"}`}
@@ -403,20 +451,23 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-3 p-5 border-t border-brand-blue/5">
+        {/* Footer — same tinted band as the header, so the form sits between two quiet edges
+            rather than running to the card's border. */}
+        <div className="flex justify-end gap-2.5 px-5 py-3.5 bg-bg-slate/50 border-t border-brand-blue/10 rounded-b-2xl">
+          {/* Outlined, not bare text: a dismiss is a real choice here and needs a hit area
+              that looks like one next to the primary button. */}
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-lg text-[12px] font-black uppercase tracking-widest text-brand-text/60 hover:bg-bg-slate transition-all"
+            className="px-4 py-2 rounded-lg bg-white border border-brand-blue/15 text-[12px] font-bold uppercase tracking-[0.1em] text-brand-text/70 hover:bg-bg-slate hover:border-brand-blue/30 hover:text-brand-text active:scale-[0.98] transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2.5 rounded-lg bg-brand-blue-dark text-white text-[12px] font-black uppercase tracking-widest shadow-lg shadow-brand-blue/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-6 py-2 rounded-lg bg-brand-blue-dark text-white text-[12px] font-bold uppercase tracking-[0.1em] shadow-lg shadow-brand-blue-dark/25 hover:bg-brand-blue-hover hover:shadow-xl hover:shadow-brand-blue-dark/30 active:scale-[0.98] active:shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-blue-dark"
           >
-            {saving ? "Saving..." : "Save Assignments"}
+            {saving ? "Saving..." : "Save"}
           </button>
         </div>
       </div>

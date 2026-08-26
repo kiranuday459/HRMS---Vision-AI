@@ -47,29 +47,27 @@ final class HtmlEmailTemplate {
      */
     static String page(String title, String subtitle, String bodyHtml) {
         StringBuilder h = new StringBuilder();
-        h.append("<div style=\"margin:0;padding:24px 12px;background:").append(PAGE)
-                .append(";font-family:").append(FONT).append(";\">");
+        h.append("<div style=\"margin:0;padding:16px 12px;background:#ffffff;font-family:")
+                .append(FONT).append(";font-size:14px;line-height:1.6;color:").append(INK).append(";\">");
         h.append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" ")
-                .append("style=\"max-width:640px;margin:0 auto;background:#ffffff;border-radius:10px;")
-                .append("overflow:hidden;border:1px solid ").append(LINE).append(";\">");
+                .append("style=\"max-width:640px;\">");
 
-        // Header bar
-        h.append("<tr><td style=\"background:").append(NAVY).append(";padding:22px 28px;")
-                .append("border-bottom:4px solid ").append(TEAL).append(";\">");
-        h.append("<div style=\"font-size:19px;font-weight:700;color:#ffffff;letter-spacing:.2px;\">")
-                .append(esc(title)).append("</div>");
+        // Heading. Plain text on the page background rather than a coloured band inside a
+        // bordered card: the card read as a pasted-in image to recipients, which is the one
+        // thing these notifications must not look like.
+        h.append("<tr><td style=\"padding:0 0 2px 0;font-size:18px;font-weight:700;color:")
+                .append(INK).append(";\">").append(esc(title)).append("</td></tr>");
         if (present(subtitle)) {
-            h.append("<div style=\"font-size:13px;color:#94a3b8;margin-top:5px;\">")
-                    .append(esc(subtitle)).append("</div>");
+            h.append("<tr><td style=\"padding:0 0 14px 0;font-size:13px;color:").append(MUTED)
+                    .append(";\">").append(esc(subtitle)).append("</td></tr>");
         }
-        h.append("</td></tr>");
 
         // Body
-        h.append("<tr><td style=\"padding:26px 28px 8px 28px;font-size:14px;line-height:1.6;color:")
+        h.append("<tr><td style=\"padding:0;font-size:14px;line-height:1.6;color:")
                 .append(INK).append(";\">").append(bodyHtml).append("</td></tr>");
 
-        // Footer
-        h.append("<tr><td style=\"padding:18px 28px 24px 28px;border-top:1px solid ").append(LINE)
+        // Footer. A hairline rule separates it from the body — a text separator, not a frame.
+        h.append("<tr><td style=\"padding:16px 0 0 0;border-top:1px solid ").append(LINE)
                 .append(";font-size:12px;color:").append(MUTED).append(";\">")
                 .append("VisionAI HRMS · automated notification, please do not reply.")
                 .append("</td></tr>");
@@ -103,13 +101,11 @@ final class HtmlEmailTemplate {
     static String statBlock(String emphasis, String secondary) {
         StringBuilder h = new StringBuilder();
         h.append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" ")
-                .append("style=\"margin:0 0 20px 0;background:").append(TINT)
-                .append(";border:1px solid ").append(LINE).append(";border-left:4px solid ").append(TEAL)
-                .append(";border-radius:6px;\"><tr><td style=\"padding:14px 18px;\">");
-        h.append("<span style=\"font-size:17px;font-weight:700;color:").append(NAVY).append(";\">")
+                .append("style=\"margin:0 0 16px 0;\"><tr><td style=\"padding:2px 0;\">");
+        h.append("<span style=\"font-size:17px;font-weight:700;color:").append(INK).append(";\">")
                 .append(esc(emphasis)).append("</span>");
         if (present(secondary)) {
-            h.append("<span style=\"font-size:15px;color:").append(TEAL_DARK)
+            h.append("<span style=\"font-size:15px;color:").append(MUTED)
                     .append(";font-weight:600;\"> &middot; ").append(esc(secondary)).append("</span>");
         }
         h.append("</td></tr></table>");
@@ -150,8 +146,8 @@ final class HtmlEmailTemplate {
      */
     static String quote(String text) {
         return "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" "
-                + "style=\"margin:0 0 4px 0;background:" + TINT + ";border:1px solid " + LINE
-                + ";border-radius:6px;\"><tr><td style=\"padding:12px 16px;font-size:14px;color:" + INK
+                + "style=\"margin:0 0 4px 0;\"><tr><td style=\"padding:2px 0 2px 12px;"
+                + "border-left:3px solid " + LINE + ";font-size:14px;color:" + INK
                 + ";line-height:1.55;word-break:break-word;\">" + esc(blankTo(text)) + "</td></tr></table>";
     }
 
@@ -161,9 +157,8 @@ final class HtmlEmailTemplate {
      */
     static String highlight(String label, String value) {
         return "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" "
-                + "style=\"margin:0 0 4px 0;background:#fffbeb;border:1px solid #fde68a;"
-                + "border-radius:6px;\"><tr><td style=\"padding:12px 16px;font-size:14px;color:#78350f;"
-                + "line-height:1.55;word-break:break-word;\"><strong>" + esc(label) + "</strong> "
+                + "style=\"margin:0 0 4px 0;\"><tr><td style=\"padding:2px 0;font-size:14px;color:" + INK
+                + ";line-height:1.55;word-break:break-word;\"><strong>" + esc(label) + "</strong> "
                 + esc(value) + "</td></tr></table>";
     }
 

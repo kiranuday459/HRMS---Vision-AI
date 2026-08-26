@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import DownloadClientTimesheetModal from "../components/DownloadClientTimesheetModal";
 import ClientTimesheetDetailDrawer from "../components/ClientTimesheetDetailDrawer";
 import AssignedMembersTab from "../components/AssignedMembersTab";
@@ -50,22 +50,78 @@ const addDays = (ymd, n) => {
 // Time-off row categories (everything else is billable/non-billable project work).
 const TIMEOFF = new Set(["SICK", "HOLIDAY", "PTO", "LOP", "EARNED"]);
 
-// One summary metric cell inside a week block (mirrors the employee summary card).
+/**
+ * One summary metric cell inside a week block (mirrors the employee summary card).
+ *
+ * Label above the value, and the label's box is always two lines tall whether or not the text
+ * needs both.
+ *
+ * The four labels are not the same length — "Total" sits on one line where "Time Off/Holiday"
+ * and "Non-Billable Hrs" wrap onto two. Letting each label take only the height it needed made
+ * every column a different height, so the numbers landed at four different baselines and the
+ * row read as crooked. Reserving the taller of the two cases for all of them is what puts the
+ * values on one line; it costs a few pixels of whitespace under "TOTAL" and buys an even row.
+ *
+ * min-w is sized so "NON-BILLABLE" — the longest unbroken word here — still fits on one line
+ * at the cell's narrowest, since a label spilling onto a third line would reintroduce exactly
+ * the misalignment this reserved height exists to prevent.
+ */
 const SummaryCell = ({ value, label }) => (
-    <div className="flex-1 min-w-[120px] px-4 py-3 border-l border-[#E3E8EF] flex flex-col items-center justify-center text-center">
-        <span className="text-base font-bold text-brand-text">{value}</span>
-        <span className="text-[11px] uppercase tracking-wide text-brand-text/40 mt-0.5">{label}</span>
+    <div className="flex-1 min-w-[128px] px-4 py-2.5 border-l border-[#E3E8EF] flex flex-col items-center justify-center text-center">
+        {/* block + min-h, not flex centring: the text stays anchored to the top of the reserved
+            box, so the first line of a wrapping label lines up with a single-line one. */}
+        <span className="block w-full text-[11px] uppercase tracking-wide text-brand-text/40 leading-tight min-h-[2.5em]">
+            {label}
+        </span>
+        <span className="text-base font-bold text-brand-text leading-none">{value}</span>
     </div>
 );
 
 // Admin approval queue: only timesheets the employee has submitted for review.
 const ADMIN_QUEUE_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED"]);
 
+/**
+ * The dashboard's tabs. `id` doubles as the ?tab= value in the URL, so these strings are part
+ * of the page's address and cannot be renamed without breaking anyone's bookmark.
+ */
+const TABS = [
+    { id: "timesheets", label: "Timesheets" },
+    // Assigned Members absorbed the Access Management tab: the two listed the same
+    // assignments, one showing project/status and the other employee id/role/verification.
+    // One table now carries both sets of columns.
+    { id: "assigned", label: "Assigned Members" },
+    { id: "audit", label: "Audit Logs" },
+];
+const DEFAULT_TAB = "timesheets";
+
 export default function ClientTimesheets() {
-    const location = useLocation();
     const navigate = useNavigate();
-    // Page tab: "timesheets" (approval queue) | "assigned" (assigned members) | "access" (access management).
-    const [pageTab, setPageTab] = useState(location.state?.tab === "access" ? "access" : location.state?.tab === "assigned" ? "assigned" : "timesheets");
+
+    /**
+     * The open tab lives in the URL as ?tab=…, not in component state.
+     *
+     * It used to be seeded from location.state, which is React Router's in-memory history
+     * state: it survives a client-side navigation and is discarded by a hard reload. So an
+     * admin reading Audit Logs who pressed F5 was silently returned to Timesheets. The URL is
+     * the one piece of this page the browser hands back after a reload, which also makes a
+     * tab linkable and bookmarkable.
+     *
+     * Derived on every render rather than mirrored into useState, so there is a single source
+     * of truth and Back/Forward move between tabs for free. An unknown or absent ?tab= falls
+     * back to Timesheets rather than rendering an empty page.
+     */
+    const [searchParams, setSearchParams] = useSearchParams();
+    const tabParam = searchParams.get("tab");
+    const pageTab = TABS.some((t) => t.id === tabParam) ? tabParam : DEFAULT_TAB;
+
+    // Push, so Back returns to the previously open tab. Other query params are preserved.
+    const setPageTab = useCallback((id) => {
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.set("tab", id);
+            return next;
+        });
+    }, [setSearchParams]);
     const [entries, setEntries] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -261,15 +317,7 @@ export default function ClientTimesheets() {
 
                             {/* Tabs */}
                             <div className="flex gap-1 mt-2">
-                                {[
-                                    { id: "timesheets", label: "Timesheets" },
-                                    // Assigned Members absorbed the Access Management tab: the two
-                                    // listed the same assignments, one showing project/status and
-                                    // the other employee id/role/verification. One table now
-                                    // carries both sets of columns.
-                                    { id: "assigned", label: "Assigned Members" },
-                                    { id: "audit", label: "Audit Logs" },
-                                ].map((t) => (
+                                {TABS.map((t) => (
                                     <button
                                         key={t.id}
                                         onClick={() => setPageTab(t.id)}
@@ -398,7 +446,7 @@ export default function ClientTimesheets() {
                                                         wrapping inside it, and the text runs out past
                                                         the card. min-w-[240px] alone did not do this —
                                                         it set a floor, not permission to shrink. */}
-                                                    <div className="flex-1 min-w-0 lg:min-w-[240px] px-5 py-4 flex flex-col justify-center gap-1.5">
+                                                    <div className="flex-1 min-w-0 lg:min-w-[240px] px-5 py-3 flex flex-col justify-center gap-1">
                                                         <div className="flex items-baseline gap-2 flex-wrap">
                                                             {/* Names and project names are free text and can
                                                                 arrive as one unbroken run of characters —
@@ -412,13 +460,19 @@ export default function ClientTimesheets() {
                                                                 <span className="text-[13px] font-normal text-brand-text/40 break-words">· {block.projectName}</span>
                                                             )}
                                                         </div>
-                                                        <button
-                                                            onClick={() => openDetail(block)}
-                                                            className="text-left text-[15px] font-bold text-blue-600 hover:underline w-fit"
-                                                        >
-                                                            {fmtRange(block.weekStart)} To {fmtRange(block.weekEnd)}
-                                                        </button>
-                                                        <div>{statusBadge(block.status)}</div>
+                                                        {/* Week range and status share a line. Both are short, and
+                                                            stacking them spent a whole row of card height on two
+                                                            items that fit side by side. flex-wrap drops the badge
+                                                            underneath again if the column gets too narrow. */}
+                                                        <div className="flex items-center gap-2.5 flex-wrap">
+                                                            <button
+                                                                onClick={() => openDetail(block)}
+                                                                className="text-left text-[14px] font-bold text-blue-600 hover:underline w-fit"
+                                                            >
+                                                                {fmtRange(block.weekStart)} To {fmtRange(block.weekEnd)}
+                                                            </button>
+                                                            {statusBadge(block.status)}
+                                                        </div>
                                                         {/* Keeps a visible record of why a week was rejected,
                                                             not just that it was.
 
@@ -448,7 +502,7 @@ export default function ClientTimesheets() {
                                                         link into the same detail dialog, so the icon was a
                                                         second control for one action. openDetail is unchanged
                                                         and still reached from that link. */}
-                                                    <div className="flex items-center justify-center gap-2 px-5 py-4 border-t lg:border-t-0 lg:border-l border-[#E3E8EF] min-w-[140px]">
+                                                    <div className="flex items-center justify-center gap-2 px-5 py-3 border-t lg:border-t-0 lg:border-l border-[#E3E8EF] min-w-[140px]">
                                                         {isPending ? (
                                                             <>
                                                                 <button
@@ -471,7 +525,7 @@ export default function ClientTimesheets() {
                                                                 </button>
                                                             </>
                                                         ) : (
-                                                            <span className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest text-right">
+                                                            <span className="text-[11px] font-bold text-brand-text/60 text-right">
                                                                 {block.approvedByName ? block.approvedByName : "—"}
                                                             </span>
                                                         )}

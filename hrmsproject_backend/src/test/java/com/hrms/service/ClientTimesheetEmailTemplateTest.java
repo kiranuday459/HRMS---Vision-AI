@@ -257,17 +257,28 @@ class ClientTimesheetEmailTemplateTest {
 
     // ── The shared shell itself ─────────────────────────────────────────────
 
-    /** Every message carries the same header bar, branding and footer. */
+    /**
+     * Every message carries the same plain-text shell: heading, body and footer, with no
+     * card chrome around them.
+     *
+     * The coloured band, tinted panels and rounded border this used to assert were dropped
+     * deliberately. Recipients read the framed card as a pasted-in screenshot rather than a
+     * written message, which is the one impression a notification cannot afford to give — so
+     * the absence of that chrome is now the thing worth protecting, and it is asserted here
+     * rather than merely left untested.
+     */
     @Test
-    void everyEmailUsesTheSharedBrandedShell() {
+    void everyEmailUsesTheSharedPlainTextShell() {
         sendRejection();
         String html = body();
         assertAll(
-                () -> assertTrue(html.contains("#0f172a"), "navy header bar"),
-                () -> assertTrue(html.contains("#0d9488"), "teal accent"),
+                () -> assertFalse(html.contains("#0f172a"), "no navy header band"),
+                () -> assertFalse(html.contains("#0d9488"), "no teal accent bar"),
+                () -> assertFalse(html.contains("border-radius"), "no rounded card"),
+                () -> assertFalse(html.contains("<img"), "text, never an image"),
                 () -> assertTrue(html.contains("max-width:640px"), "constrained width"),
                 () -> assertTrue(html.contains("VisionAI HRMS"), "footer"),
-                () -> assertTrue(html.contains("Client Timesheet Rejected"), "title in the header bar"),
+                () -> assertTrue(html.contains("Client Timesheet Rejected"), "title as plain text"),
                 () -> assertFalse(html.contains("<style"), "inline styles only — Outlook drops style blocks"));
     }
 
