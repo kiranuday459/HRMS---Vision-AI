@@ -478,7 +478,7 @@ export default function AdminTimesheets() {
                                                     </div>
                                                     <div className="bg-brand-blue/5 px-3 py-1 rounded-lg border border-brand-blue/10">
                                                         <span className="text-brand-text font-black text-xs">{week.filteredEmployees.length}</span>
-                                                        <span className="text-brand-text/40 text-[8px] font-bold uppercase tracking-widest ml-2">{week.filteredEmployees.length === 1 ? 'Resource Recorded' : 'Resources Recorded'}</span>
+                                                        <span className="text-brand-text/40 text-[8px] font-bold uppercase tracking-widest ml-2">{week.filteredEmployees.length === 1 ? 'Timesheet Record' : 'Timesheet Records'}</span>
                                                     </div>
                                                 </div>
 

@@ -677,7 +677,7 @@ const EmployeeDashboard = () => {
 							{/* Time Sheet Tabl e */}
 							<div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-brand-blue/5 card-hover">
 								<div className="px-6 py-4 border-b border-brand-blue/5 bg-brand-blue">
-									<h2 className="text-xs font-bold text-white uppercase tracking-[0.2em]">Time sheet</h2>
+									<h2 className="text-xs font-bold text-white uppercase tracking-[0.2em]">Recent Timesheets History</h2>
 								</div>
 								<div className="overflow-x-auto">
 									<table className="w-full text-left border-collapse text-sm">
