@@ -24,6 +24,7 @@ import "../../styles/formValidation.css";
 
 import Logo from '../../assets/visionai-logo.png';
 import Sidebar from "../../components/Sidebar";
+import DocumentPreviewModal from "../../components/DocumentPreviewModal";
 import { generateEmployeeProfilePDF } from "../../utils/employeePdfGenerator";
 
 const splitPhone = (phone) => {
@@ -271,6 +272,7 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
   });
 
   const [otherEduLabel, setOtherEduLabel] = useState("");
+  const [previewDoc, setPreviewDoc] = useState(null);
 
   const convertDateToMonth = (dateValue) => {
     if (!dateValue) return '';
@@ -910,8 +912,7 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
         else if (category === 'edu_grad') { finalLabel = 'Graduation'; docType = 'GRADUATION'; }
       } else {
         if (category === 'educational') {
-          if (!otherEduLabel.trim()) { alert("Please enter the Degree Name before uploading."); return; }
-          finalLabel = otherEduLabel;
+          finalLabel = otherEduLabel?.trim() || file.name || 'Others / Miscellaneous';
           docType = 'OTHER';
         } else if (category === 'technical') {
           finalLabel = file.name;
@@ -1531,35 +1532,19 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                   <span className="text-sm font-bold text-brand-text">{edu.label}</span>
                                   <div className="flex items-center gap-1.5">
                                     {uploadedFiles[edu.id] ? (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => { e.stopPropagation(); triggerFileDownload(uploadedFiles[edu.id].preview, uploadedFiles[edu.id].name || edu.label); }}
-                                          title="Download"
-                                          className="text-brand-text/60 hover:text-brand-blue p-1 rounded-lg hover:bg-gray-100 transition-all"
-                                        >
-                                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                            <polyline points="7 10 12 15 17 10"></polyline>
-                                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                                          </svg>
-                                        </button>
-                                        {editing && (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.stopPropagation(); removeFile(edu.id); }}
-                                            title="Delete"
-                                            className="text-red-500 hover:bg-red-50 p-1 rounded-lg transition-all"
-                                          >
-                                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                              <polyline points="3 6 5 6 21 6"></polyline>
-                                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                            </svg>
-                                          </button>
-                                        )}
-                                      </>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); removeFile(edu.id); }}
+                                        title="Delete Document"
+                                        className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-all"
+                                      >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <polyline points="3 6 5 6 21 6"></polyline>
+                                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                        </svg>
+                                      </button>
                                     ) : (
-                                      <label className="cursor-pointer text-brand-text/60 hover:text-brand-yellow p-1 rounded-lg hover:bg-gray-100 transition-all" title="Upload Document">
+                                      <label className="cursor-pointer text-brand-text/60 hover:text-brand-yellow p-1.5 rounded-lg hover:bg-gray-100 transition-all" title="Upload Document">
                                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                           <polyline points="17 8 12 3 7 8"></polyline>
@@ -1572,19 +1557,29 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                 </div>
                                 <div className="h-[100px] flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden border border-dashed border-brand-blue/10 relative">
                                   {uploadedFiles[edu.id] ? (
-                                    <div className="w-full h-full relative group cursor-pointer" onClick={() => triggerFileDownload(uploadedFiles[edu.id].preview, uploadedFiles[edu.id].name || edu.label)}>
-                                      {uploadedFiles[edu.id].type.startsWith('image/') ? (
+                                    <div
+                                      className="w-full h-full relative group cursor-pointer"
+                                      onClick={() => setPreviewDoc(uploadedFiles[edu.id])}
+                                      title="Click to preview document"
+                                    >
+                                      {uploadedFiles[edu.id].type?.startsWith('image/') ? (
                                         <img src={uploadedFiles[edu.id].preview} alt={edu.label} className="w-full h-full object-cover" />
                                       ) : (
                                         <div className="flex flex-col items-center justify-center h-full text-brand-text/40">
-                                          <svg className="w-8 h-8 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                          <svg className="w-8 h-8 mb-1 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                             <polyline points="14 2 14 8 20 8"></polyline>
                                           </svg>
                                           <span className="text-[9px] font-bold text-center px-2 break-all line-clamp-2">{uploadedFiles[edu.id].name}</span>
                                         </div>
                                       )}
-                                      <div className="absolute inset-0 bg-brand-blue/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-widest">DOWNLOAD</div>
+                                      <div className="absolute inset-0 bg-brand-blue-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-widest gap-1.5">
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                          <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                        PREVIEW
+                                      </div>
                                     </div>
                                   ) : (
                                     <label className="w-full h-full flex flex-col items-center justify-center text-center p-2 cursor-pointer hover:bg-gray-100/60 transition-all">
@@ -1600,26 +1595,102 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                 </div>
                               </div>
                             ))}
-                            <div className="bg-white p-4 rounded-xl border border-brand-blue/5 flex flex-col gap-3 shadow-sm">
-                              <span className="text-sm font-bold text-brand-text">Others / Miscellaneous</span>
-                              {editing && (
-                                <div className="flex gap-2">
-                                  <input placeholder="Enter document name (e.g. Intern Letter)" className="flex-1 text-[11px] p-2 bg-gray-50 rounded-lg outline-none" value={otherEduLabel} onChange={(e) => setOtherEduLabel(e.target.value)} />
-                                  <label className="cursor-pointer bg-brand-blue-dark text-white p-2 rounded-lg hover:bg-brand-blue-hover transition-all">
-                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            {/* Others / Miscellaneous */}
+                            <div className="bg-white p-4 rounded-xl border border-brand-blue/5 flex flex-col gap-3 shadow-sm relative group">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-brand-text">Others / Miscellaneous</span>
+                                <div className="flex items-center gap-1.5">
+                                  {uploadedFiles.educational && uploadedFiles.educational.length > 0 ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); removeFile('educational', uploadedFiles.educational.length - 1); }}
+                                      title="Delete Document"
+                                      className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-all"
+                                    >
+                                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                      </svg>
+                                    </button>
+                                  ) : (
+                                    <label className="cursor-pointer text-brand-text/60 hover:text-brand-yellow p-1.5 rounded-lg hover:bg-gray-100 transition-all" title="Upload Document">
+                                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="17 8 12 3 7 8"></polyline>
+                                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                                      </svg>
+                                      <input type="file" className="hidden" onChange={(e) => handleFileUpload('educational', e)} accept=".pdf,.jpg,.jpeg,.png" />
+                                    </label>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="h-[100px] flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden border border-dashed border-brand-blue/10 relative">
+                                {uploadedFiles.educational && uploadedFiles.educational.length > 0 ? (
+                                  uploadedFiles.educational.length === 1 ? (
+                                    <div
+                                      className="w-full h-full relative group cursor-pointer"
+                                      onClick={() => setPreviewDoc(uploadedFiles.educational[0])}
+                                      title="Click to preview document"
+                                    >
+                                      {uploadedFiles.educational[0].type?.startsWith('image/') ? (
+                                        <img src={uploadedFiles.educational[0].preview} alt={uploadedFiles.educational[0].label || 'Others'} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="flex flex-col items-center justify-center h-full text-brand-text/40">
+                                          <svg className="w-8 h-8 mb-1 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                            <polyline points="14 2 14 8 20 8"></polyline>
+                                          </svg>
+                                          <span className="text-[9px] font-bold text-center px-2 break-all line-clamp-2">{uploadedFiles.educational[0].name || uploadedFiles.educational[0].label}</span>
+                                        </div>
+                                      )}
+                                      <div className="absolute inset-0 bg-brand-blue-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-widest gap-1.5">
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                          <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                        PREVIEW
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="w-full h-full p-2 overflow-y-auto flex flex-wrap gap-2 items-center justify-center">
+                                      {uploadedFiles.educational.map((file, idx) => (
+                                        <div
+                                          key={file.id || idx}
+                                          className="group/item relative px-2.5 py-1.5 rounded-lg bg-white border border-brand-blue/10 flex items-center gap-1.5 cursor-pointer hover:bg-brand-blue/5 transition-all shadow-xs"
+                                          onClick={() => setPreviewDoc(file)}
+                                          title="Click to preview"
+                                        >
+                                          <svg className="w-3.5 h-3.5 text-brand-blue flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                            <polyline points="14 2 14 8 20 8"></polyline>
+                                          </svg>
+                                          <span className="text-[10px] font-bold text-brand-text max-w-[80px] truncate">{file.label || file.name}</span>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); removeFile('educational', idx); }}
+                                            className="text-red-500 hover:bg-red-50 p-0.5 rounded transition-colors"
+                                            title="Delete"
+                                          >
+                                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                              <line x1="18" y1="6" x2="6" y2="18"></line>
+                                              <line x1="6" y1="6" x2="18" y2="18"></line>
+                                            </svg>
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )
+                                ) : (
+                                  <label className="w-full h-full flex flex-col items-center justify-center text-center p-2 cursor-pointer hover:bg-gray-100/60 transition-all" title="Upload Document">
+                                    <svg className="w-5 h-5 text-brand-text/30 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                      <polyline points="14 2 14 8 20 8"></polyline>
+                                    </svg>
+                                    <span className="text-[10px] font-bold text-brand-text/60">PDF, JPG, JPEG, PNG</span>
+                                    <span className="text-[9px] font-medium text-brand-text/40 mt-0.5">Max file size ≤ 5MB</span>
                                     <input type="file" className="hidden" onChange={(e) => handleFileUpload('educational', e)} accept=".pdf,.jpg,.jpeg,.png" />
                                   </label>
-                                </div>
-                              )}
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {uploadedFiles.educational.map((file, idx) => (
-                                  <div key={file.id} className="group relative w-12 h-12 rounded bg-gray-100 border border-brand-blue/5 flex items-center justify-center cursor-pointer" onClick={() => triggerFileDownload(file.preview, file.name || file.label)}>
-                                    <span className="text-[8px] font-bold text-brand-text/40">{file.label.substring(0, 3)}...</span>
-                                    {editing && (
-                                      <button onClick={(e) => { e.stopPropagation(); removeFile('educational', idx); }} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-                                    )}
-                                  </div>
-                                ))}
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1629,38 +1700,54 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                           <div key={cat} className="bg-white rounded-2xl p-6 border border-brand-blue/5 shadow-sm">
                             <div className="flex justify-between items-center mb-6">
                               <h3 className="text-xl font-bold text-brand-text capitalize">{cat} Certifications</h3>
-                              {editing && (
-                                <label className="cursor-pointer bg-brand-blue-dark text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-blue-hover transition-all flex items-center gap-2">
-                                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                  Upload New
-                                  <input type="file" className="hidden" onChange={(e) => handleFileUpload(cat, e)} accept=".pdf,.jpg,.jpeg,.png" />
-                                </label>
-                              )}
+                              <label className="cursor-pointer bg-brand-blue-dark text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-blue-hover transition-all flex items-center gap-2" title="Upload Document">
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                Upload New
+                                <input type="file" className="hidden" onChange={(e) => handleFileUpload(cat, e)} accept=".pdf,.jpg,.jpeg,.png" />
+                              </label>
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                               {uploadedFiles[cat].map((file, idx) => (
-                                <div key={file.id} className="relative group aspect-square rounded-xl bg-gray-50 border border-brand-blue/5 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all" onClick={() => triggerFileDownload(file.preview, file.name || file.label)}>
-                                  {file.type.startsWith('image/') ? (
+                                <div
+                                  key={file.id}
+                                  className="relative group aspect-square rounded-xl bg-gray-50 border border-brand-blue/5 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all"
+                                  onClick={() => setPreviewDoc(file)}
+                                  title="Click to preview document"
+                                >
+                                  {file.type?.startsWith('image/') ? (
                                     <img src={file.preview} alt={file.label} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full flex flex-col items-center justify-center p-4">
-                                      <svg className="w-10 h-10 text-brand-text/20 mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                                      <span className="text-[10px] font-bold text-brand-text text-center line-clamp-2">{file.label}</span>
+                                      <svg className="w-10 h-10 text-red-400 mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                                      <span className="text-[10px] font-bold text-brand-text text-center line-clamp-2">{file.label || file.name}</span>
                                     </div>
                                   )}
-                                  <div className="absolute inset-0 bg-brand-blue/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4">
+                                  <div className="absolute inset-0 bg-brand-blue-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 gap-2">
+                                    <span className="text-white text-[10px] font-bold text-center line-clamp-2">{file.label || file.name}</span>
                                     <div className="flex gap-2">
-                                      {editing && (
-                                        <button onClick={(e) => { e.stopPropagation(); removeFile(cat, idx); }} className="bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-lg transition-colors"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
-                                      )}
-                                      <button className="bg-white text-brand-text p-2 rounded-lg transition-colors"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setPreviewDoc(file); }}
+                                        className="bg-white/20 hover:bg-white text-white hover:text-brand-blue-dark p-2 rounded-lg transition-colors"
+                                        title="Preview"
+                                      >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); removeFile(cat, idx); }}
+                                        className="bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-lg transition-colors"
+                                        title="Delete"
+                                      >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                      </button>
                                     </div>
                                   </div>
                                 </div>
                               ))}
                               {uploadedFiles[cat].length === 0 && (
                                 <div className="col-span-full h-24 flex items-center justify-center border-2 border-dashed border-brand-blue/5 rounded-xl">
-                                  <p className="text-[10px] text-brand-text/10 font-bold uppercase tracking-widest">No certifications</p>
+                                  <p className="text-[10px] text-brand-text/20 font-bold uppercase tracking-widest">No certifications</p>
                                 </div>
                               )}
                             </div>
@@ -1758,6 +1845,12 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
           </div>
         </div>
       </main>
+
+      <DocumentPreviewModal
+        isOpen={!!previewDoc}
+        onClose={() => setPreviewDoc(null)}
+        document={previewDoc}
+      />
     </div>
   );
 }
