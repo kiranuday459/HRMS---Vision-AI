@@ -97,18 +97,22 @@ public class Employee {
 
 	// ---- Client timesheet access / verification ----
 	// True once the employee has been assigned to a client project.
+	@Builder.Default
 	private Boolean clientAssigned = false;
 	// True once the employee has verified their client-timesheet activation OTP.
+	@Builder.Default
 	private Boolean clientVerified = false;
 	// Hashed activation OTP + its expiry (set by the admin "Resend OTP" action).
 	private String clientOtp;
 	private LocalDateTime clientOtpExpiry;
 
+	@Builder.Default
 	private Boolean active = true;
 
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;
 
+	@Builder.Default
 	@OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<EmployeeDocument> documents = new ArrayList<>();
 

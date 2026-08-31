@@ -163,6 +163,39 @@ export default function EmployeeProfile() {
     return null;
   };
 
+  const triggerFileDownload = async (fileUrl, fileName = "document") => {
+    if (!fileUrl) return;
+    try {
+      if (fileUrl.startsWith('data:') || fileUrl.startsWith('blob:')) {
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("Download error", err);
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   useEffect(() => {
     const fetchEmp = async () => {
       setLoading(true);
@@ -213,39 +246,6 @@ export default function EmployeeProfile() {
           photoUrl: data.photoPath || "",
           joiningDate: data.joiningDate || "",
         });
-
-  const triggerFileDownload = async (fileUrl, fileName = "document") => {
-    if (!fileUrl) return;
-    try {
-      if (fileUrl.startsWith('data:') || fileUrl.startsWith('blob:')) {
-        const link = document.createElement('a');
-        link.href = fileUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        return;
-      }
-      const response = await fetch(fileUrl);
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-    } catch (err) {
-      console.error("Download error", err);
-      const link = document.createElement('a');
-      link.href = fileUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
 
         // Populate documents
         if (data.documentList) {
