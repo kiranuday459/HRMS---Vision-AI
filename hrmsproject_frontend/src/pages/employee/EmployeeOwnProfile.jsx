@@ -1550,11 +1550,12 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                           <polyline points="17 8 12 3 7 8"></polyline>
                                           <line x1="12" y1="3" x2="12" y2="15"></line>
                                         </svg>
-                                        <input type="file" className="hidden" onChange={(e) => handleFileUpload(edu.id, e, true)} accept=".pdf,.jpg,.jpeg,.png" />
+                                        <input type="file" className="hidden" onChange={(e) => handleFileUpload(edu.id, e, true)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
                                       </label>
                                     )}
                                   </div>
                                 </div>
+                                {editing && <p className="text-[9px] font-medium text-brand-text/40">Supported: PDF, DOC, DOCX, ZIP, JPG, JPEG, PNG (Max 5MB)</p>}
                                 <div className="h-[100px] flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden border border-dashed border-brand-blue/10 relative">
                                   {uploadedFiles[edu.id] ? (
                                     <div
@@ -1587,9 +1588,9 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                         <polyline points="14 2 14 8 20 8"></polyline>
                                       </svg>
-                                      <span className="text-[10px] font-bold text-brand-text/60">PDF, JPG, JPEG, PNG</span>
+                                      <span className="text-[10px] font-bold text-brand-text/60">PDF, DOC, DOCX, ZIP, JPG, JPEG, PNG</span>
                                       <span className="text-[9px] font-medium text-brand-text/40 mt-0.5">Max file size ≤ 5MB</span>
-                                      <input type="file" className="hidden" onChange={(e) => handleFileUpload(edu.id, e, true)} accept=".pdf,.jpg,.jpeg,.png" />
+                                      <input type="file" className="hidden" onChange={(e) => handleFileUpload(edu.id, e, true)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
                                     </label>
                                   )}
                                 </div>
@@ -1619,7 +1620,7 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                         <polyline points="17 8 12 3 7 8"></polyline>
                                         <line x1="12" y1="3" x2="12" y2="15"></line>
                                       </svg>
-                                      <input type="file" className="hidden" onChange={(e) => handleFileUpload('educational', e)} accept=".pdf,.jpg,.jpeg,.png" />
+                                      <input type="file" className="hidden" onChange={(e) => handleFileUpload('educational', e)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
                                     </label>
                                   )}
                                 </div>
@@ -1686,9 +1687,9 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                       <polyline points="14 2 14 8 20 8"></polyline>
                                     </svg>
-                                    <span className="text-[10px] font-bold text-brand-text/60">PDF, JPG, JPEG, PNG</span>
+                                    <span className="text-[10px] font-bold text-brand-text/60">PDF, DOC, DOCX, ZIP, JPG, JPEG, PNG</span>
                                     <span className="text-[9px] font-medium text-brand-text/40 mt-0.5">Max file size ≤ 5MB</span>
-                                    <input type="file" className="hidden" onChange={(e) => handleFileUpload('educational', e)} accept=".pdf,.jpg,.jpeg,.png" />
+                                    <input type="file" className="hidden" onChange={(e) => handleFileUpload('educational', e)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
                                   </label>
                                 )}
                               </div>
@@ -1698,14 +1699,15 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
 
                         {['technical', 'employment', 'course'].map((cat) => (
                           <div key={cat} className="bg-white rounded-2xl p-6 border border-brand-blue/5 shadow-sm">
-                            <div className="flex justify-between items-center mb-6">
+                            <div className="flex justify-between items-center mb-1">
                               <h3 className="text-xl font-bold text-brand-text capitalize">{cat} Certifications</h3>
                               <label className="cursor-pointer bg-brand-blue-dark text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-blue-hover transition-all flex items-center gap-2" title="Upload Document">
                                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                 Upload New
-                                <input type="file" className="hidden" onChange={(e) => handleFileUpload(cat, e)} accept=".pdf,.jpg,.jpeg,.png" />
+                                <input type="file" className="hidden" onChange={(e) => handleFileUpload(cat, e)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
                               </label>
                             </div>
+                            {editing && <p className="text-[9px] font-medium text-brand-text/40 mb-5">Supported: PDF, DOC, DOCX, ZIP, JPG, JPEG, PNG (Max 5MB)</p>}
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                               {uploadedFiles[cat].map((file, idx) => (
                                 <div
