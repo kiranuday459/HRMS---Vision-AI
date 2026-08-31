@@ -7,7 +7,7 @@ import WeeklyTimesheetGrid from "../employee/timesheet/WeeklyTimesheetGrid";
 import { toast } from "react-toastify";
 import Sidebar from "../../components/Sidebar";
 import { getRmNavItems } from "../../utils/rmNav";
-import { getWeekStatus, APPROVAL_STATUS } from "../../utils/timesheetStatus";
+import { getWeekStatus, APPROVAL_STATUS, isPendingStatus } from "../../utils/timesheetStatus";
 import { getLeaveStatusLabel, isHrDisabledReroute } from "../../utils/leaveStatus";
 import LeaveDetailsModal from "../../components/LeaveDetailsModal";
 import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";

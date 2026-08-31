@@ -29,6 +29,7 @@ public class Notification {
 
     private Long relatedId; // ID of the referenced object
 
+    @Builder.Default
     private boolean isRead = false;
 
     private LocalDateTime createdAt;

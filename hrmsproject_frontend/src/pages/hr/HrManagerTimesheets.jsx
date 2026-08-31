@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/Sidebar";
 import WeeklyTimesheetGrid from "../employee/timesheet/WeeklyTimesheetGrid";
 import { getHrNavItems } from "../../utils/hrNav";
-import { getWeekStatus, canApproveTimesheet, APPROVAL_STATUS } from "../../utils/timesheetStatus";
+import { getWeekStatus, canApproveTimesheet, APPROVAL_STATUS, isPendingStatus } from "../../utils/timesheetStatus";
 import { toast } from "react-toastify";
 import { Search, Filter, Clock, Download } from "lucide-react";
 import NotificationComponent from "../../components/NotificationComponent";
