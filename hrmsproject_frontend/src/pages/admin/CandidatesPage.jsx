@@ -12,6 +12,7 @@ export default function CandidatesPage() {
   const [localEmployees, setLocalEmployees] = useState([]);
   const [assignmentsMap, setAssignmentsMap] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
   const [toast, setToast] = useState(null);
   const [user, setUser] = useState({});
   // 3-dot options menu: { id, rect } of the currently open employee row
@@ -80,6 +81,12 @@ export default function CandidatesPage() {
     const term = searchTerm.toLowerCase();
     const isSystemAdmin = (emp.role === 'ADMIN') || (emp.firstName === 'System' && emp.lastName === 'Admin');
     if (isSystemAdmin) return false;
+
+    // Role filter
+    if (roleFilter !== "ALL") {
+      const empRole = (emp.role || "").toUpperCase();
+      if (empRole !== roleFilter) return false;
+    }
 
     return (
       id.includes(term) ||
@@ -269,9 +276,31 @@ export default function CandidatesPage() {
               <div>
                 <h2 className="text-2xl font-black text-brand-text tracking-tight">Employee Registry</h2>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                {/* Role Filter Dropdown */}
+                <div className="flex items-center gap-2">
+                  <label htmlFor="role-filter" className="text-[10px] font-black uppercase tracking-widest text-brand-text/40 whitespace-nowrap">
+                    Filter by Role
+                  </label>
+                  <select
+                    id="role-filter"
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    className="bg-[#F4F6FA] border border-[#E3E8EF] rounded-xl px-3 py-1.5 text-xs font-bold text-[#2C2C2A] outline-none cursor-pointer hover:border-brand-blue/30 focus:border-brand-blue/40 transition-colors appearance-none pr-8"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888780' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 8px center',
+                    }}
+                  >
+                    <option value="ALL">All Roles</option>
+                    <option value="EMPLOYEE">Employee</option>
+                    <option value="HR">HR</option>
+                    <option value="REPORTING_MANAGER">Reporting Manager</option>
+                  </select>
+                </div>
                 <span className="bg-brand-blue/5 text-brand-text px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                  {filteredEmployees.length} Total Records
+                  Total : {filteredEmployees.length}
                 </span>
               </div>
             </div>
@@ -310,67 +339,67 @@ export default function CandidatesPage() {
                       filteredEmployees.map((emp) => {
                         const isInactive = emp.active === false;
                         return (
-                        <tr
-                          key={emp.id}
-                          className={`group transition-all cursor-pointer ${isInactive ? "bg-gray-100 opacity-60 grayscale hover:opacity-80" : "hover:bg-bg-slate/50"}`}
-                          onClick={() => navigate(`/admin/employee/${emp.id}`, { state: emp })}
-                        >
-                          <td className="py-5 px-8">
-                            <span className="text-xs font-black text-brand-text/30 group-hover:text-brand-text transition-colors">
-                              {emp.oryfolksId || "PENDING"}
-                            </span>
-                          </td>
-                          <td className="py-5 px-6">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 bg-brand-blue/5 rounded-xl flex items-center justify-center text-[11px] font-black text-brand-text group-hover:bg-brand-blue group-hover:text-white transition-all shadow-sm">
-                                {(emp.firstName?.[0] || "U")}
+                          <tr
+                            key={emp.id}
+                            className={`group transition-all cursor-pointer ${isInactive ? "bg-gray-100 opacity-60 grayscale hover:opacity-80" : "hover:bg-bg-slate/50"}`}
+                            onClick={() => navigate(`/admin/employee/${emp.id}`, { state: emp })}
+                          >
+                            <td className="py-5 px-8">
+                              <span className="text-xs font-black text-brand-text/30 group-hover:text-brand-text transition-colors">
+                                {emp.oryfolksId || "PENDING"}
+                              </span>
+                            </td>
+                            <td className="py-5 px-6">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 bg-brand-blue/5 rounded-xl flex items-center justify-center text-[11px] font-black text-brand-text group-hover:bg-brand-blue group-hover:text-white transition-all shadow-sm">
+                                  {(emp.firstName?.[0] || "U")}
+                                </div>
+                                <span className="text-sm font-bold text-brand-text tracking-tight">
+                                  {`${emp.firstName || ""} ${emp.lastName || ""}`}
+                                </span>
+                                {isInactive && <DisabledBadge />}
                               </div>
-                              <span className="text-sm font-bold text-brand-text tracking-tight">
-                                {`${emp.firstName || ""} ${emp.lastName || ""}`}
+                            </td>
+                            <td className="py-5 px-6">
+                              <span className="inline-flex px-3 py-1 bg-brand-yellow/10 text-brand-text text-[9px] font-black uppercase tracking-widest rounded-full border border-brand-yellow/20">
+                                {emp.role || 'Personnel'}
                               </span>
-                              {isInactive && <DisabledBadge />}
-                            </div>
-                          </td>
-                          <td className="py-5 px-6">
-                            <span className="inline-flex px-3 py-1 bg-brand-yellow/10 text-brand-text text-[9px] font-black uppercase tracking-widest rounded-full border border-brand-yellow/20">
-                              {emp.role || 'Personnel'}
-                            </span>
-                          </td>
-                          <td className="py-5 px-6">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-brand-text/60 tabular-nums uppercase tracking-tight">
-                                {emp.role === 'HR' ? adminName :
-                                  emp.role === 'REPORTING_MANAGER' ? (assignmentsMap[emp.id]?.hrName || 'HR Coordinator') :
-                                    (assignmentsMap[emp.id]?.managerName || 'Unassigned')}
+                            </td>
+                            <td className="py-5 px-6">
+                              <div className="flex flex-col">
+                                <span className="text-xs font-bold text-brand-text/60 tabular-nums uppercase tracking-tight">
+                                  {emp.role === 'HR' ? adminName :
+                                    emp.role === 'REPORTING_MANAGER' ? (assignmentsMap[emp.id]?.hrName || 'HR Coordinator') :
+                                      (assignmentsMap[emp.id]?.managerName || 'Unassigned')}
+                                </span>
+                                <span className="text-[9px] font-bold text-brand-text/20 uppercase tracking-widest">Structural Lead</span>
+                              </div>
+                            </td>
+                            <td className="py-5 px-6">
+                              <span className="text-xs font-bold text-brand-text/60 tabular-nums">
+                                {assignmentsMap[emp.id]?.hrName || '–'}
                               </span>
-                              <span className="text-[9px] font-bold text-brand-text/20 uppercase tracking-widest">Structural Lead</span>
-                            </div>
-                          </td>
-                          <td className="py-5 px-6">
-                            <span className="text-xs font-bold text-brand-text/60 tabular-nums">
-                              {assignmentsMap[emp.id]?.hrName || '–'}
-                            </span>
-                          </td>
-                          <td className="py-5 px-6">
-                            <span className="text-xs font-bold text-brand-text/40 group-hover:text-brand-text/70 transition-colors tabular-nums underline decoration-brand-blue/5 decoration-2 underline-offset-4">
-                              {emp.corporateEmail || "Await Provision"}
-                            </span>
-                          </td>
-                          <td className="py-5 px-8 text-center">
-                            <button
-                              onClick={(e) => toggleMenu(emp.id, e)}
-                              className={`p-2.5 rounded-xl transition-all shadow-sm ${openMenu && openMenu.id === emp.id ? "bg-brand-blue text-white" : "bg-brand-blue/5 text-brand-text hover:bg-brand-blue hover:text-white"}`}
-                              title="Options"
-                              aria-label="Options"
-                            >
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <circle cx="12" cy="5" r="2" />
-                                <circle cx="12" cy="12" r="2" />
-                                <circle cx="12" cy="19" r="2" />
-                              </svg>
-                            </button>
-                          </td>
-                        </tr>
+                            </td>
+                            <td className="py-5 px-6">
+                              <span className="text-xs font-bold text-brand-text/40 group-hover:text-brand-text/70 transition-colors tabular-nums underline decoration-brand-blue/5 decoration-2 underline-offset-4">
+                                {emp.corporateEmail || "Await Provision"}
+                              </span>
+                            </td>
+                            <td className="py-5 px-8 text-center">
+                              <button
+                                onClick={(e) => toggleMenu(emp.id, e)}
+                                className={`p-2.5 rounded-xl transition-all shadow-sm ${openMenu && openMenu.id === emp.id ? "bg-brand-blue text-white" : "bg-brand-blue/5 text-brand-text hover:bg-brand-blue hover:text-white"}`}
+                                title="Options"
+                                aria-label="Options"
+                              >
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                  <circle cx="12" cy="5" r="2" />
+                                  <circle cx="12" cy="12" r="2" />
+                                  <circle cx="12" cy="19" r="2" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
                         );
                       })
                     )}

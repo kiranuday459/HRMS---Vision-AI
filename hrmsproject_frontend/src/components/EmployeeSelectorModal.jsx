@@ -35,6 +35,7 @@ export default function EmployeeSelectorModal({ open, onClose, onSave }) {
           oryfolksId: e.oryfolksId,
           designation: e.designation,
           active: e.active,
+          role: e.role || 'EMPLOYEE',
         }));
       setEmployees(list);
     } else {
@@ -222,7 +223,7 @@ export default function EmployeeSelectorModal({ open, onClose, onSave }) {
             >
               <option value="">Select Manager...</option>
               {employees
-                .filter(emp => !existingManagers.has(emp.id))
+                .filter(emp => emp.role === 'REPORTING_MANAGER')
                 .map((emp) => (
                   // Disabled employees cannot be assigned as a reporting manager.
                   <option key={emp.id} value={emp.id} disabled={isDisabled(emp)}>

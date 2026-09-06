@@ -23,7 +23,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                         setLeaves(app);
                     }
                 })
-                .catch(() => {});
+                .catch(() => { });
         } else {
             setLeaves(EMPTY_ARRAY);
         }
@@ -40,7 +40,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                         setJoiningDate(json.data.joiningDate || json.data.hireDate || null);
                     }
                 })
-                .catch(() => {});
+                .catch(() => { });
         }
     }, [initialJoiningDate, employeeId]);
 
@@ -791,291 +791,79 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                     </div>
                 </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-auto min-h-0 bg-white">
-                {/* Desktop View (Table) */}
-                <div className="hidden lg:block">
-                    <table className="w-full border-collapse">
-                        <thead className="sticky top-0 z-20">
-                            <tr className="bg-white text-[#0C447C] text-[11px] font-bold uppercase tracking-wider">
-                                <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[70px]">Project ID <span className="text-red-500">*</span></th>
-                                <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[100px]">Project Name <span className="text-red-500">*</span></th>
-                                <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[70px]">Task ID</th>
-                                <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[110px]">On/Off</th>
-                                <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[80px]">Billable</th>
-                                <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[110px]">Location</th>
-                                {dates.map((d, i) => {
-                                    const header = formatDateHeader(d);
-                                    const future = isFutureDay(d);
-                                    const preJoining = isBeforeJoiningDate(d);
-                                    const approvedLeave = isApprovedLeaveDay(i);
-                                    const titleText = preJoining ? "Timesheet entry is not allowed before your joining date." : approvedLeave ? "Timesheet entry is not allowed on approved leave days." : undefined;
-                                    return (
-                                        <th key={i} title={titleText} className="p-2 border-r border-b border-[#F1EFE8] text-center min-w-[45px]">
-                                            <div className={`text-[13px] font-medium ${future || preJoining || approvedLeave ? 'text-[#B4B2A9]' : 'text-[#185FA5]'}`}>{header.day}</div>
-                                            <div className={`text-[11px] font-normal ${future || preJoining || approvedLeave ? 'text-[#D3D1C7]' : 'text-[#0C447C]'}`}>{header.name}</div>
-                                        </th>
-                                    );
-                                })}
-                                <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[50px]">Total</th>
-                                <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[90px]">Comment</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#F1EFE8]">
-                            {/* Project Rows */}
-                            {projectRows.map((row, index) => (
-                                <tr key={row.id} className="hover:bg-white transition-colors group">
-                                    <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <input type="text" value={row.projectId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
-                                    </td>
-                                    <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <input type="text" value={row.projectName} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
-                                    </td>
-                                    <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <input type="text" value={row.taskId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
-                                    </td>
-                                    <td className="p-0.5 border-r border-[#F1EFE8] min-w-[110px]">
-                                        <select value={row.onsite} disabled={readOnly} onChange={(e) => handleRowChange(index, 'onsite', e.target.value)} className="w-full px-2.5 py-1.5 text-[11px] font-medium text-[#0C447C] bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded-md outline-none cursor-pointer disabled:cursor-not-allowed transition-all duration-150">
-                                            <option>Onsite</option>
-                                            <option>Offshore</option>
-                                        </select>
-                                    </td>
-                                    <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <select value={row.billable} disabled={readOnly} onChange={(e) => handleRowChange(index, 'billable', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed">
-                                            <option>Billable</option>
-                                            <option>Non-Billable</option>
-                                        </select>
-                                    </td>
-                                    <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <select
-                                            value={row.location}
-                                            disabled={readOnly}
-                                            onChange={(e) => handleRowChange(index, 'location', e.target.value)}
-                                            className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed"
-                                        >
-                                            <option value="India">India</option>
-                                            <option value="Japan">Japan</option>
-                                            <option value="Singapore">Singapore</option>
-                                        </select>
-                                    </td>
-                                    {row.hours.map((h, i) => {
-                                        const weekend = isWeekend(dates[i]);
-                                        const future = isFutureDay(dates[i]);
-                                        const preJoining = isBeforeJoiningDate(dates[i]);
-                                        const leaveType = getApprovedLeaveTypeForDay(i);
-                                        const isDisabled = weekend || readOnly || isHolidayDay(i) || future || preJoining || (leaveType === 'FULL');
-
-                                        let dayProjectTotal = 0;
-                                        projectRows.forEach(r => dayProjectTotal += (parseFloat(r.hours[i].value) || 0));
-                                        const dailyTotal = getDailyTotal(i);
-                                        const is24Exceeded = dailyTotal > 24 || dailyTotal < 0;
-                                        const isHalfDayExceeded = leaveType === 'HALF' && dayProjectTotal > 4;
-                                        const isFullDayExceeded = leaveType === 'FULL' && dayProjectTotal > 0;
-                                        const isExceeded = isHalfDayExceeded || isFullDayExceeded || is24Exceeded;
-
+                {/* Content */}
+                <div className="flex-1 p-4 overflow-auto min-h-0 bg-white">
+                    {/* Desktop View (Table) */}
+                    <div className="hidden lg:block">
+                        <table className="w-full border-collapse">
+                            <thead className="sticky top-0 z-20">
+                                <tr className="bg-white text-[#0C447C] text-[11px] font-bold uppercase tracking-wider">
+                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[70px]">Project ID <span className="text-red-500">*</span></th>
+                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[100px]">Project Name <span className="text-red-500">*</span></th>
+                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[70px]">Task ID</th>
+                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[110px]">On/Off</th>
+                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[80px]">Billable</th>
+                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[110px]">Location</th>
+                                    {dates.map((d, i) => {
+                                        const header = formatDateHeader(d);
+                                        const future = isFutureDay(d);
+                                        const preJoining = isBeforeJoiningDate(d);
+                                        const approvedLeave = isApprovedLeaveDay(i);
+                                        const titleText = preJoining ? "Timesheet entry is not allowed before your joining date." : approvedLeave ? "Timesheet entry is not allowed on approved leave days." : undefined;
                                         return (
-                                            <td key={i} title={is24Exceeded ? "Working hours cannot exceed 24 hours per day." : isHalfDayExceeded ? "Maximum allowed work hours for a Half-Day Leave is 4 hours." : isFullDayExceeded ? "Work hours are not allowed on a Full-Day Leave date." : preJoining ? "Timesheet entry is not allowed before your joining date." : leaveType === 'FULL' ? "Timesheet entry is not allowed on approved leave days." : undefined} className={`p-0.5 border-r border-[#F1EFE8] ${future || preJoining || leaveType === 'FULL' ? 'bg-[#F1EFE8]' : isExceeded ? 'bg-red-50' : ''}`}>
-                                                <input
-                                                    type="text"
-                                                    inputMode="decimal"
-                                                    maxLength={5}
-                                                    value={h.value}
-                                                    disabled={isDisabled}
-                                                    onKeyDown={handleHoursKeyDown}
-                                                    onChange={(e) => handleHourChange(index, i, e.target.value)}
-                                                    className={`w-full p-2 text-[11px] text-center rounded outline-none font-bold ${
-                                                        isExceeded
-                                                            ? 'border-2 border-red-500 text-red-600 bg-red-50 focus:border-red-600 focus:ring-2 focus:ring-red-500/20'
-                                                            : future || preJoining || leaveType === 'FULL'
-                                                            ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed'
-                                                            : `border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 bg-transparent focus:bg-white ${weekend || isHolidayDay(i) ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700'}`
-                                                    }`}
-                                                />
-                                            </td>
+                                            <th key={i} title={titleText} className="p-2 border-r border-b border-[#F1EFE8] text-center min-w-[45px]">
+                                                <div className={`text-[13px] font-medium ${future || preJoining || approvedLeave ? 'text-[#B4B2A9]' : 'text-[#185FA5]'}`}>{header.day}</div>
+                                                <div className={`text-[11px] font-normal ${future || preJoining || approvedLeave ? 'text-[#D3D1C7]' : 'text-[#0C447C]'}`}>{header.name}</div>
+                                            </th>
                                         );
                                     })}
-                                    <td className="p-0.5 border-r border-[#F1EFE8] text-center font-black text-slate-700 text-[11px]">
-                                        {calculateRowTotal(row.hours).toFixed(2)}
-                                    </td>
-                                    <td className="p-0.5 border-r border-[#F1EFE8]">
-                                        <input type="text" value={row.comment} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'comment', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed" />
-                                    </td>
+                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[50px]">Total</th>
+                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[90px]">Comment</th>
                                 </tr>
-                            ))}
-
-                            {/* Special Rows Button */}
-                            {!readOnly && (
-                                <tr className="bg-white">
-                                    <td colSpan="16" className="p-1.5 pl-4">
-                                        <button onClick={handleAddRow} className="flex items-center gap-2 text-[#185FA5] font-medium text-[13px] hover:text-[#0C447C]">
-                                            <div className="w-4 h-4 bg-transparent rounded-full flex items-center justify-center">
-                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 5v14M5 12h14" />
-                                                </svg>
-                                            </div>
-                                            <span>ADD PROJECT ROW</span>
-                                        </button>
-                                    </td>
-                                </tr>
-                            )}
-
-                            {/* TruTime / Leave section */}
-                            <tr className="bg-white text-[11px] font-bold uppercase tracking-wider text-[#0C447C]">
-                                <td colSpan="6" className="p-2 pl-6 border-r border-[#F1EFE8]">TruTime / Holiday / Leave</td>
-                                <td colSpan="7" className="p-2 border-r border-[#F1EFE8]"></td>
-                                <td colSpan="3"></td>
-                            </tr>
-
-                            {/* Swipe Hours */}
-                            <tr className="text-[11px]">
-                                <td colSpan="6" className="p-2 pl-10 text-[#888780] border-r border-[#F1EFE8] italic font-medium">Swipe in hours</td>
-                                {truTimeRows.swipe.map((h, i) => {
-                                    const weekend = isWeekend(dates[i]);
-                                    const future = isFutureDay(dates[i]);
-                                    const preJoining = isBeforeJoiningDate(dates[i]);
-                                    const approvedLeave = isApprovedLeaveDay(i);
-                                    const isDisabled = weekend || readOnly || isHolidayDay(i) || future || preJoining || approvedLeave;
-                                    const titleText = preJoining ? "Timesheet entry is not allowed before your joining date." : approvedLeave ? "Timesheet entry is not allowed on approved leave days." : undefined;
-                                    return (
-                                        <td key={i} title={titleText} className={`p-0 border-r border-[#F1EFE8] h-8 ${future || preJoining || approvedLeave ? 'bg-[#F1EFE8]' : 'bg-white'}`}>
-                                            <input
-                                                type="text"
-                                                inputMode="decimal"
-                                                maxLength={2}
-                                                value={h.value}
-                                                disabled={isDisabled}
-                                                onKeyDown={handleHoursKeyDown}
-                                                onChange={(e) => {
-                                                    const val = sanitizeHours(e.target.value);
-                                                    const updated = { ...truTimeRows, swipe: [...truTimeRows.swipe] };
-                                                    updated.swipe[i] = { ...updated.swipe[i], value: val };
-                                                    setTruTimeRows(updated);
-                                                }}
-                                                className={`w-full h-full text-center outline-none font-bold ${future || preJoining || approvedLeave ? 'bg-[#F1EFE8] text-[#B4B2A9] cursor-not-allowed' : `bg-transparent ${weekend || isHolidayDay(i) ? 'text-slate-400 cursor-not-allowed' : 'text-slate-400'}`}`}
-                                            />
+                            </thead>
+                            <tbody className="divide-y divide-[#F1EFE8]">
+                                {/* Project Rows */}
+                                {projectRows.map((row, index) => (
+                                    <tr key={row.id} className="hover:bg-white transition-colors group">
+                                        <td className="p-0.5 border-r border-[#F1EFE8]">
+                                            <input type="text" value={row.projectId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
                                         </td>
-                                    );
-                                })}
-                                <td className="text-center font-bold text-slate-400">{calculateRowTotal(truTimeRows.swipe).toFixed(2)}</td>
-                                <td colSpan="2"></td>
-                            </tr>
-
-                            {/* Holiday Row */}
-                            <tr className="text-[11px]">
-                                <td colSpan="6" className="p-2 pl-10 text-[#888780] border-r border-[#F1EFE8] italic font-medium">Holiday (Public/National)</td>
-                                {leaveRows.holiday.map((h, i) => {
-                                    const isHoliday = isHolidayDay(i);
-                                    return (
-                                        <td key={i} className={`p-0 border-r border-[#F1EFE8] ${isHoliday ? 'bg-amber-100/50' : 'bg-amber-50/10'}`}>
-                                            <input
-                                                type="text"
-                                                value={h.value}
-                                                disabled={true}
-                                                className={`w-full text-center h-full outline-none bg-transparent font-bold ${isHoliday ? 'text-amber-700' : 'text-amber-600/50'} cursor-not-allowed`}
-                                            />
+                                        <td className="p-0.5 border-r border-[#F1EFE8]">
+                                            <input type="text" value={row.projectName} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
                                         </td>
-                                    );
-                                })}
-                                <td className="text-center font-bold text-amber-600">{calculateRowTotal(leaveRows.holiday).toFixed(2)}</td>
-                                <td colSpan="2"></td>
-                            </tr>
-
-                            {/* Leave Rows S, C, M, P, B, L (Casual & Earned merged) */}
-                            {['S', 'C', 'M', 'P', 'B', 'L'].map((type) => {
-                                const key = `leave${type}`;
-                                // Only show a leave row when there is an actual approved/recorded
-                                // leave for this type in the week. Rows are auto-filled from
-                                // approvedLeaves (and saved entries), so an all-zero row means the
-                                // employee has no approved leave of this type — hide it.
-                                const hasLeave = leaveRows[key].some(h => (parseFloat(h.value) || 0) > 0);
-                                if (!hasLeave) return null;
-                                const labelMap = {
-                                    'S': 'Leave (Sick)',
-                                    'C': 'Leave (Casual & Earned)',
-                                    'M': 'Leave (Maternity)',
-                                    'P': 'Leave (Paternity)',
-                                    'B': 'Leave (Bereavement)',
-                                    'L': 'Leave (LOP)'
-                                };
-                                const isPaidLeave = type !== 'L';
-                                const lockedByProbation = onProbation && isPaidLeave;
-                                const cellTone = '';
-                                return (
-                                    <tr key={type} className={`text-[11px] ${lockedByProbation ? 'opacity-40' : ''}`}>
-                                        <td colSpan="6" className="p-2 pl-10 text-slate-500 border-r border-[#F1EFE8] italic font-medium">
-                                            {labelMap[type]}
-                                            {lockedByProbation && <span className="ml-2 text-[9px] text-red-500 font-bold not-italic uppercase tracking-widest">Locked (Probation)</span>}
+                                        <td className="p-0.5 border-r border-[#F1EFE8]">
+                                            <input type="text" value={row.taskId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
                                         </td>
-                                        {leaveRows[key].map((h, i) => {
-                                            const future = isFutureDay(dates[i]);
-                                            const preJoining = isBeforeJoiningDate(dates[i]);
-                                            const isDisabled = readOnly || lockedByProbation || future || preJoining;
-                                            return (
-                                                <td key={i} title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined} className={`p-0 border-r border-[#F1EFE8] ${future || preJoining ? 'bg-[#F1EFE8]' : cellTone}`}>
-                                                    <input
-                                                        type="text"
-                                                        inputMode="decimal"
-                                                        maxLength={5}
-                                                        value={h.value}
-                                                        disabled={isDisabled}
-                                                        onKeyDown={handleHoursKeyDown}
-                                                        onChange={(e) => handleLeaveHourChange(key, i, e.target.value)}
-                                                        className={`w-full text-center h-full outline-none font-bold transition-colors disabled:cursor-not-allowed ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9]' : 'bg-transparent text-slate-500 hover:bg-white focus:bg-white'}`}
-                                                    />
-                                                </td>
-                                            );
-                                        })}
-                                        <td className="text-center font-bold text-slate-500">{calculateRowTotal(leaveRows[key]).toFixed(2)}</td>
-                                        <td colSpan="2"></td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Mobile/Tablet View (Cards) */}
-                <div className="lg:hidden p-4 space-y-6">
-                    {/* Project Entries */}
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Project Entries</h3>
-                            {!readOnly && (
-                                <button onClick={handleAddRow} className="text-[#185FA5] text-[10px] font-bold">+ ADD ROW</button>
-                            )}
-                        </div>
-                        {projectRows.map((row, index) => (
-                            <div key={row.id} className="bg-white rounded-xl shadow-sm border border-[#F1EFE8] p-4 space-y-4">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Proj ID</label>
-                                        <input type="text" value={row.projectId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Proj Name</label>
-                                        <input type="text" value={row.projectName} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Task ID</label>
-                                        <input type="text" value={row.taskId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location</label>
-                                        <select value={row.location} disabled={readOnly} onChange={(e) => handleRowChange(index, 'location', e.target.value)} className="w-full p-2 text-xs bg-white rounded outline-none border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 disabled:cursor-not-allowed">
-                                            <option value="India">India</option>
-                                            <option value="Japan">Japan</option>
-                                            <option value="Singapore">Singapore</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Daily Hours</label>
-                                    <div className="grid grid-cols-7 gap-1">
+                                        <td className="p-0.5 border-r border-[#F1EFE8] min-w-[110px]">
+                                            <select value={row.onsite} disabled={readOnly} onChange={(e) => handleRowChange(index, 'onsite', e.target.value)} className="w-full px-2.5 py-1.5 text-[11px] font-medium text-[#0C447C] bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded-md outline-none cursor-pointer disabled:cursor-not-allowed transition-all duration-150">
+                                                <option>Onsite</option>
+                                                <option>Offshore</option>
+                                            </select>
+                                        </td>
+                                        <td className="p-0.5 border-r border-[#F1EFE8]">
+                                            <select value={row.billable} disabled={readOnly} onChange={(e) => handleRowChange(index, 'billable', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed">
+                                                <option>Billable</option>
+                                                <option>Non-Billable</option>
+                                            </select>
+                                        </td>
+                                        <td className="p-0.5 border-r border-[#F1EFE8]">
+                                            <select
+                                                value={row.location}
+                                                disabled={readOnly}
+                                                onChange={(e) => handleRowChange(index, 'location', e.target.value)}
+                                                className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed"
+                                            >
+                                                <option value="India">India</option>
+                                                <option value="Japan">Japan</option>
+                                                <option value="Singapore">Singapore</option>
+                                            </select>
+                                        </td>
                                         {row.hours.map((h, i) => {
+                                            const weekend = isWeekend(dates[i]);
                                             const future = isFutureDay(dates[i]);
                                             const preJoining = isBeforeJoiningDate(dates[i]);
                                             const leaveType = getApprovedLeaveTypeForDay(i);
-                                            const isDisabled = isWeekend(dates[i]) || readOnly || isHolidayDay(i) || future || preJoining || (leaveType === 'FULL');
+                                            const isDisabled = weekend || readOnly || isHolidayDay(i) || future || preJoining || (leaveType === 'FULL');
 
                                             let dayProjectTotal = 0;
                                             projectRows.forEach(r => dayProjectTotal += (parseFloat(r.hours[i].value) || 0));
@@ -1086,150 +874,360 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                             const isExceeded = isHalfDayExceeded || isFullDayExceeded || is24Exceeded;
 
                                             return (
-                                            <div key={i} className="flex flex-col items-center" title={is24Exceeded ? "Working hours cannot exceed 24 hours per day." : isHalfDayExceeded ? "Maximum allowed work hours for a Half-Day Leave is 4 hours." : isFullDayExceeded ? "Work hours are not allowed on a Full-Day Leave date." : preJoining ? "Timesheet entry is not allowed before your joining date." : leaveType === 'FULL' ? "Timesheet entry is not allowed on approved leave days." : undefined}>
-                                                <span className={`text-[7px] font-bold mb-1 ${future || preJoining || leaveType === 'FULL' ? 'text-[#D3D1C7]' : 'text-slate-400'}`}>
-                                                    {formatDateHeader(dates[i])?.name?.charAt(0) || ''}
-                                                </span>
-                                                <input
-                                                    type="text"
-                                                    inputMode="decimal"
-                                                    maxLength={5}
-                                                    value={h.value}
-                                                    disabled={isDisabled}
-                                                    onKeyDown={handleHoursKeyDown}
-                                                    onChange={(e) => handleHourChange(index, i, e.target.value)}
-                                                    className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded outline-none ${
-                                                        isExceeded
-                                                            ? 'border-2 border-red-500 text-red-600 bg-red-50 focus:border-red-600'
-                                                            : future || preJoining || leaveType === 'FULL'
-                                                            ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed'
-                                                            : isWeekend(dates[i]) || isHolidayDay(i)
-                                                            ? 'bg-white text-slate-300'
-                                                            : 'bg-white text-slate-700 border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20'
-                                                    }`}
-                                                />
-                                            </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                                <div className="flex justify-between items-center pt-2 border-t border-slate-50">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase">Total: <span className="text-slate-700">{calculateRowTotal(row.hours).toFixed(2)}</span></span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* TruTime & Leaves Mobile */}
-                    <div className="bg-white rounded-xl shadow-sm border border-[#F1EFE8] overflow-hidden divide-y divide-slate-50">
-                        <div className="p-4">
-                            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Leave & TruTime</h3>
-                            <div className="space-y-4">
-                                {['swipe', 'holiday', 'leaveS', 'leaveC', 'leaveM', 'leaveP', 'leaveB', 'leaveL'].map((key) => {
-                                    // Hide leave rows with no approved/recorded leave (all-zero).
-                                    // Swipe and Holiday are not employee leaves, so they always render.
-                                    if (key.startsWith('leave')) {
-                                        const hasLeave = leaveRows[key].some(h => (parseFloat(h.value) || 0) > 0);
-                                        if (!hasLeave) return null;
-                                    }
-                                    const labelMap = {
-                                        'leaveS': 'Leave (Sick)',
-                                        'leaveC': 'Leave (Casual & Earned)',
-                                        'leaveM': 'Leave (Maternity)',
-                                        'leaveP': 'Leave (Paternity)',
-                                        'leaveB': 'Leave (Bereavement)',
-                                        'leaveL': 'Leave (LOP)'
-                                    };
-                                    const label = key === 'swipe' ? 'TruTime Index' : key === 'holiday' ? 'Holidays' : labelMap[key];
-                                    const data = key === 'swipe' ? truTimeRows.swipe : leaveRows[key];
-                                    const isPaidLeave = key.startsWith('leave') && key !== 'leaveL';
-                                    const lockedByProbation = onProbation && isPaidLeave;
-                                    return (
-                                        <div key={key} className={`space-y-1.5 ${lockedByProbation ? 'opacity-40' : ''}`}>
-                                            <div className="flex justify-between items-center">
-                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                                    {label}
-                                                    {lockedByProbation && <span className="ml-1 text-red-500">(Locked)</span>}
-                                                </label>
-                                                <span className="text-[9px] font-bold text-slate-700">{calculateRowTotal(data).toFixed(2)}h</span>
-                                            </div>
-                                            <div className="grid grid-cols-7 gap-1">
-                                                {data.map((h, i) => {
-                                                    const future = isFutureDay(dates[i]);
-                                                    const preJoining = isBeforeJoiningDate(dates[i]);
-                                                    const isDisabled = key === 'holiday' || readOnly || isWeekend(dates[i]) || lockedByProbation || future || preJoining;
-                                                    return (
+                                                <td key={i} title={is24Exceeded ? "Working hours cannot exceed 24 hours per day." : isHalfDayExceeded ? "Maximum allowed work hours for a Half-Day Leave is 4 hours." : isFullDayExceeded ? "Work hours are not allowed on a Full-Day Leave date." : preJoining ? "Timesheet entry is not allowed before your joining date." : leaveType === 'FULL' ? "Timesheet entry is not allowed on approved leave days." : undefined} className={`p-0.5 border-r border-[#F1EFE8] ${future || preJoining || leaveType === 'FULL' ? 'bg-[#F1EFE8]' : isExceeded ? 'bg-red-50' : ''}`}>
                                                     <input
-                                                        key={i}
                                                         type="text"
                                                         inputMode="decimal"
                                                         maxLength={5}
                                                         value={h.value}
                                                         disabled={isDisabled}
-                                                        title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined}
                                                         onKeyDown={handleHoursKeyDown}
-                                                        onChange={(e) => key === 'swipe' ? handleTruTimeChange(i, e.target.value) : handleLeaveHourChange(key, i, e.target.value)}
-                                                        className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded border-transparent border outline-none disabled:cursor-not-allowed ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9]' : key === 'holiday' ? 'bg-amber-100/50 text-amber-700' : key.startsWith('leave') ? 'bg-white text-slate-500' : 'bg-white text-slate-400'}`}
+                                                        onChange={(e) => handleHourChange(index, i, e.target.value)}
+                                                        className={`w-full p-2 text-[11px] text-center rounded outline-none font-bold ${isExceeded
+                                                            ? 'border-2 border-red-500 text-red-600 bg-red-50 focus:border-red-600 focus:ring-2 focus:ring-red-500/20'
+                                                            : future || preJoining || leaveType === 'FULL'
+                                                                ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed'
+                                                                : `border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 bg-transparent focus:bg-white ${weekend || isHolidayDay(i) ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700'}`
+                                                            }`}
                                                     />
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
+                                                </td>
+                                            );
+                                        })}
+                                        <td className="p-0.5 border-r border-[#F1EFE8] text-center font-black text-slate-700 text-[11px]">
+                                            {calculateRowTotal(row.hours).toFixed(2)}
+                                        </td>
+                                        <td className="p-0.5 border-r border-[#F1EFE8]">
+                                            <input type="text" value={row.comment} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'comment', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed" />
+                                        </td>
+                                    </tr>
+                                ))}
+
+                                {/* Special Rows Button */}
+                                {!readOnly && (
+                                    <tr className="bg-white">
+                                        <td colSpan="16" className="p-1.5 pl-4">
+                                            <button onClick={handleAddRow} className="flex items-center gap-2 text-[#185FA5] font-medium text-[13px] hover:text-[#0C447C]">
+                                                <div className="w-4 h-4 bg-transparent rounded-full flex items-center justify-center">
+                                                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 5v14M5 12h14" />
+                                                    </svg>
+                                                </div>
+                                                <span>ADD PROJECT ROW</span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                )}
+
+                                {/* TruTime / Leave section */}
+                                <tr className="bg-white text-[11px] font-bold uppercase tracking-wider text-[#0C447C]">
+                                    <td colSpan="6" className="p-2 pl-6 border-r border-[#F1EFE8]">TruTime / Holiday / Leave</td>
+                                    <td colSpan="7" className="p-2 border-r border-[#F1EFE8]"></td>
+                                    <td colSpan="3"></td>
+                                </tr>
+
+                                {/* Swipe Hours */}
+                                <tr className="text-[11px]">
+                                    <td colSpan="6" className="p-2 pl-10 text-[#888780] border-r border-[#F1EFE8] italic font-medium">Swipe in hours</td>
+                                    {truTimeRows.swipe.map((h, i) => {
+                                        const weekend = isWeekend(dates[i]);
+                                        const future = isFutureDay(dates[i]);
+                                        const preJoining = isBeforeJoiningDate(dates[i]);
+                                        const approvedLeave = isApprovedLeaveDay(i);
+                                        const isDisabled = weekend || readOnly || isHolidayDay(i) || future || preJoining || approvedLeave;
+                                        const titleText = preJoining ? "Timesheet entry is not allowed before your joining date." : approvedLeave ? "Timesheet entry is not allowed on approved leave days." : undefined;
+                                        return (
+                                            <td key={i} title={titleText} className={`p-0 border-r border-[#F1EFE8] h-8 ${future || preJoining || approvedLeave ? 'bg-[#F1EFE8]' : 'bg-white'}`}>
+                                                <input
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    maxLength={2}
+                                                    value={h.value}
+                                                    disabled={isDisabled}
+                                                    onKeyDown={handleHoursKeyDown}
+                                                    onChange={(e) => {
+                                                        const val = sanitizeHours(e.target.value);
+                                                        const updated = { ...truTimeRows, swipe: [...truTimeRows.swipe] };
+                                                        updated.swipe[i] = { ...updated.swipe[i], value: val };
+                                                        setTruTimeRows(updated);
+                                                    }}
+                                                    className={`w-full h-full text-center outline-none font-bold ${future || preJoining || approvedLeave ? 'bg-[#F1EFE8] text-[#B4B2A9] cursor-not-allowed' : `bg-transparent ${weekend || isHolidayDay(i) ? 'text-slate-400 cursor-not-allowed' : 'text-slate-400'}`}`}
+                                                />
+                                            </td>
+                                        );
+                                    })}
+                                    <td className="text-center font-bold text-slate-400">{calculateRowTotal(truTimeRows.swipe).toFixed(2)}</td>
+                                    <td colSpan="2"></td>
+                                </tr>
+
+                                {/* Holiday Row */}
+                                <tr className="text-[11px]">
+                                    <td colSpan="6" className="p-2 pl-10 text-[#888780] border-r border-[#F1EFE8] italic font-medium">Holiday (Public/National)</td>
+                                    {leaveRows.holiday.map((h, i) => {
+                                        const isHoliday = isHolidayDay(i);
+                                        return (
+                                            <td key={i} className={`p-0 border-r border-[#F1EFE8] ${isHoliday ? 'bg-amber-100/50' : 'bg-amber-50/10'}`}>
+                                                <input
+                                                    type="text"
+                                                    value={h.value}
+                                                    disabled={true}
+                                                    className={`w-full text-center h-full outline-none bg-transparent font-bold ${isHoliday ? 'text-amber-700' : 'text-amber-600/50'} cursor-not-allowed`}
+                                                />
+                                            </td>
+                                        );
+                                    })}
+                                    <td className="text-center font-bold text-amber-600">{calculateRowTotal(leaveRows.holiday).toFixed(2)}</td>
+                                    <td colSpan="2"></td>
+                                </tr>
+
+                                {/* Leave Rows S, C, M, P, B, L (Casual & Earned merged) */}
+                                {['S', 'C', 'M', 'P', 'B', 'L'].map((type) => {
+                                    const key = `leave${type}`;
+                                    // Only show a leave row when there is an actual approved/recorded
+                                    // leave for this type in the week. Rows are auto-filled from
+                                    // approvedLeaves (and saved entries), so an all-zero row means the
+                                    // employee has no approved leave of this type — hide it.
+                                    const hasLeave = leaveRows[key].some(h => (parseFloat(h.value) || 0) > 0);
+                                    if (!hasLeave) return null;
+                                    const labelMap = {
+                                        'S': 'Leave (Sick)',
+                                        'C': 'Leave (Casual & Earned)',
+                                        'M': 'Leave (Maternity)',
+                                        'P': 'Leave (Paternity)',
+                                        'B': 'Leave (Bereavement)',
+                                        'L': 'Leave (LOP)'
+                                    };
+                                    const isPaidLeave = type !== 'L';
+                                    const lockedByProbation = onProbation && isPaidLeave;
+                                    const cellTone = '';
+                                    return (
+                                        <tr key={type} className={`text-[11px] ${lockedByProbation ? 'opacity-40' : ''}`}>
+                                            <td colSpan="6" className="p-2 pl-10 text-slate-500 border-r border-[#F1EFE8] italic font-medium">
+                                                {labelMap[type]}
+                                                {lockedByProbation && <span className="ml-2 text-[9px] text-red-500 font-bold not-italic uppercase tracking-widest">Locked (Probation)</span>}
+                                            </td>
+                                            {leaveRows[key].map((h, i) => {
+                                                const future = isFutureDay(dates[i]);
+                                                const preJoining = isBeforeJoiningDate(dates[i]);
+                                                const isDisabled = readOnly || lockedByProbation || future || preJoining;
+                                                return (
+                                                    <td key={i} title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined} className={`p-0 border-r border-[#F1EFE8] ${future || preJoining ? 'bg-[#F1EFE8]' : cellTone}`}>
+                                                        <input
+                                                            type="text"
+                                                            inputMode="decimal"
+                                                            maxLength={5}
+                                                            value={h.value}
+                                                            disabled={isDisabled}
+                                                            onKeyDown={handleHoursKeyDown}
+                                                            onChange={(e) => handleLeaveHourChange(key, i, e.target.value)}
+                                                            className={`w-full text-center h-full outline-none font-bold transition-colors disabled:cursor-not-allowed ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9]' : 'bg-transparent text-slate-500 hover:bg-white focus:bg-white'}`}
+                                                        />
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className="text-center font-bold text-slate-500">{calculateRowTotal(leaveRows[key]).toFixed(2)}</td>
+                                            <td colSpan="2"></td>
+                                        </tr>
                                     );
                                 })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile/Tablet View (Cards) */}
+                    <div className="lg:hidden p-4 space-y-6">
+                        {/* Project Entries */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Project Entries</h3>
+                                {!readOnly && (
+                                    <button onClick={handleAddRow} className="text-[#185FA5] text-[10px] font-bold">+ ADD ROW</button>
+                                )}
+                            </div>
+                            {projectRows.map((row, index) => (
+                                <div key={row.id} className="bg-white rounded-xl shadow-sm border border-[#F1EFE8] p-4 space-y-4">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Proj ID</label>
+                                            <input type="text" value={row.projectId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Proj Name</label>
+                                            <input type="text" value={row.projectName} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Task ID</label>
+                                            <input type="text" value={row.taskId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location</label>
+                                            <select value={row.location} disabled={readOnly} onChange={(e) => handleRowChange(index, 'location', e.target.value)} className="w-full p-2 text-xs bg-white rounded outline-none border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 disabled:cursor-not-allowed">
+                                                <option value="India">India</option>
+                                                <option value="Japan">Japan</option>
+                                                <option value="Singapore">Singapore</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Daily Hours</label>
+                                        <div className="grid grid-cols-7 gap-1">
+                                            {row.hours.map((h, i) => {
+                                                const future = isFutureDay(dates[i]);
+                                                const preJoining = isBeforeJoiningDate(dates[i]);
+                                                const leaveType = getApprovedLeaveTypeForDay(i);
+                                                const isDisabled = isWeekend(dates[i]) || readOnly || isHolidayDay(i) || future || preJoining || (leaveType === 'FULL');
+
+                                                let dayProjectTotal = 0;
+                                                projectRows.forEach(r => dayProjectTotal += (parseFloat(r.hours[i].value) || 0));
+                                                const dailyTotal = getDailyTotal(i);
+                                                const is24Exceeded = dailyTotal > 24 || dailyTotal < 0;
+                                                const isHalfDayExceeded = leaveType === 'HALF' && dayProjectTotal > 4;
+                                                const isFullDayExceeded = leaveType === 'FULL' && dayProjectTotal > 0;
+                                                const isExceeded = isHalfDayExceeded || isFullDayExceeded || is24Exceeded;
+
+                                                return (
+                                                    <div key={i} className="flex flex-col items-center" title={is24Exceeded ? "Working hours cannot exceed 24 hours per day." : isHalfDayExceeded ? "Maximum allowed work hours for a Half-Day Leave is 4 hours." : isFullDayExceeded ? "Work hours are not allowed on a Full-Day Leave date." : preJoining ? "Timesheet entry is not allowed before your joining date." : leaveType === 'FULL' ? "Timesheet entry is not allowed on approved leave days." : undefined}>
+                                                        <span className={`text-[7px] font-bold mb-1 ${future || preJoining || leaveType === 'FULL' ? 'text-[#D3D1C7]' : 'text-slate-400'}`}>
+                                                            {formatDateHeader(dates[i])?.name?.charAt(0) || ''}
+                                                        </span>
+                                                        <input
+                                                            type="text"
+                                                            inputMode="decimal"
+                                                            maxLength={5}
+                                                            value={h.value}
+                                                            disabled={isDisabled}
+                                                            onKeyDown={handleHoursKeyDown}
+                                                            onChange={(e) => handleHourChange(index, i, e.target.value)}
+                                                            className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded outline-none ${isExceeded
+                                                                ? 'border-2 border-red-500 text-red-600 bg-red-50 focus:border-red-600'
+                                                                : future || preJoining || leaveType === 'FULL'
+                                                                    ? 'bg-[#F1EFE8] text-[#B4B2A9] border-none cursor-not-allowed'
+                                                                    : isWeekend(dates[i]) || isHolidayDay(i)
+                                                                        ? 'bg-white text-slate-300'
+                                                                        : 'bg-white text-slate-700 border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20'
+                                                                }`}
+                                                        />
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2 border-t border-slate-50">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase">Total: <span className="text-slate-700">{calculateRowTotal(row.hours).toFixed(2)}</span></span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* TruTime & Leaves Mobile */}
+                        <div className="bg-white rounded-xl shadow-sm border border-[#F1EFE8] overflow-hidden divide-y divide-slate-50">
+                            <div className="p-4">
+                                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Leave & TruTime</h3>
+                                <div className="space-y-4">
+                                    {['swipe', 'holiday', 'leaveS', 'leaveC', 'leaveM', 'leaveP', 'leaveB', 'leaveL'].map((key) => {
+                                        // Hide leave rows with no approved/recorded leave (all-zero).
+                                        // Swipe and Holiday are not employee leaves, so they always render.
+                                        if (key.startsWith('leave')) {
+                                            const hasLeave = leaveRows[key].some(h => (parseFloat(h.value) || 0) > 0);
+                                            if (!hasLeave) return null;
+                                        }
+                                        const labelMap = {
+                                            'leaveS': 'Leave (Sick)',
+                                            'leaveC': 'Leave (Casual & Earned)',
+                                            'leaveM': 'Leave (Maternity)',
+                                            'leaveP': 'Leave (Paternity)',
+                                            'leaveB': 'Leave (Bereavement)',
+                                            'leaveL': 'Leave (LOP)'
+                                        };
+                                        const label = key === 'swipe' ? 'TruTime Index' : key === 'holiday' ? 'Holidays' : labelMap[key];
+                                        const data = key === 'swipe' ? truTimeRows.swipe : leaveRows[key];
+                                        const isPaidLeave = key.startsWith('leave') && key !== 'leaveL';
+                                        const lockedByProbation = onProbation && isPaidLeave;
+                                        return (
+                                            <div key={key} className={`space-y-1.5 ${lockedByProbation ? 'opacity-40' : ''}`}>
+                                                <div className="flex justify-between items-center">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                        {label}
+                                                        {lockedByProbation && <span className="ml-1 text-red-500">(Locked)</span>}
+                                                    </label>
+                                                    <span className="text-[9px] font-bold text-slate-700">{calculateRowTotal(data).toFixed(2)}h</span>
+                                                </div>
+                                                <div className="grid grid-cols-7 gap-1">
+                                                    {data.map((h, i) => {
+                                                        const future = isFutureDay(dates[i]);
+                                                        const preJoining = isBeforeJoiningDate(dates[i]);
+                                                        const isDisabled = key === 'holiday' || readOnly || isWeekend(dates[i]) || lockedByProbation || future || preJoining;
+                                                        return (
+                                                            <input
+                                                                key={i}
+                                                                type="text"
+                                                                inputMode="decimal"
+                                                                maxLength={5}
+                                                                value={h.value}
+                                                                disabled={isDisabled}
+                                                                title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined}
+                                                                onKeyDown={handleHoursKeyDown}
+                                                                onChange={(e) => key === 'swipe' ? handleTruTimeChange(i, e.target.value) : handleLeaveHourChange(key, i, e.target.value)}
+                                                                className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded border-transparent border outline-none disabled:cursor-not-allowed ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9]' : key === 'holiday' ? 'bg-amber-100/50 text-amber-700' : key.startsWith('leave') ? 'bg-white text-slate-500' : 'bg-white text-slate-400'}`}
+                                                            />
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Info banner — shown when columns are locked due to future dates or pre-joining dates. */}
-            {!readOnly && (allFutureWeek || allPreJoiningWeek || allDisabledWeek) && (
-                <div className="mx-4 md:mx-8 mb-2 flex items-start gap-2 bg-[#E6F1FB] text-[#0C447C] text-[13px] rounded-lg px-4 py-2.5 shrink-0">
-                    <span className="mt-px">ℹ</span>
-                    <span>
-                        {allPreJoiningWeek
-                            ? "Timesheet entries are not allowed for dates before your joining date."
-                            : "Timesheet entries can only be filled for dates from your joining date up to today."}
-                    </span>
-                </div>
-            )}
-
-            {/* Error banner — shown when hours exceed half-day leave limit */}
-            {!readOnly && dates.some((_, i) => {
-                let dayProjectTotal = 0;
-                projectRows.forEach(r => dayProjectTotal += (parseFloat(r.hours[i].value) || 0));
-                return getApprovedLeaveTypeForDay(i) === 'HALF' && dayProjectTotal > 4;
-            }) && (
-                <div className="mx-4 md:mx-8 mb-2 flex items-center gap-2 bg-red-50 text-red-700 text-[13px] rounded-lg px-4 py-2.5 border border-red-200 font-bold shrink-0">
-                    <span className="text-red-500 font-black">⚠</span>
-                    <span>Maximum allowed work hours for a Half-Day Leave is 4 hours.</span>
-                </div>
-            )}
-
-            {/* Error banner — shown when daily hours exceed 24 hours */}
-            {!readOnly && dates.some((_, i) => getDailyTotal(i) > 24) && (
-                <div className="mx-4 md:mx-8 mb-2 flex items-center gap-2 bg-red-50 text-red-700 text-[13px] rounded-lg px-4 py-2.5 border border-red-200 font-bold shrink-0">
-                    <span className="text-red-500 font-black">⚠</span>
-                    <span>Working hours cannot exceed 24 hours per day.</span>
-                </div>
-            )}
-
-            {/* Footer Summary */}
-            <div className="bg-white p-3 md:p-2 border-t border-[#D3D1C7] shrink-0">
-                <div className="flex justify-between sm:justify-end items-center max-w-6xl mx-auto px-4 md:px-8">
-                    <div className="sm:hidden flex flex-col">
-                        <span className="text-[7px] uppercase font-black text-slate-400">Submitting as</span>
-                        <span className="text-[10px] font-bold text-slate-500">Employee</span>
+                {/* Info banner — shown when columns are locked due to future dates or pre-joining dates. */}
+                {!readOnly && (allFutureWeek || allPreJoiningWeek || allDisabledWeek) && (
+                    <div className="mx-4 md:mx-8 mb-2 flex items-start gap-2 bg-[#E6F1FB] text-[#0C447C] text-[13px] rounded-lg px-4 py-2.5 shrink-0">
+                        <span className="mt-px">ℹ</span>
+                        <span>
+                            {allPreJoiningWeek
+                                ? "Timesheet entries are not allowed for dates before your joining date."
+                                : "Timesheet entries can only be filled for dates from your joining date up to today."}
+                        </span>
                     </div>
-                    <div className="text-right">
-                        <p className="text-[11px] uppercase font-bold text-[#0C447C] tracking-wider">Total Weekly Hours</p>
-                        <p className="text-[20px] font-medium text-[#185FA5]">
-                            {getGrandTotal().toFixed(2)}
-                        </p>
+                )}
+
+                {/* Error banner — shown when hours exceed half-day leave limit */}
+                {!readOnly && dates.some((_, i) => {
+                    let dayProjectTotal = 0;
+                    projectRows.forEach(r => dayProjectTotal += (parseFloat(r.hours[i].value) || 0));
+                    return getApprovedLeaveTypeForDay(i) === 'HALF' && dayProjectTotal > 4;
+                }) && (
+                        <div className="mx-4 md:mx-8 mb-2 flex items-center gap-2 bg-red-50 text-red-700 text-[13px] rounded-lg px-4 py-2.5 border border-red-200 font-bold shrink-0">
+                            <span className="text-red-500 font-black">⚠</span>
+                            <span>Maximum allowed work hours for a Half-Day Leave is 4 hours.</span>
+                        </div>
+                    )}
+
+                {/* Error banner — shown when daily hours exceed 24 hours */}
+                {!readOnly && dates.some((_, i) => getDailyTotal(i) > 24) && (
+                    <div className="mx-4 md:mx-8 mb-2 flex items-center gap-2 bg-red-50 text-red-700 text-[13px] rounded-lg px-4 py-2.5 border border-red-200 font-bold shrink-0">
+                        <span className="text-red-500 font-black">⚠</span>
+                        <span>Working hours cannot exceed 24 hours per day.</span>
+                    </div>
+                )}
+
+                {/* Footer Summary */}
+                <div className="bg-white p-3 md:p-2 border-t border-[#D3D1C7] shrink-0">
+                    <div className="flex justify-between sm:justify-end items-center max-w-6xl mx-auto px-4 md:px-8">
+                        <div className="sm:hidden flex flex-col">
+                            <span className="text-[7px] uppercase font-black text-slate-400">Submitting as</span>
+                            <span className="text-[10px] font-bold text-slate-500">Employee</span>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[11px] uppercase font-bold text-[#0C447C] tracking-wider">Total Weekly Hours</p>
+                            <p className="text-[20px] font-medium text-[#185FA5]">
+                                {getGrandTotal().toFixed(2)}
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </div>
             </div>
         </div>
     );

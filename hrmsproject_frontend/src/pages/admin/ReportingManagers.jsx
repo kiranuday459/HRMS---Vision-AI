@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import AdminSidebar from "../../components/AdminSidebar";
 import api from "../../utils/api";
@@ -27,6 +28,20 @@ export default function ReportingManagers() {
   const [selectedEmployeeToAdd, setSelectedEmployeeToAdd] = useState("");
   const [addingMember, setAddingMember] = useState(false);
   const navigate = useNavigate();
+
+  // Add Manager modal state
+  const [isAddManagerModalOpen, setIsAddManagerModalOpen] = useState(false);
+  const [addManagerSearch, setAddManagerSearch] = useState("");
+  const [addManagerEmployees, setAddManagerEmployees] = useState([]);
+  const [addManagerLoading, setAddManagerLoading] = useState(false);
+  const [addManagerSelected, setAddManagerSelected] = useState(null);
+  const [addManagerSaving, setAddManagerSaving] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) {
@@ -64,6 +79,70 @@ export default function ReportingManagers() {
   useEffect(() => {
     fetchAvailableEmployees();
   }, []);
+
+  // Fetch eligible employees for "Add Manager" modal
+  const fetchAddManagerCandidates = async () => {
+    setAddManagerLoading(true);
+    try {
+      const res = await api("/api/employees");
+      const json = await res.json();
+      const list = (json.data || json || [])
+        .filter(e => {
+          const isSystemAdmin = (e.role === 'ADMIN') || (e.firstName === 'System' && e.lastName === 'Admin');
+          const isHR = e.role === 'HR';
+          const isRM = e.role === 'REPORTING_MANAGER';
+          const disabled = e.active === false;
+          return !isSystemAdmin && !isHR && !isRM && !disabled;
+        })
+        .map(e => ({
+          id: e.id,
+          name: `${e.firstName || ''}${e.lastName ? ` ${e.lastName}` : ''}`.trim(),
+          email: e.email || '',
+          corporateEmail: e.corporateEmail || '',
+          oryfolksId: e.oryfolksId || '',
+          designation: e.designation || '',
+        }));
+      // Further filter out anyone already in the managers list
+      const managerIds = new Set(managers.map(m => m.id));
+      setAddManagerEmployees(list.filter(e => !managerIds.has(e.id)));
+    } catch (err) {
+      console.error("Failed to fetch employees for add-manager", err);
+      setAddManagerEmployees([]);
+    } finally {
+      setAddManagerLoading(false);
+    }
+  };
+
+  const openAddManagerModal = () => {
+    setIsAddManagerModalOpen(true);
+    setAddManagerSearch("");
+    setAddManagerSelected(null);
+    fetchAddManagerCandidates();
+  };
+
+  const handlePromoteToManager = async () => {
+    if (!addManagerSelected) return;
+    setAddManagerSaving(true);
+    try {
+      const res = await api(`/api/reporting-managers/promote/${addManagerSelected}`, {
+        method: 'POST',
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || data.error || 'Failed to promote employee');
+      }
+      showToast('Manager added successfully', 'success');
+      setIsAddManagerModalOpen(false);
+      setAddManagerSelected(null);
+      // Refresh the managers list
+      await fetchManagers();
+    } catch (err) {
+      console.error('Promote error:', err);
+      showToast(err.message || 'Failed to add manager', 'error');
+    } finally {
+      setAddManagerSaving(false);
+    }
+  };
 
   const loadDetails = (manager) => {
     if (selected && selected.id === manager.id) return;
@@ -185,7 +264,18 @@ export default function ReportingManagers() {
             <div className="lg:col-span-1 flex flex-col space-y-4">
               <div className="flex items-center justify-between px-2">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/40">Directory List</h3>
-                <span className="text-[10px] font-black text-brand-text/20">{managers.length} Total</span>
+                <div className="flex items-center gap-3">
+                  {/* <span className="text-[10px] font-black text-brand-text/20">{managers.length} Total</span> */}
+                  <button
+                    onClick={openAddManagerModal}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-blue-dark text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-brand-blue/20 hover:brightness-110 active:scale-95 transition-all"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Manager
+                  </button>
+                </div>
               </div>
 
               <div className="bg-white rounded-3xl shadow-xl shadow-brand-blue/5 border border-brand-blue/5 overflow-hidden flex-1 flex flex-col">
@@ -203,42 +293,42 @@ export default function ReportingManagers() {
                     managers.map((m) => {
                       const mDisabled = isDisabled(m);
                       return (
-                      <div
-                        key={m.id}
-                        onClick={() => loadDetails(m)}
-                        className={`group relative cursor-pointer p-4 rounded-2xl transition-all border-2 flex items-center gap-4 ${selected && selected.id === m.id
-                          ? 'bg-brand-blue-dark border-brand-blue text-white shadow-xl shadow-brand-blue/20'
-                          : mDisabled
-                            ? 'bg-[#F1EFE8] border-transparent hover:border-brand-blue/10 text-brand-text'
-                            : 'bg-white border-transparent hover:border-brand-blue/10 hover:bg-gray-50 text-brand-text'
-                          }`}
-                      >
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg shadow-sm transition-all ${selected && selected.id === m.id ? 'bg-white text-brand-text' : mDisabled ? 'bg-[#D3D1C7] text-[#5F5E5A]' : 'bg-brand-blue/5 text-brand-text/30 group-hover:bg-brand-blue group-hover:text-white'
-                          }`}>
-                          {(m.fullName || 'U').slice(0, 1)}
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          <div className="flex items-center gap-2">
-                            <div className={`font-bold text-sm truncate ${mDisabled && !(selected && selected.id === m.id) ? 'text-brand-text/40' : ''}`}>{m.fullName}</div>
-                            {mDisabled && <DisabledBadge />}
-                          </div>
-                          <div className={`text-[10px] font-bold lowercase tracking-wider truncate transition-all ${selected && selected.id === m.id ? 'text-white/60' : 'text-brand-text/40 group-hover:text-brand-text/60'
-                            }`}>
-                            {(m.corporateEmail || "No Email").toLowerCase()}
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => handleDelete(e, m)}
-                          className={`p-2 rounded-lg transition-all ${selected && selected.id === m.id
-                            ? 'text-white/40 hover:text-white hover:bg-white/10'
-                            : 'text-brand-text/20 hover:text-red-500 hover:bg-red-50'
+                        <div
+                          key={m.id}
+                          onClick={() => loadDetails(m)}
+                          className={`group relative cursor-pointer p-4 rounded-2xl transition-all border-2 flex items-center gap-4 ${selected && selected.id === m.id
+                            ? 'bg-brand-blue-dark border-brand-blue text-white shadow-xl shadow-brand-blue/20'
+                            : mDisabled
+                              ? 'bg-[#F1EFE8] border-transparent hover:border-brand-blue/10 text-brand-text'
+                              : 'bg-white border-transparent hover:border-brand-blue/10 hover:bg-gray-50 text-brand-text'
                             }`}
                         >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg shadow-sm transition-all ${selected && selected.id === m.id ? 'bg-white text-brand-text' : mDisabled ? 'bg-[#D3D1C7] text-[#5F5E5A]' : 'bg-brand-blue/5 text-brand-text/30 group-hover:bg-brand-blue group-hover:text-white'
+                            }`}>
+                            {(m.fullName || 'U').slice(0, 1)}
+                          </div>
+                          <div className="flex-1 overflow-hidden">
+                            <div className="flex items-center gap-2">
+                              <div className={`font-bold text-sm truncate ${mDisabled && !(selected && selected.id === m.id) ? 'text-brand-text/40' : ''}`}>{m.fullName}</div>
+                              {mDisabled && <DisabledBadge />}
+                            </div>
+                            <div className={`text-[10px] font-bold lowercase tracking-wider truncate transition-all ${selected && selected.id === m.id ? 'text-white/60' : 'text-brand-text/40 group-hover:text-brand-text/60'
+                              }`}>
+                              {(m.corporateEmail || "No Email").toLowerCase()}
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => handleDelete(e, m)}
+                            className={`p-2 rounded-lg transition-all ${selected && selected.id === m.id
+                              ? 'text-white/40 hover:text-white hover:bg-white/10'
+                              : 'text-brand-text/20 hover:text-red-500 hover:bg-red-50'
+                              }`}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       );
                     })
                   )}
@@ -315,27 +405,27 @@ export default function ReportingManagers() {
                           {selected.team.filter(emp => emp.id !== selected.id).map(emp => {
                             const empDisabled = isDisabled(emp);
                             return (
-                            <div key={emp.id} className={`group p-5 border rounded-[20px] flex items-center gap-4 hover:shadow-xl hover:shadow-brand-blue/5 transition-all hover:-translate-y-0.5 card-hover ${empDisabled ? 'bg-[#F1EFE8] border-brand-blue/5' : 'bg-white border-brand-blue/5'}`}>
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-black transition-colors ${empDisabled ? 'bg-[#D3D1C7] text-[#5F5E5A]' : 'bg-bg-slate text-brand-text/30 group-hover:bg-brand-blue group-hover:text-white'}`}>
-                                {(emp.name || 'U').slice(0, 1)}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <div className={`font-bold truncate text-sm ${empDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.name}</div>
-                                  {empDisabled && <DisabledBadge />}
+                              <div key={emp.id} className={`group p-5 border rounded-[20px] flex items-center gap-4 hover:shadow-xl hover:shadow-brand-blue/5 transition-all hover:-translate-y-0.5 card-hover ${empDisabled ? 'bg-[#F1EFE8] border-brand-blue/5' : 'bg-white border-brand-blue/5'}`}>
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-black transition-colors ${empDisabled ? 'bg-[#D3D1C7] text-[#5F5E5A]' : 'bg-bg-slate text-brand-text/30 group-hover:bg-brand-blue group-hover:text-white'}`}>
+                                  {(emp.name || 'U').slice(0, 1)}
                                 </div>
-                                <div className="text-[10px] font-bold text-brand-text/40 lowercase tracking-widest truncate">{(emp.corporateEmail || "Incomplete Profile").toLowerCase()}</div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <div className={`font-bold truncate text-sm ${empDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.name}</div>
+                                    {empDisabled && <DisabledBadge />}
+                                  </div>
+                                  <div className="text-[10px] font-bold text-brand-text/40 lowercase tracking-widest truncate">{(emp.corporateEmail || "Incomplete Profile").toLowerCase()}</div>
+                                </div>
+                                <button
+                                  onClick={(e) => handleRemoveMember(e, emp.id, emp.name)}
+                                  className="opacity-0 group-hover:opacity-100 p-2 bg-red-50 text-red-500 rounded-lg transition-all hover:bg-red-500 hover:text-white"
+                                  title="Remove from team"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
                               </div>
-                              <button
-                                onClick={(e) => handleRemoveMember(e, emp.id, emp.name)}
-                                className="opacity-0 group-hover:opacity-100 p-2 bg-red-50 text-red-500 rounded-lg transition-all hover:bg-red-500 hover:text-white"
-                                title="Remove from team"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </div>
                             );
                           })}
                         </div>
@@ -350,6 +440,134 @@ export default function ReportingManagers() {
 
         </div>
       </main>
+
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-[200] px-6 py-3 rounded-2xl shadow-2xl font-black text-[10px] uppercase tracking-widest animate-in slide-in-from-right duration-300 ${toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}>
+          {toast.message}
+        </div>
+      )}
+
+      {/* Add Manager Modal */}
+      {isAddManagerModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-brand-blue/40 backdrop-blur-sm" onClick={() => setIsAddManagerModalOpen(false)} />
+
+          <div className="relative bg-white w-full max-w-[500px] rounded-xl shadow-2xl border border-brand-blue/5 flex flex-col max-h-[70vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-4 p-5 border-b border-brand-blue/5">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue-dark">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-brand-text tracking-tight">Add Reporting Manager</h3>
+                  <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-[0.15em] mt-0.5">Promote an employee to manager</p>
+                </div>
+              </div>
+              <button onClick={() => setIsAddManagerModalOpen(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-brand-text/40 hover:bg-bg-slate hover:text-brand-text transition-all">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4 overflow-y-auto">
+              {/* Search */}
+              <div className="relative">
+                <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="M21 21l-4.35-4.35" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search employee by name or ID..."
+                  value={addManagerSearch}
+                  onChange={(e) => setAddManagerSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-[12px] font-medium outline-none focus:border-brand-blue-dark/30 transition-all placeholder:text-brand-text/20"
+                />
+              </div>
+
+              {/* Employee List */}
+              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                {addManagerLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 space-y-3 opacity-30">
+                    <div className="w-8 h-8 border-2 border-brand-blue border-t-transparent rounded-full animate-spin" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest">Loading employees...</p>
+                  </div>
+                ) : (() => {
+                  const searchFiltered = addManagerEmployees.filter(e => {
+                    const term = addManagerSearch.toLowerCase();
+                    return e.name.toLowerCase().includes(term) ||
+                      e.corporateEmail.toLowerCase().includes(term) ||
+                      e.oryfolksId.toLowerCase().includes(term) ||
+                      e.email.toLowerCase().includes(term);
+                  });
+                  if (searchFiltered.length === 0) {
+                    return (
+                      <p className="text-[12px] text-brand-text/40 italic py-8 text-center">
+                        {addManagerEmployees.length === 0
+                          ? 'No eligible employees found'
+                          : 'No employees match your search'}
+                      </p>
+                    );
+                  }
+                  return searchFiltered.map(emp => (
+                    <div
+                      key={emp.id}
+                      onClick={() => setAddManagerSelected(emp.id)}
+                      className={`cursor-pointer p-4 rounded-2xl transition-all border-2 flex items-center gap-4 ${addManagerSelected === emp.id
+                        ? 'bg-brand-blue-dark border-brand-blue text-white shadow-xl shadow-brand-blue/20'
+                        : 'bg-white border-transparent hover:border-brand-blue/10 hover:bg-gray-50 text-brand-text'
+                        }`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shadow-sm transition-all ${addManagerSelected === emp.id
+                        ? 'bg-white text-brand-text'
+                        : 'bg-brand-blue/5 text-brand-text/30'
+                        }`}>
+                        {(emp.name || 'U').slice(0, 1)}
+                      </div>
+                      <div className="flex-1 overflow-hidden">
+                        <div className="font-bold text-sm truncate">{emp.name}</div>
+                        <div className={`text-[10px] font-bold lowercase tracking-wider truncate transition-all ${addManagerSelected === emp.id ? 'text-white/60' : 'text-brand-text/40'
+                          }`}>
+                          {[emp.oryfolksId, emp.corporateEmail || emp.email].filter(Boolean).join(' · ') || '—'}
+                        </div>
+                      </div>
+                      {addManagerSelected === emp.id && (
+                        <svg className="w-5 h-5 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 p-5 border-t border-brand-blue/5">
+              <button
+                onClick={() => setIsAddManagerModalOpen(false)}
+                className="px-5 py-2.5 rounded-lg text-[12px] font-black uppercase tracking-widest text-brand-text/60 hover:bg-bg-slate transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePromoteToManager}
+                disabled={!addManagerSelected || addManagerSaving}
+                className="px-6 py-2.5 rounded-lg bg-brand-blue-dark text-white text-[12px] font-black uppercase tracking-widest shadow-lg shadow-brand-blue/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {addManagerSaving ? 'Promoting...' : 'Add as Manager'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

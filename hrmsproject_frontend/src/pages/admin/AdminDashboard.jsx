@@ -450,51 +450,51 @@ export default function AdminDashboard() {
         <main className="flex-1 flex flex-col min-w-0">
           <header className="sticky top-0 z-30 bg-white py-4 px-4 md:px-6 flex flex-wrap items-center justify-between shadow-sm border-b border-[#E3E8EF] w-full">
             {activeTab === "leave-requests" ? (
-                <div className="flex items-center md:gap-16 gap-6">
-                  <div className="hidden sm:block">
-                    <h1 className="text-xl font-black text-[#2C2C2A] tracking-tight whitespace-nowrap">Leave Records</h1>
-                    <p className="text-[9px] font-black text-[#888780] uppercase tracking-[0.2em] mt-0.5 whitespace-nowrap">Enterprise Management</p>
+              <div className="flex items-center md:gap-16 gap-6">
+                <div className="hidden sm:block">
+                  <h1 className="text-xl font-black text-[#2C2C2A] tracking-tight whitespace-nowrap">Leave Records</h1>
+                  <p className="text-[9px] font-black text-[#888780] uppercase tracking-[0.2em] mt-0.5 whitespace-nowrap">Enterprise Management</p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <div className="relative group w-full sm:w-48 md:w-64">
+                    <input
+                      type="text"
+                      placeholder="Search by employee name..."
+                      value={leaveSearch}
+                      onChange={(e) => setLeaveSearch(e.target.value)}
+                      className="w-full h-[38px] bg-[#F4F6FA] border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 pl-9 text-xs font-bold text-[#2C2C2A] outline-none transition-all"
+                    />
+                    <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#888780]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
                   </div>
-                  <div className="flex flex-col sm:flex-row items-center gap-2">
-                    <div className="relative group w-full sm:w-48 md:w-64">
-                      <input
-                        type="text"
-                        placeholder="Search by employee name..."
-                        value={leaveSearch}
-                        onChange={(e) => setLeaveSearch(e.target.value)}
-                        className="w-full h-[38px] bg-[#F4F6FA] border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 pl-9 text-xs font-bold text-[#2C2C2A] outline-none transition-all"
-                      />
-                      <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#888780]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </div>
-                    <div className="flex bg-bg-slate/50 p-1 rounded-xl">
-                      {["ALL", "MANAGERS", "HR"].map((role) => (
-                        <button
-                          key={role}
-                          onClick={() => setLeaveRoleFilter(role)}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${leaveRoleFilter === role ? "bg-brand-blue-dark text-white shadow-md" : "text-brand-text/40 hover:text-brand-text hover:bg-white"}`}
-                        >
-                          {role}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label htmlFor="admin-leave-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
-                      <select
-                        id="admin-leave-status-filter"
-                        value={leaveStatusFilter}
-                        onChange={(e) => setLeaveStatusFilter(e.target.value)}
-                        className="h-[38px] rounded-xl border border-[#E3E8EF] bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 shadow-sm"
+                  <div className="flex bg-bg-slate/50 p-1 rounded-xl">
+                    {["ALL", "MANAGERS", "HR"].map((role) => (
+                      <button
+                        key={role}
+                        onClick={() => setLeaveRoleFilter(role)}
+                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${leaveRoleFilter === role ? "bg-brand-blue-dark text-white shadow-md" : "text-brand-text/40 hover:text-brand-text hover:bg-white"}`}
                       >
-                        <option>All</option>
-                        <option>Pending</option>
-                        <option>Approved</option>
-                        <option>Rejected</option>
-                      </select>
-                    </div>
+                        {role}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="admin-leave-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
+                    <select
+                      id="admin-leave-status-filter"
+                      value={leaveStatusFilter}
+                      onChange={(e) => setLeaveStatusFilter(e.target.value)}
+                      className="h-[38px] rounded-xl border border-[#E3E8EF] bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 shadow-sm"
+                    >
+                      <option>All</option>
+                      <option>Pending</option>
+                      <option>Approved</option>
+                      <option>Rejected</option>
+                    </select>
                   </div>
                 </div>
+              </div>
             ) : (
               // ─── DEFAULT / HR BAR ───
               <>
@@ -553,23 +553,23 @@ export default function AdminDashboard() {
                 </div>
                 {/* ROW 2 - Quick Actions | Workforce Pulse | Absence Monitor (3 equal columns) */}
                 <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-4 pb-2">
-                {/* Column 1 - Quick Actions (vertical stack) */}
-                <div className="bg-white/40 backdrop-blur-md rounded-[32px] p-5 border border-white/50 shadow-xl shadow-brand-blue/5 min-h-0 overflow-y-auto flex flex-col gap-4">
-                  <div className="flex flex-col shrink-0">
-                    <h3 className="text-brand-text text-xl font-black leading-tight tracking-tight">Quick Actions</h3>
-                    <p className="text-brand-text/20 text-[9px] font-bold uppercase tracking-[0.2em] mt-1">Administrative provision tools</p>
-                  </div>
-                  <div className="flex flex-col gap-3 w-full">
-                    <button onClick={() => handleQuickAction("add-employee")} className="group bg-white/90 hover:bg-brand-blue p-3 rounded-2xl flex items-center gap-3 transition-all duration-300 shadow-sm hover:shadow-xl border border-brand-blue/10 w-full">
-                      <div className="w-12 h-12 rounded-xl bg-brand-blue/5 flex items-center justify-center text-brand-text group-hover:bg-white/10 group-hover:text-white transition-colors">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-                      </div>
-                      <div className="text-left">
-                        <p className="text-xs font-black text-brand-text uppercase tracking-widest group-hover:text-white leading-none">Add Employee</p>
-                        <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest mt-1.5 group-hover:text-white/40">New Entry</p>
-                      </div>
-                    </button>
-                    {/* <button onClick={() => handleQuickAction("create-hr")} className="group bg-white/90 hover:bg-emerald-500 p-4 rounded-2xl flex items-center gap-4 transition-all duration-300 shadow-sm hover:shadow-xl border border-emerald-500/10 flex-1">
+                  {/* Column 1 - Quick Actions (vertical stack) */}
+                  <div className="bg-white/40 backdrop-blur-md rounded-[32px] p-5 border border-white/50 shadow-xl shadow-brand-blue/5 min-h-0 overflow-y-auto flex flex-col gap-4">
+                    <div className="flex flex-col shrink-0">
+                      <h3 className="text-brand-text text-xl font-black leading-tight tracking-tight">Quick Actions</h3>
+                      <p className="text-brand-text/20 text-[9px] font-bold uppercase tracking-[0.2em] mt-1">Administrative provision tools</p>
+                    </div>
+                    <div className="flex flex-col gap-3 w-full">
+                      <button onClick={() => handleQuickAction("add-employee")} className="group bg-white/90 hover:bg-brand-blue p-3 rounded-2xl flex items-center gap-3 transition-all duration-300 shadow-sm hover:shadow-xl border border-brand-blue/10 w-full">
+                        <div className="w-12 h-12 rounded-xl bg-brand-blue/5 flex items-center justify-center text-brand-text group-hover:bg-white/10 group-hover:text-white transition-colors">
+                          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black text-brand-text uppercase tracking-widest group-hover:text-white leading-none">Add Employee</p>
+                          <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest mt-1.5 group-hover:text-white/40">New Entry</p>
+                        </div>
+                      </button>
+                      {/* <button onClick={() => handleQuickAction("create-hr")} className="group bg-white/90 hover:bg-emerald-500 p-4 rounded-2xl flex items-center gap-4 transition-all duration-300 shadow-sm hover:shadow-xl border border-emerald-500/10 flex-1">
                       <div className="w-12 h-12 rounded-xl bg-emerald-500/5 flex items-center justify-center text-emerald-500 group-hover:bg-white/10 group-hover:text-white transition-colors">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                       </div>
@@ -578,26 +578,26 @@ export default function AdminDashboard() {
                         <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest mt-1.5 group-hover:text-white/40">Access Level</p>
                       </div>
                     </button> */}
-                    <button onClick={handleOpenReportingManagerModal} className="group bg-white/90 hover:bg-indigo-500 p-3 rounded-2xl flex items-center gap-3 transition-all duration-300 shadow-sm hover:shadow-xl border border-indigo-500/10 w-full">
-                      <div className="w-12 h-12 rounded-xl bg-indigo-500/5 flex items-center justify-center text-indigo-500 group-hover:bg-white/10 group-hover:text-white transition-colors">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                      </div>
-                      <div className="text-left">
-                        <p className="text-xs font-black text-brand-text uppercase tracking-widest group-hover:text-white leading-none">Add Reporting Manager</p>
-                        <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest mt-1.5 group-hover:text-white/40">Team Oversight</p>
-                      </div>
-                    </button>
-                    <button onClick={() => setIsAssignHrModalOpen(true)} className="group bg-white/90 hover:bg-brand-blue-dark p-3 rounded-2xl flex items-center gap-3 transition-all duration-300 shadow-sm hover:shadow-xl border border-brand-blue/10 w-full">
-                      <div className="w-12 h-12 rounded-xl bg-brand-blue/5 flex items-center justify-center text-brand-blue-dark group-hover:bg-white/10 group-hover:text-white transition-colors">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                      </div>
-                      <div className="text-left">
-                        <p className="text-xs font-black text-brand-text uppercase tracking-widest group-hover:text-white leading-none">Assign Employees to HR</p>
-                        <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest mt-1.5 group-hover:text-white/40">HR Routing</p>
-                      </div>
-                    </button>
+                      <button onClick={handleOpenReportingManagerModal} className="group bg-white/90 hover:bg-indigo-500 p-3 rounded-2xl flex items-center gap-3 transition-all duration-300 shadow-sm hover:shadow-xl border border-indigo-500/10 w-full">
+                        <div className="w-12 h-12 rounded-xl bg-indigo-500/5 flex items-center justify-center text-indigo-500 group-hover:bg-white/10 group-hover:text-white transition-colors">
+                          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black text-brand-text uppercase tracking-widest group-hover:text-white leading-none"> Assign Employees to RM</p>
+                          <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest mt-1.5 group-hover:text-white/40">Team Oversight</p>
+                        </div>
+                      </button>
+                      <button onClick={() => setIsAssignHrModalOpen(true)} className="group bg-white/90 hover:bg-brand-blue-dark p-3 rounded-2xl flex items-center gap-3 transition-all duration-300 shadow-sm hover:shadow-xl border border-brand-blue/10 w-full">
+                        <div className="w-12 h-12 rounded-xl bg-brand-blue/5 flex items-center justify-center text-brand-blue-dark group-hover:bg-white/10 group-hover:text-white transition-colors">
+                          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black text-brand-text uppercase tracking-widest group-hover:text-white leading-none">Assign Employees to HR</p>
+                          <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest mt-1.5 group-hover:text-white/40">HR Routing</p>
+                        </div>
+                      </button>
+                    </div>
                   </div>
-                </div>
                   {/* Column 2 - Workforce Pulse */}
                   <div className="bg-white rounded-[32px] p-5 shadow-2xl shadow-brand-blue/5 border border-brand-blue/5 flex flex-col relative min-h-0 overflow-y-auto group">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-brand-blue/[0.01] rounded-bl-full pointer-events-none" />
@@ -794,43 +794,43 @@ export default function AdminDashboard() {
                           );
                         }
                         return filtered.map((leave) => (
-                        <div key={leave.id} className="bg-bg-slate/40 rounded-2xl p-4 border border-brand-blue/5 space-y-4">
-                          <div className="flex justify-between items-start">
-                            <div className="flex flex-col">
-                              <span className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest">#{leave.id}</span>
-                              <span className="text-base font-black text-brand-text tracking-tight uppercase">{leave.employeeName}</span>
-                            </div>
-                            <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${leave.status === 'PENDING' ? 'bg-brand-yellow/10 text-brand-yellow-dark border-brand-yellow/20' : leave.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-                              {leave.status}
-                            </span>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            <span className="px-2 py-0.5 bg-brand-blue/5 text-brand-text text-[8px] font-black uppercase tracking-widest rounded-md border border-brand-blue/10">{leave.leaveType}</span>
-                            <span className="px-2 py-0.5 bg-brand-yellow/20 text-brand-text text-[8px] font-black rounded-md">{formatLeaveDuration(leave.daysCount != null ? leave.daysCount : calculateLeaveDays(leave.startDate, leave.endDate))}</span>
-                          </div>
-
-                          <div className="flex justify-between items-center text-[10px] font-black text-brand-text/60">
-                            <div className="flex items-center gap-1.5">
-                              <CalendarIconSVG size={12} />
-                              <span>{formatDate(leave.startDate)} - {formatDate(leave.endDate)}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex gap-2 pt-2">
-                            <button onClick={() => { setSelectedLeave(leave); setIsDetailsModalOpen(true); }} className="flex-1 py-2.5 bg-brand-blue/5 text-brand-text rounded-xl flex items-center justify-center hover:bg-brand-blue-dark hover:text-white transition-all" title="View Details" aria-label="View Details"><Eye size={16} /></button>
-                            {leave.status === 'PENDING' && (
-                              <div className="flex-1 flex items-center justify-end gap-2">
-                                <LeaveDecisionButtons
-                                  onApprove={() => handleApproveClick(leave.id)}
-                                  onReject={() => handleRejectClick(leave.id)}
-                                />
+                          <div key={leave.id} className="bg-bg-slate/40 rounded-2xl p-4 border border-brand-blue/5 space-y-4">
+                            <div className="flex justify-between items-start">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest">#{leave.id}</span>
+                                <span className="text-base font-black text-brand-text tracking-tight uppercase">{leave.employeeName}</span>
                               </div>
-                            )}
+                              <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${leave.status === 'PENDING' ? 'bg-brand-yellow/10 text-brand-yellow-dark border-brand-yellow/20' : leave.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                                {leave.status}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              <span className="px-2 py-0.5 bg-brand-blue/5 text-brand-text text-[8px] font-black uppercase tracking-widest rounded-md border border-brand-blue/10">{leave.leaveType}</span>
+                              <span className="px-2 py-0.5 bg-brand-yellow/20 text-brand-text text-[8px] font-black rounded-md">{formatLeaveDuration(leave.daysCount != null ? leave.daysCount : calculateLeaveDays(leave.startDate, leave.endDate))}</span>
+                            </div>
+
+                            <div className="flex justify-between items-center text-[10px] font-black text-brand-text/60">
+                              <div className="flex items-center gap-1.5">
+                                <CalendarIconSVG size={12} />
+                                <span>{formatDate(leave.startDate)} - {formatDate(leave.endDate)}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 pt-2">
+                              <button onClick={() => { setSelectedLeave(leave); setIsDetailsModalOpen(true); }} className="flex-1 py-2.5 bg-brand-blue/5 text-brand-text rounded-xl flex items-center justify-center hover:bg-brand-blue-dark hover:text-white transition-all" title="View Details" aria-label="View Details"><Eye size={16} /></button>
+                              {leave.status === 'PENDING' && (
+                                <div className="flex-1 flex items-center justify-end gap-2">
+                                  <LeaveDecisionButtons
+                                    onApprove={() => handleApproveClick(leave.id)}
+                                    onReject={() => handleRejectClick(leave.id)}
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))
-                    })()}
+                        ))
+                      })()}
                     </div>
                   </div>
                 </div>
