@@ -245,6 +245,18 @@ export const validateFileUpload = (file) => {
     };
   }
 
+  // Allowed file types: .pdf, .zip, .doc, .docx, .jpg, .jpeg, .png
+  const allowedExtensions = ['pdf', 'zip', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
+  const fileName = file.name || '';
+  const fileExtension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
+
+  if (!allowedExtensions.includes(fileExtension)) {
+    return {
+      isValid: false,
+      error: "Unsupported file type. Upload PDF, ZIP, Word, JPG, JPEG, or PNG files only."
+    };
+  }
+
   // Maximum file size: 5 MB
   const maxSizeInMB = 5;
   const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
@@ -252,35 +264,7 @@ export const validateFileUpload = (file) => {
   if (file.size > maxSizeInBytes) {
     return {
       isValid: false,
-      error: "File size must not exceed 5MB."
-    };
-  }
-
-  // Allowed file types
-  const allowedExtensions = ['pdf', 'zip', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
-  const fileExtension = file.name.split('.').pop().toLowerCase();
-
-  if (!allowedExtensions.includes(fileExtension)) {
-    return {
-      isValid: false,
-      error: "Only PDF, ZIP, Word, JPG, and PNG files are accepted."
-    };
-  }
-
-  // Check MIME type for extra validation
-  const allowedMimeTypes = [
-    'application/pdf',
-    'application/zip',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'image/jpeg',
-    'image/png'
-  ];
-
-  if (!allowedMimeTypes.includes(file.type)) {
-    return {
-      isValid: false,
-      error: "Only PDF, ZIP, Word, JPG, and PNG files are accepted."
+      error: "File size exceeded. Upload file <= 5 MB."
     };
   }
 
@@ -289,7 +273,7 @@ export const validateFileUpload = (file) => {
     error: null,
     file: file,
     maxSizeInMB: maxSizeInMB,
-    allowedFormats: ['PDF', 'ZIP', 'DOC', 'DOCX', 'JPG', 'PNG']
+    allowedFormats: ['PDF', 'ZIP', 'DOC', 'DOCX', 'JPG', 'JPEG', 'PNG']
   };
 };
 

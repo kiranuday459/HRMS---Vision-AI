@@ -17,7 +17,8 @@ import {
   sanitizePAN,
   sanitizePassport,
   EMERGENCY_RELATIONSHIPS,
-  validateEmergencyRelationship
+  validateEmergencyRelationship,
+  validateFileUpload
 } from "../../utils/formValidation";
 import { FormFieldError, CharacterCounter } from "../../components/FormValidation";
 import "../../styles/formValidation.css";
@@ -898,8 +899,9 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
   const handleFileUpload = async (category, event, isFixed = false) => {
     const file = event.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File size exceeds 5MB limit. Please select a file smaller than 5MB.");
+      const validation = validateFileUpload(file);
+      if (!validation.isValid) {
+        alert(validation.error);
         event.target.value = null;
         return;
       }
@@ -938,7 +940,10 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
           body: formData
         });
 
-        if (!res.ok) throw new Error("Upload failed");
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.message || "Upload failed");
+        }
 
         const json = await res.json();
         const savedDoc = json.data;
