@@ -24,7 +24,8 @@ import {
     sanitizePAN,
     sanitizePassport,
     EMERGENCY_RELATIONSHIPS,
-    validateEmergencyRelationship
+    validateEmergencyRelationship,
+    validateFileUpload
 } from "../../utils/formValidation";
 import { FormFieldError, CharacterCounter } from "../../components/FormValidation";
 import "../../styles/formValidation.css";
@@ -495,8 +496,9 @@ export default function EmployeeProfile() {
   const handleFileUpload = async (category, event, isFixed = false) => {
     const file = event.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File size exceeds 5MB limit. Please select a file smaller than 5MB.");
+      const validation = validateFileUpload(file);
+      if (!validation.isValid) {
+        alert(validation.error);
         event.target.value = null;
         return;
       }

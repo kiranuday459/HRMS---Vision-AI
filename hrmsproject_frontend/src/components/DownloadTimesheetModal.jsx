@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { X, Search, Download, Calendar, CheckSquare, Square } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { X, Search, Download, Calendar, CheckSquare, Square, Filter, Clock } from "lucide-react";
 import api from "../utils/api";
 import { toast } from "react-toastify";
 import ExcelJS from "exceljs";
@@ -13,6 +13,10 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
     const [searchTerm, setSearchTerm] = useState("");
     const [generating, setGenerating] = useState(false);
     const [memberType, setMemberType] = useState("ALL");
+    const [workLocation, setWorkLocation] = useState("ALL");
+    const [billingType, setBillingType] = useState("ALL");
+    const [allTimesheetRecords, setAllTimesheetRecords] = useState([]);
+    const [loadingRecords, setLoadingRecords] = useState(false);
     const [errors, setErrors] = useState({});
     const [info, setInfo] = useState("");
     const [joiningDates, setJoiningDates] = useState({});
@@ -23,6 +27,19 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
         { value: "REPORTING_MANAGER", label: "Reporting Managers Only" },
         { value: "HR", label: "HR Only" },
     ];
+
+    const WORK_LOCATION_OPTIONS = [
+        { value: "ALL", label: "All" },
+        { value: "ONSITE", label: "Onsite" },
+        { value: "OFFSHORE", label: "Offshore" },
+    ];
+
+    const BILLING_TYPE_OPTIONS = [
+        { value: "ALL", label: "All" },
+        { value: "BILLABLE", label: "Billable" },
+        { value: "NON_BILLABLE", label: "Non-Billable" },
+    ];
+
     // Role-eligible members for the chosen "Download For" type (Admins already excluded above).
     const roleEligible = (employees || []).filter(
         (e) => memberType === "ALL" || (e.role || "").toUpperCase() === memberType
@@ -38,6 +55,28 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
         return null;
     };
     const clearError = (key) => setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+
+    // Fetch approved timesheet records when modal is opened
+    useEffect(() => {
+        if (!isOpen) return;
+        let cancelled = false;
+        setLoadingRecords(true);
+        (async () => {
+            try {
+                const res = await api(`/api/timesheets?status=APPROVED&size=10000`);
+                if (res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    const list = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+                    if (!cancelled) setAllTimesheetRecords(list);
+                }
+            } catch (err) {
+                console.warn("Failed to fetch timesheet records for filter calculation:", err);
+            } finally {
+                if (!cancelled) setLoadingRecords(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isOpen]);
 
     // Fetch joining dates for selected employees so the From Date can't precede them.
     useEffect(() => {
@@ -70,6 +109,90 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
     const selectedJoining = selectedIds.map((id) => joiningDates[id]).filter(Boolean);
     const minFromDate = selectedJoining.length ? selectedJoining.reduce((m, d) => (d < m ? d : m)) : MIN_DATE;
     const formatDMY = (ymd) => { if (!ymd) return ""; const [y, m, d] = ymd.split("-"); return `${d}-${m}-${y}`; };
+
+    // Helper: Local date parser
+    const parseLocalDate = (dateStr) => {
+        if (!dateStr) return null;
+        const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+        return new Date(year, month - 1, day);
+    };
+
+    // Helper: Matches Work Location
+    const matchesWorkLocation = (entry, locFilter) => {
+        if (!locFilter || locFilter === "ALL") return true;
+        const loc = String(entry.onsiteOffshore || entry.workLocation || entry.location || "").toUpperCase();
+        if (locFilter === "ONSITE") {
+            return loc.includes("ONSITE") || loc.includes("ONSHORE") || loc === "ON";
+        }
+        if (locFilter === "OFFSHORE") {
+            return loc.includes("OFFSHORE") || loc === "OFF";
+        }
+        return true;
+    };
+
+    // Helper: Matches Billing Type
+    const matchesBillingType = (entry, billFilter) => {
+        if (!billFilter || billFilter === "ALL") return true;
+        
+        let isBillable = entry.billable;
+        if (isBillable === undefined || isBillable === null) {
+            const bType = String(entry.billType || entry.billingType || "").toUpperCase();
+            if (bType.includes("NON")) {
+                isBillable = false;
+            } else if (bType.includes("BILLABLE")) {
+                isBillable = true;
+            } else {
+                isBillable = true;
+            }
+        }
+        
+        if (billFilter === "BILLABLE") {
+            return isBillable === true || isBillable === "true";
+        }
+        if (billFilter === "NON_BILLABLE") {
+            return isBillable === false || isBillable === "false";
+        }
+        return true;
+    };
+
+    // Filtered entries calculation for real-time recalculation
+    const filteredEntries = useMemo(() => {
+        if (!allTimesheetRecords || allTimesheetRecords.length === 0) return [];
+        const startLimit = fromDate ? parseLocalDate(fromDate) : null;
+        const endLimit = toDate ? parseLocalDate(toDate) : null;
+
+        return allTimesheetRecords.filter(entry => {
+            if (!entry.date) return false;
+            const statusUpper = (entry.status || "").toUpperCase();
+            if (statusUpper !== "APPROVED") return false;
+
+            // Selected employees filter
+            if (selectedIds.length > 0 && !selectedIds.some(id => String(id) === String(entry.employeeId))) {
+                return false;
+            }
+
+            // Date range filter
+            const d = parseLocalDate(entry.date);
+            if (startLimit && d < startLimit) return false;
+            if (endLimit && d > endLimit) return false;
+
+            // Work Location filter
+            if (!matchesWorkLocation(entry, workLocation)) return false;
+
+            // Billing Type filter
+            if (!matchesBillingType(entry, billingType)) return false;
+
+            return true;
+        });
+    }, [allTimesheetRecords, fromDate, toDate, selectedIds, workLocation, billingType]);
+
+    // Recalculated Total Weekly Hours
+    const totalWeeklyHours = useMemo(() => {
+        return filteredEntries.reduce((sum, entry) => {
+            const hrs = parseFloat(entry.totalHours);
+            return sum + (isNaN(hrs) ? 0 : hrs);
+        }, 0);
+    }, [filteredEntries]);
 
     // Switching the "Download For" type prunes any selections no longer in the filtered list.
     const handleMemberTypeChange = (value) => {
@@ -148,21 +271,12 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
         try {
             setGenerating(true);
 
-            // Fetch a broad set of data using the working dashboard pattern to avoid 500 errors
+            // Fetch leaves and holidays for the period
             const year = new Date(fromDate).getFullYear();
-            const [res, leavesRes, holidaysRes] = await Promise.all([
-                api(`/api/timesheets?status=APPROVED&size=10000`),
+            const [leavesRes, holidaysRes] = await Promise.all([
                 api(`/api/leaves`),
                 api(`/api/holidays/year/${year}`)
             ]);
-
-            let allRecords = [];
-            if (res.ok) {
-                const data = await res.json().catch(() => ({}));
-                allRecords = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
-            } else {
-                toast.error(`Communication breakdown (${res.status}). generating placeholder report.`);
-            }
 
             let allLeaves = [];
             if (leavesRes.ok) {
@@ -176,33 +290,14 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                 allHolidays = Array.isArray(data.data) ? data.data : [];
             }
 
-            // Perform date filtering on the client side for maximum reliability
-            // PERFORM LOCAL DATE PARSING TO AVOID TIMEZONE SHIFTS (treat YYYY-MM-DD as local midnight)
-            const parseLocalDate = (dateStr) => {
-                if (!dateStr) return null;
-                const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
-                return new Date(year, month - 1, day);
-            };
-
             const startLimit = parseLocalDate(fromDate);
             const endLimit = parseLocalDate(toDate);
 
-            const dateFilteredEntries = allRecords.filter(entry => {
-                if (!entry.date) return false;
-                const d = parseLocalDate(entry.date);
-                if (startLimit && d < startLimit) return false;
-                if (endLimit && d > endLimit) return false;
-                // Strict status check: only APPROVED timesheets can be exported as finalized work hours
-                const statusUpper = (entry.status || "").toUpperCase();
-                if (statusUpper !== "APPROVED") return false;
-                return true;
-            });
+            // Empty range or unapproved range check
+            const hasData = filteredEntries.length > 0;
+            setInfo(hasData ? "" : "No approved timesheet submissions found for this period and filter selection. An empty timesheet template will be downloaded.");
 
-            // Empty range or unapproved range — an empty/template timesheet is still generated.
-            const hasData = dateFilteredEntries.some((e) => selectedIds.some(id => String(id) === String(e.employeeId)));
-            setInfo(hasData ? "" : "No approved timesheet submissions found for this period. An empty timesheet template will be downloaded.");
-
-            // Generate a continuous list of dates between fromDate and toDate in LOCAL time
+            // Generate continuous list of dates between fromDate and toDate in LOCAL time
             const dateSequence = [];
             if (startLimit && endLimit) {
                 let curr = new Date(startLimit);
@@ -230,12 +325,12 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                 )
             );
 
-            // Generate standard multi-tab / single-tab timesheet Excel workbook
+            // Generate Excel workbook passing the exact filtered entries matching selected filters
             await generateTimesheetExcel({
                 dateSequence,
                 selectedIds,
                 employees,
-                dateFilteredEntries,
+                dateFilteredEntries: filteredEntries,
                 allLeaves,
                 allHolidays,
                 fromDate,
@@ -246,7 +341,7 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
 
             // Notify download (optional background notification)
             try {
-                const filterStr = `Date Range: ${fromDate} to ${toDate} | Role Filter: ${memberType} | Selected Employees Count: ${selectedIds.length}`;
+                const filterStr = `Date Range: ${fromDate} to ${toDate} | Role: ${memberType} | Location: ${workLocation} | Billing: ${billingType} | Employees: ${selectedIds.length}`;
                 api("/api/timesheets/download-notification", {
                     method: "POST",
                     body: JSON.stringify({
@@ -289,8 +384,8 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                     <button onClick={onClose} className="p-2 hover:bg-brand-blue/5 rounded-xl transition-all"><X size={20} /></button>
                 </div>
 
-                <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                    {/* Date Selection */}
+                <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    {/* Date & Download For Selection */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest ml-1">From Date</label>
@@ -333,6 +428,60 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                                     <option key={m.value} value={m.value}>{m.label}</option>
                                 ))}
                             </select>
+                        </div>
+                    </div>
+
+                    {/* Work Location & Billing Type Filters */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest ml-1">Work Location</label>
+                            <select
+                                value={workLocation}
+                                onChange={(e) => setWorkLocation(e.target.value)}
+                                className="w-full bg-bg-slate/50 border-2 border-transparent focus:border-brand-yellow rounded-2xl p-3.5 text-sm font-bold text-brand-text outline-none transition-all"
+                            >
+                                {WORK_LOCATION_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest ml-1">Billing Type</label>
+                            <select
+                                value={billingType}
+                                onChange={(e) => setBillingType(e.target.value)}
+                                className="w-full bg-bg-slate/50 border-2 border-transparent focus:border-brand-yellow rounded-2xl p-3.5 text-sm font-bold text-brand-text outline-none transition-all"
+                            >
+                                {BILLING_TYPE_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Live Filter Summary & Total Weekly Hours Recalculation Badge */}
+                    <div className="bg-bg-slate/50 border border-brand-blue/10 rounded-2xl p-4 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
+                                <Filter size={18} />
+                            </div>
+                            <div>
+                                <span className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest block">Filtered Records</span>
+                                <span className="text-xs font-black text-brand-text">
+                                    {loadingRecords ? "Calculating..." : `${filteredEntries.length} record(s)`}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 text-right">
+                            <div className="w-9 h-9 rounded-xl bg-brand-yellow/20 flex items-center justify-center text-brand-text">
+                                <Clock size={18} />
+                            </div>
+                            <div>
+                                <span className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest block">Total Weekly Hours</span>
+                                <span className="text-sm font-black text-brand-blue-dark">
+                                    {loadingRecords ? "..." : `${totalWeeklyHours.toFixed(1)} hrs`}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
