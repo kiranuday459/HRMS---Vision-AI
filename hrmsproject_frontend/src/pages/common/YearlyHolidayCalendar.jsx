@@ -141,13 +141,13 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
 
     return createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 lg:p-8 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[36px] w-full max-w-4xl max-h-[90vh] lg:h-[540px] overflow-hidden shadow-[0_32px_128px_-16px_rgba(0,0,0,0.2)] flex flex-col md:flex-row border border-white/40">
+            <div className="bg-white rounded-[36px] w-full max-w-3xl max-h-[90vh] lg:h-[440px] overflow-hidden shadow-[0_32px_128px_-16px_rgba(0,0,0,0.2)] flex flex-col md:flex-row border border-white/40">
 
                 {/* Left Sidebar - Illustration & Status */}
                 <div className="w-full md:w-72 lg:w-80 bg-[#e8f0fe] h-full p-6 lg:p-7 flex flex-col justify-between border-r border-slate-100 hidden md:flex shrink-0">
                     <div className="w-full">
-                        <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-1">Japanese Holiday Calendar</h2>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">Japan public holidays for the selected year</p>
+                        <h2 className="text-xl font-black text-slate-800 tracking-tight mb-1">Japanese Holiday Calendar</h2>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-5">Japan public holidays for the selected year</p>
 
                         {/* Status Cards */}
                         <div className="space-y-3 w-full">
@@ -186,7 +186,7 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                     </div>
 
                     {/* Footer Info */}
-                    <div className="w-full pt-3.5 border-t border-slate-200/50 mt-4">
+                    {/* <div className="w-full pt-3.5 border-t border-slate-200/50 mt-4">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-xl bg-white border border-slate-100 flex items-center justify-center shadow-sm shrink-0">
                                 <MapPin size={16} className="text-slate-400" />
@@ -196,7 +196,7 @@ export default function YearlyHolidayCalendar({ isOpen, onClose }) {
                                 <p className="text-[8px] font-bold text-slate-400 mt-0.5 uppercase">Standard Policy Applied</p>
                             </div>
                         </div>
-                    </div>
+                    </div> */}
                 </div>
 
                 {/* Main Content Pane */}

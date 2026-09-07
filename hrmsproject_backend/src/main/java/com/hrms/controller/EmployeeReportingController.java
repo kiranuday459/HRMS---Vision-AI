@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import com.hrms.dto.EmployeeReportingRequest;
+import com.hrms.model.Employee;
 import com.hrms.model.EmployeeReporting;
 
 @RestController
@@ -59,7 +60,11 @@ public class EmployeeReportingController {
 
     @PostMapping("/promote/{id}")
     public ResponseEntity<?> promoteToManager(@PathVariable("id") Long id) {
-        service.promoteToManager(id);
+        Employee promoted = service.promoteToManager(id);
+        if (promoted == null) {
+            return ResponseEntity.badRequest()
+                    .body(java.util.Map.of("message", "Failed to promote employee to Reporting Manager"));
+        }
         return ResponseEntity.ok(java.util.Map.of("message", "Promoted to Manager successfully"));
     }
 

@@ -46,6 +46,8 @@ export default function AuditLogsTab() {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    // employeeId → EmployeeDTO, for the Employee ID column (oryfolksId).
+    const [employeeById, setEmployeeById] = useState(new Map());
 
     const fetchLogs = useCallback(async () => {
         try {
@@ -66,6 +68,20 @@ export default function AuditLogsTab() {
 
     useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await api("/api/employees");
+                if (!res.ok) return;
+                const json = await res.json().catch(() => ({}));
+                const list = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+                setEmployeeById(new Map(list.map((e) => [e.id, e])));
+            } catch (err) {
+                console.error("Error fetching employees for audit log Employee ID column:", err);
+            }
+        })();
+    }, []);
+
     // Employee or project, matching the search on the Assigned Members and Timesheets tabs.
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -85,14 +101,14 @@ export default function AuditLogsTab() {
                 move the search box. Refresh no longer needs ml-auto now that the row itself is
                 right-aligned. */}
             <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
-                <button
+                {/* <button
                     onClick={fetchLogs}
                     disabled={loading}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#E3E8EF] bg-white text-[11px] font-black uppercase tracking-widest text-brand-text/60 hover:text-brand-text hover:border-brand-blue/20 transition-all disabled:opacity-40"
                 >
                     <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
                     Refresh
-                </button>
+                </button> */}
                 {/* Fixed w-64, matching the search inputs on the Assigned Members tab. It used to
                     be flex-1, which stretched it across the whole row — far wider than the query
                     it holds. */}
@@ -114,13 +130,14 @@ export default function AuditLogsTab() {
                     scrollbar below the fold — reachable only after scrolling to the very bottom.
                     Same fix as the Assigned Members table. */}
                 <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse min-w-[820px]">
+                    <table className="w-full text-left border-collapse min-w-[920px]">
                         {/* Sticky now that the container above is the scroller — the column
                             names stay put while the log scrolls under them. bg-white on the
                             thead because the row's own tint is 50% opaque: without an opaque
                             layer beneath it, rows scroll visibly through the header. */}
                         <thead className="sticky top-0 z-10 bg-white">
                             <tr className="bg-bg-slate/50 text-[10px] uppercase tracking-widest text-brand-text/40">
+                                <th className="px-5 py-3 font-black whitespace-nowrap">Employee ID</th>
                                 <th className="px-5 py-3 font-black">Employee</th>
                                 <th className="px-5 py-3 font-black">Project</th>
                                 <th className="px-5 py-3 font-black">Action</th>
@@ -130,10 +147,10 @@ export default function AuditLogsTab() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={5} className="px-5 py-10 text-center text-[13px] font-bold text-brand-text/30">Loading...</td></tr>
+                                <tr><td colSpan={6} className="px-5 py-10 text-center text-[13px] font-bold text-brand-text/30">Loading...</td></tr>
                             ) : filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-5 py-12 text-center">
+                                    <td colSpan={6} className="px-5 py-12 text-center">
                                         <ScrollText size={22} className="mx-auto mb-2 text-brand-text/15" />
                                         <p className="text-[13px] font-bold text-brand-text/30">
                                             {logs.length === 0
@@ -144,8 +161,10 @@ export default function AuditLogsTab() {
                                 </tr>
                             ) : filtered.map((l) => {
                                 const meta = actionMeta(l.action);
+                                const emp = employeeById.get(l.employeeId);
                                 return (
                                     <tr key={l.id} className="border-t border-[#E3E8EF] text-[13px]">
+                                        <td className="px-5 py-3.5 text-brand-text/70 tabular-nums whitespace-nowrap">{emp?.oryfolksId || "—"}</td>
                                         <td className="px-5 py-3.5 font-bold text-brand-text">{l.employeeName || "—"}</td>
                                         <td className="px-5 py-3.5 text-brand-text/70">
                                             {l.projectName || "—"}

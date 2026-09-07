@@ -573,11 +573,11 @@ export default function AdminTimesheets() {
                                     onApprove={() => handleApproveWeek(selectedWeek)}
                                     onReject={() => handleRejectWeek(selectedWeek)}
                                 />
-                                <div className="flex justify-end gap-4 p-8 bg-white rounded-[32px] border border-brand-blue/5 shadow-xl">
+                                {/* <div className="flex justify-end gap-4 p-8 bg-white rounded-[32px] border border-brand-blue/5 shadow-xl">
                                     <p className="text-xs font-bold text-brand-text/30 italic uppercase">
                                         Audit recorded for {selectedWeek.employeeName} — Week of {selectedWeek.startDate}
                                     </p>
-                                </div>
+                                </div> */}
                             </div>
                         )}
                     </div>

@@ -5,6 +5,12 @@ import api from "../utils/api";
 let cached = null;
 let fetchedAt = 0;
 
+/** Clear the module-level employees cache so the next fetch returns fresh role data. */
+export function invalidateEmployeesCache() {
+  cached = null;
+  fetchedAt = 0;
+}
+
 export default function useEmployees() {
   const [employees, setEmployees] = useState(cached || []);
   const [loading, setLoading] = useState(!cached);

@@ -13,7 +13,9 @@ import com.hrms.repository.CompanyDetailRepository;
 import com.hrms.repository.EmployeeReportingRepository;
 import com.hrms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -50,19 +52,21 @@ public class EmployeeReportingService {
     }
 
     public Employee promoteToManager(Long employeeId) {
-        Employee employee = employeeRepository.findById(employeeId).orElse(null);
-        if (employee != null && employee.getUser() != null) {
-            User u = employee.getUser();
-            if (u.getRole() != Role.REPORTING_MANAGER) {
-                u.setRole(Role.REPORTING_MANAGER);
-                userRepository.save(u);
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
 
-                // NEW: Assign this new manager to report to ADMIN
-                ensureManagerReportsToAdmin(employee);
-            }
-            return employee;
+        User u = employee.getUser();
+        if (u == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Selected employee does not have a user account. Create an account for this employee first.");
         }
-        return null;
+
+        if (u.getRole() != Role.REPORTING_MANAGER) {
+            u.setRole(Role.REPORTING_MANAGER);
+            userRepository.saveAndFlush(u);
+            ensureManagerReportsToAdmin(employee);
+        }
+        return employee;
     }
 
     public Employee promoteToHR(Long employeeId) {

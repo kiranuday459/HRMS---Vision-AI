@@ -75,8 +75,8 @@ function HRTeamDisplay() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand-text/40">HR Team &amp; Assigned Employees</h2>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <h2 className="text-[11px] font-black uppercase tracking-[0.2em] px-6 text-brand-text/40">HR Team &amp; Assigned Employees</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 px-4">
         {hrTeams.map((hr) => {
           const hrDisabled = hr.status === 'INACTIVE' || hr.status === 'DISABLED';
           return (
@@ -692,7 +692,7 @@ export default function AdminDashboard() {
 
             {activeTab === "leave-requests" && (
               <div className="flex flex-col gap-6 h-full pr-2 overflow-hidden">
-                <div className="bg-white rounded-[32px] shadow-2xl shadow-brand-blue/5 border border-brand-blue/5 overflow-hidden flex-1 flex flex-col min-h-0">
+                <div className="px-2 bg-white rounded-[32px] shadow-2xl shadow-brand-blue/5 border border-brand-blue/5 overflow-hidden flex-1 flex flex-col min-h-0">
                   <div className="overflow-x-auto flex-1 overflow-y-auto custom-scrollbar relative">
                     {/* Desktop Table */}
                     <table className="hidden lg:table w-full text-left border-collapse">

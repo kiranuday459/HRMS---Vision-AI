@@ -711,13 +711,14 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                 const reason = rejectedEntry?.rejectionReason || rejectedEntry?.managerComments || weekData?.rejectionReason;
                 if (weekData?.status === 'REJECTED' || (weekData?.entries || []).some(e => e.status === 'REJECTED')) {
                     return (
-                        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 flex items-start gap-3">
-                            <span className="text-red-500 font-bold text-base mt-0.5">⚠</span>
+                        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-2 flex items-start gap-3">
+                            <span className="text-red-700 font-bold text-base">⚠</span>
                             <div>
-                                <p className="text-xs font-black uppercase tracking-wider text-red-800">Rejection Reason</p>
-                                <p className="text-xs font-bold text-red-700 mt-1 italic">
+                            {/* <span className="text-red-700 font-bold text-base">⚠</span> */}
+                            <p><span className="text-xs font-black uppercase tracking-wider text-red-800">Rejection Reason: <span className="text-xs font-bold text-red-700 mt-1 italic">
                                     "{reason || 'No reason provided.'}"
-                                </p>
+                                </span></span></p>
+                                
                             </div>
                         </div>
                     );
@@ -727,7 +728,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
 
             {/* Approved banner — shown when timesheet is in approved status */}
             {readOnly && (weekData?.status === 'APPROVED' || weekData?.status === 'Approved' || (weekData?.statusLabel && weekData.statusLabel.toLowerCase() === 'approved')) && (
-                <div className="mb-3 flex items-center gap-2 bg-emerald-50 text-emerald-800 text-[13px] rounded-xl p-4 border border-emerald-200 font-bold">
+                <div className="mb-3 flex items-center gap-2 bg-emerald-150 text-emerald-800 text-[13px] rounded-xl p-4 border border-emerald-100 font-bold">
                     <span className="text-emerald-600 font-black text-base">✓</span>
                     <span>This timesheet has been approved and cannot be edited.</span>
                 </div>
@@ -1221,10 +1222,10 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                             <span className="text-[10px] font-bold text-slate-500">Employee</span>
                         </div>
                         <div className="text-right">
-                            <p className="text-[11px] uppercase font-bold text-[#0C447C] tracking-wider">Total Weekly Hours</p>
-                            <p className="text-[20px] font-medium text-[#185FA5]">
+                            <p className="text-[11px] uppercase font-bold text-[#0C447C] tracking-wider">Total Weekly Hours: <span className="text-[20px] font-medium text-[#185FA5] pl-2">
                                 {getGrandTotal().toFixed(2)}
-                            </p>
+                            </span></p>
+                            
                         </div>
                     </div>
                 </div>

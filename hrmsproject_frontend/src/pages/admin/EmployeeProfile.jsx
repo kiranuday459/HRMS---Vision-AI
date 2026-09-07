@@ -755,7 +755,7 @@ export default function EmployeeProfile() {
           <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-6">
               <div>
-                <h1 className="text-3xl font-bold text-brand-text">
+                <h1 className="text-2xl font-bold text-brand-text">
                   {employee ? `${employee.firstName} ${employee.lastName}` : "Candidate Profile"}
                 </h1>
                 <p className="text-brand-text/60 font-medium tracking-tight mt-1">
@@ -926,9 +926,9 @@ export default function EmployeeProfile() {
             {/* Main Content Area */}
             <div className="lg:col-span-3">
               <div className="bg-white rounded-2xl shadow-sm border border-black/5 overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-3 px-6 lg:px-8 py-5 border-b border-gray-100">
+                {/* <div className="flex flex-wrap items-center justify-between gap-3 px-6 lg:px-8 py-5 border-b border-gray-100">
                   <h2 className="text-base font-semibold text-brand-text">{activeSectionLabel}</h2>
-                </div>
+                </div> */}
                 <div className={`p-8 ${editing ? 'profile-editing' : ''}`}>
                   {activeSection === 'personal' && (
                     <div className="space-y-8">
@@ -1479,7 +1479,7 @@ export default function EmployeeProfile() {
                     <div className="space-y-8">
                       <div className="mb-6">
                         <h3 className="text-xl font-bold text-brand-text">Leave Balance</h3>
-                        <p className="text-xs text-brand-text/40 font-medium">Currently available leaves for this employee</p>
+                        <p className="text-xs text-brand-text/40 font-small">Currently available leaves for this employee</p>
                       </div>
 
                       {fetchingBalance ? (

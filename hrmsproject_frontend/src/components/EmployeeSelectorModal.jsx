@@ -11,6 +11,7 @@ export default function EmployeeSelectorModal({ open, onClose, onSave }) {
   const [selected, setSelected] = useState({});
   const [managerId, setManagerId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [reportingManagers, setReportingManagers] = useState([]);
   const [existingManagers, setExistingManagers] = useState(new Set());
   const [assignedEmployees, setAssignedEmployees] = useState(new Set());
 
@@ -42,15 +43,13 @@ export default function EmployeeSelectorModal({ open, onClose, onSave }) {
       setEmployees([]);
     }
 
-    // Fetch existing managers to exclude them
+    // Backend returns only users with the REPORTING_MANAGER role (see listManagers).
     api("/api/reporting-managers")
       .then(res => res.json())
       .then(data => {
-        const set = new Set();
-        if (Array.isArray(data)) {
-          data.forEach(m => set.add(m.id));
-        }
-        setExistingManagers(set);
+        const list = Array.isArray(data) ? data : [];
+        setReportingManagers(list);
+        setExistingManagers(new Set(list.map((m) => m.id)));
       })
       .catch(err => console.error("Failed to fetch existing managers", err));
 
@@ -79,6 +78,7 @@ export default function EmployeeSelectorModal({ open, onClose, onSave }) {
       setQuery("");
       setSelected({});
       setManagerId(null);
+      setReportingManagers([]);
     }
   }, [open]);
 
@@ -130,7 +130,10 @@ export default function EmployeeSelectorModal({ open, onClose, onSave }) {
 
   const handleSave = async () => {
     const team = employees.filter((e) => selected[e.id]);
-    const manager = employees.find((e) => e.id === managerId) || null;
+    const rm = reportingManagers.find((m) => m.id === managerId) || null;
+    const manager = rm
+      ? { id: rm.id, name: rm.fullName, corporateEmail: rm.corporateEmail, active: rm.active }
+      : null;
     const payload = { manager, team };
 
     if (!manager) {
@@ -222,15 +225,16 @@ export default function EmployeeSelectorModal({ open, onClose, onSave }) {
               className="w-full px-4 py-3 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-sm font-bold text-brand-text outline-none focus:border-brand-blue-dark/30 transition-all"
             >
               <option value="">Select Manager...</option>
-              {employees
-                .filter(emp => emp.role === 'REPORTING_MANAGER')
-                .map((emp) => (
-                  // Disabled employees cannot be assigned as a reporting manager.
-                  <option key={emp.id} value={emp.id} disabled={isDisabled(emp)}>
-                    {emp.name}{isDisabled(emp) ? " — DISABLED" : ""}{emp.oryfolksId ? ` · ${emp.oryfolksId}` : ""}
-                  </option>
-                ))}
+              {reportingManagers.map((rm) => (
+                // Disabled employees cannot be assigned as a reporting manager.
+                <option key={rm.id} value={rm.id} disabled={isDisabled(rm)}>
+                  {rm.fullName}{isDisabled(rm) ? " — DISABLED" : ""}{rm.corporateEmail ? ` · ${rm.corporateEmail}` : ""}
+                </option>
+              ))}
             </select>
+            {reportingManagers.length === 0 && (
+              <p className="text-[11px] text-brand-text/40 italic">No reporting managers found. Add a reporting manager first.</p>
+            )}
           </div>
 
           {/* Assign New Employees */}

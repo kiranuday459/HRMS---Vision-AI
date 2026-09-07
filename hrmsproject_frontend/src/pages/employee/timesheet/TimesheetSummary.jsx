@@ -39,11 +39,11 @@ const TimesheetSummary = ({ weeks, onSelectWeek }) => {
     });
 
     return (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Compact guidelines + status filter on a single row */}
-            <div className="bg-white px-4 py-3 rounded-xl border-[0.5px] border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="bg-white px-4 py-2 rounded-xl border-[0.5px] border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-baseline gap-2 min-w-0">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] shrink-0">Guidelines</span>
+                    {/* <span className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] shrink-0">Guidelines</span> */}
                     <span className="text-xs text-slate-500 truncate">Submit timesheets before the deadline. Approved timesheets cannot be edited.</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -65,7 +65,7 @@ const TimesheetSummary = ({ weeks, onSelectWeek }) => {
             </div>
 
             {/* Week cards */}
-            <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1 custom-scrollbar">
+            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
                 {filteredWeeks.map((week, index) => {
                     const total = week.billableHrs + week.nonBillableHrs + week.timeOffHrs;
                     const cols = [

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { Search, Check } from "lucide-react";
 import AdminSidebar from "../../components/AdminSidebar";
 import api from "../../utils/api";
 import DisabledBadge from "../../components/DisabledBadge";
 import { isDisabled } from "../../utils/employeeStatus";
+import { invalidateEmployeesCache } from "../../hooks/useEmployees";
 
 function ManagerRow({ m, onClick }) {
   return (
@@ -101,6 +103,8 @@ export default function ReportingManagers() {
           corporateEmail: e.corporateEmail || '',
           oryfolksId: e.oryfolksId || '',
           designation: e.designation || '',
+          userId: e.userId,
+          active: e.active,
         }));
       // Further filter out anyone already in the managers list
       const managerIds = new Set(managers.map(m => m.id));
@@ -122,19 +126,26 @@ export default function ReportingManagers() {
 
   const handlePromoteToManager = async () => {
     if (!addManagerSelected) return;
+
+    const selected = addManagerEmployees.find((e) => e.id === addManagerSelected);
+    if (selected && !selected.userId) {
+      showToast('Selected employee does not have a user account. Create an account first.', 'error');
+      return;
+    }
+
     setAddManagerSaving(true);
     try {
       const res = await api(`/api/reporting-managers/promote/${addManagerSelected}`, {
         method: 'POST',
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         throw new Error(data.message || data.error || 'Failed to promote employee');
       }
+      invalidateEmployeesCache();
       showToast('Manager added successfully', 'success');
       setIsAddManagerModalOpen(false);
       setAddManagerSelected(null);
-      // Refresh the managers list
       await fetchManagers();
     } catch (err) {
       console.error('Promote error:', err);
@@ -476,28 +487,24 @@ export default function ReportingManagers() {
 
             {/* Body */}
             <div className="p-6 space-y-4 overflow-y-auto">
-              {/* Search */}
-              <div className="relative">
-                <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="M21 21l-4.35-4.35" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search employee by name or ID..."
-                  value={addManagerSearch}
-                  onChange={(e) => setAddManagerSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-[12px] font-medium outline-none focus:border-brand-blue-dark/30 transition-all placeholder:text-brand-text/20"
-                />
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase tracking-[0.18em] text-brand-text/40">Select Employee to Promote</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/20" size={15} />
+                  <input
+                    type="text"
+                    placeholder="Search by name or ID..."
+                    value={addManagerSearch}
+                    onChange={(e) => setAddManagerSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 bg-bg-slate/50 border border-brand-blue/10 rounded-lg text-[12px] font-medium outline-none focus:border-brand-blue-dark/30 transition-all placeholder:text-brand-text/20"
+                  />
+                </div>
               </div>
 
               {/* Employee List */}
               <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
                 {addManagerLoading ? (
-                  <div className="flex flex-col items-center justify-center py-12 space-y-3 opacity-30">
-                    <div className="w-8 h-8 border-2 border-brand-blue border-t-transparent rounded-full animate-spin" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest">Loading employees...</p>
-                  </div>
+                  <p className="text-[12px] text-brand-text/40 italic py-8 text-center">Loading employees...</p>
                 ) : (() => {
                   const searchFiltered = addManagerEmployees.filter(e => {
                     const term = addManagerSearch.toLowerCase();
@@ -515,35 +522,29 @@ export default function ReportingManagers() {
                       </p>
                     );
                   }
-                  return searchFiltered.map(emp => (
-                    <div
-                      key={emp.id}
-                      onClick={() => setAddManagerSelected(emp.id)}
-                      className={`cursor-pointer p-4 rounded-2xl transition-all border-2 flex items-center gap-4 ${addManagerSelected === emp.id
-                        ? 'bg-brand-blue-dark border-brand-blue text-white shadow-xl shadow-brand-blue/20'
-                        : 'bg-white border-transparent hover:border-brand-blue/10 hover:bg-gray-50 text-brand-text'
-                        }`}
-                    >
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shadow-sm transition-all ${addManagerSelected === emp.id
-                        ? 'bg-white text-brand-text'
-                        : 'bg-brand-blue/5 text-brand-text/30'
-                        }`}>
-                        {(emp.name || 'U').slice(0, 1)}
-                      </div>
-                      <div className="flex-1 overflow-hidden">
-                        <div className="font-bold text-sm truncate">{emp.name}</div>
-                        <div className={`text-[10px] font-bold lowercase tracking-wider truncate transition-all ${addManagerSelected === emp.id ? 'text-white/60' : 'text-brand-text/40'
-                          }`}>
-                          {[emp.oryfolksId, emp.corporateEmail || emp.email].filter(Boolean).join(' · ') || '—'}
+                  return searchFiltered.map(emp => {
+                    const checked = addManagerSelected === emp.id;
+                    return (
+                      <label
+                        key={emp.id}
+                        onClick={() => setAddManagerSelected(emp.id)}
+                        className={`flex items-center gap-3 border-[0.5px] rounded-lg p-3 transition-all cursor-pointer ${checked ? "bg-brand-blue/[0.03] border-brand-blue-dark/40" : "bg-white border-brand-blue/10 hover:border-brand-blue/20"}`}
+                      >
+                        <span
+                          className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all shrink-0 ${checked ? "bg-brand-blue-dark border-brand-blue-dark text-white" : "border-brand-blue/20 bg-white"}`}
+                        >
+                          {checked && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                        </span>
+                        <input type="radio" className="hidden" checked={checked} readOnly />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate text-brand-text">{emp.name}</p>
+                          <p className="text-[11px] text-brand-text/40 font-medium truncate">
+                            {[emp.oryfolksId, emp.designation].filter(Boolean).join(" · ") || "—"}
+                          </p>
                         </div>
-                      </div>
-                      {addManagerSelected === emp.id && (
-                        <svg className="w-5 h-5 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                  ));
+                      </label>
+                    );
+                  });
                 })()}
               </div>
             </div>
