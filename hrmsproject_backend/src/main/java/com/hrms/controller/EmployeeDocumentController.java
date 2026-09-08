@@ -49,8 +49,13 @@ public class EmployeeDocumentController {
             return ResponseEntity.badRequest().body(ApiResponse.error("File is empty"));
         }
 
+        String originalFileName = file.getOriginalFilename();
+        if (originalFileName == null || !isValidFileType(originalFileName)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Unsupported file type. Upload PDF, ZIP, Word, JPG, JPEG, or PNG files only."));
+        }
+
         if (file.getSize() > 5 * 1024 * 1024) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("File size exceeds maximum limit of 5MB"));
+            return ResponseEntity.badRequest().body(ApiResponse.error("File size exceeded. Upload file <= 5 MB."));
         }
 
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
@@ -168,5 +173,16 @@ public class EmployeeDocumentController {
         // Note: In a real app, you might also want to delete the file from the filesystem.
         
         return ResponseEntity.ok(ApiResponse.success("Document deleted successfully", null));
+    }
+
+    private boolean isValidFileType(String fileName) {
+        String lowerName = fileName.toLowerCase();
+        return lowerName.endsWith(".pdf") ||
+               lowerName.endsWith(".zip") ||
+               lowerName.endsWith(".doc") ||
+               lowerName.endsWith(".docx") ||
+               lowerName.endsWith(".jpg") ||
+               lowerName.endsWith(".jpeg") ||
+               lowerName.endsWith(".png");
     }
 }

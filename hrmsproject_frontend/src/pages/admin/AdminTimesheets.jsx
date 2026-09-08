@@ -17,7 +17,7 @@ export default function AdminTimesheets() {
     const [timesheets, setTimesheets] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [tsFilter, setTsFilter] = useState("");
-    const [roleFilter, setRoleFilter] = useState("ALL");
+    const [roleFilter, setRoleFilter] = useState("HR");
     const [statusFilter, setStatusFilter] = useState("All");
     const [tsSubView, setTsSubView] = useState('summary'); // 'summary' or 'grid'
     const [selectedWeek, setSelectedWeek] = useState(null);
@@ -337,7 +337,7 @@ export default function AdminTimesheets() {
 
     const filteredWeeks = groupedWeeks.map(week => {
         const filteredEmployees = week.employeeList.filter(emp => {
-            const profile = employees.find(e => e.id === emp.employeeId);
+            const profile = employees.find(e => String(e.id) === String(emp.employeeId) || e.id === emp.employeeId);
             const matchesSearch = !tsFilter ||
                 (emp.employeeName && emp.employeeName.toLowerCase().includes(tsFilter.toLowerCase())) ||
                 emp.employeeId.toString().includes(tsFilter) ||
@@ -348,13 +348,22 @@ export default function AdminTimesheets() {
             const employeeStatusLabel = getStatusLabel(emp.status);
             if (statusFilter !== "All" && employeeStatusLabel !== statusFilter) return false;
 
+            const role = (profile?.role || emp.employeeRole || profile?.user?.role || "").toUpperCase();
+            const dept = (profile?.department?.name || "").toUpperCase();
+
+            const isHr = role === "HR" || emp.employeeRole?.toUpperCase() === "HR" || dept === "HR" || dept === "HUMAN RESOURCES";
+
+            const isRm = (
+                role === "REPORTING_MANAGER" ||
+                emp.employeeRole?.toUpperCase() === "REPORTING_MANAGER" ||
+                (user?.employeeId && (String(profile?.reportingManager?.id) === String(user.employeeId) || String(profile?.reportingManagerId) === String(user.employeeId))) ||
+                (user?.id && String(profile?.reportingManager?.user?.id) === String(user.id))
+            );
+
             if (roleFilter === "ALL") return true;
-
-            const role = profile?.role?.toUpperCase() || "";
-
-            if (roleFilter === "HR") return role === "HR";
-            if (roleFilter === "RM") return role === "REPORTING_MANAGER";
-            if (roleFilter === "OTHERS") return role !== "HR" && role !== "REPORTING_MANAGER" && role !== "ADMIN";
+            if (roleFilter === "HR") return isHr;
+            if (roleFilter === "RM") return isRm;
+            if (roleFilter === "OTHERS") return !isHr && !isRm;
 
             return true;
         });
@@ -404,58 +413,61 @@ export default function AdminTimesheets() {
                         {tsSubView === 'summary' ? (
                             <>
                                 <div className="bg-white rounded-[24px] p-4 shadow-xl border border-brand-blue/5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
-                                    <div className="flex bg-bg-slate/50 p-1.5 rounded-2xl overflow-x-auto scrollbar-hide">
-                                        {["ALL", "HR", "RM", "OTHERS"].map((role) => (
-                                            <button
-                                                key={role}
-                                                onClick={() => setRoleFilter(role)}
-                                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${roleFilter === role
-                                                    ? "bg-brand-blue-dark text-white shadow-lg shadow-brand-blue/20"
-                                                    : "text-brand-text/40 hover:text-brand-text hover:bg-white"
-                                                    }`}
+                                    <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <select
+                                                id="admin-role-filter"
+                                                value={roleFilter}
+                                                onChange={(e) => setRoleFilter(e.target.value)}
+                                                className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-4 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm cursor-pointer hover:border-brand-blue/30 transition-all min-w-[170px]"
                                             >
-                                                {role === "RM" ? "REPORTING MANAGERS" : role === "OTHERS" ? "Employees" : role}
-                                            </button>
-                                        ))}
+                                                <option value="ALL">All</option>
+                                                <option value="HR">HR</option>
+                                                <option value="RM">Reporting Manager</option>
+                                                <option value="OTHERS">Other Departments</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="flex-1 min-w-[200px] relative">
+                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/20" size={16} />
+                                            <input
+                                                type="text"
+                                                placeholder="Search by personnel, ID or office..."
+                                                value={tsFilter}
+                                                onChange={(e) => setTsFilter(e.target.value)}
+                                                className="w-full pl-12 pr-4 py-3 bg-bg-slate/50 border border-brand-blue/5 rounded-2xl text-[11px] font-bold outline-none focus:border-brand-blue-dark/20 transition-all placeholder:text-brand-text/20"
+                                            />
+                                        </div>
                                     </div>
 
-                                    <div className="flex-1 min-w-[180px] relative">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/20" size={16} />
-                                        <input
-                                            type="text"
-                                            placeholder="Search by personnel, ID or office..."
-                                            value={tsFilter}
-                                            onChange={(e) => setTsFilter(e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3 bg-bg-slate/50 border border-brand-blue/5 rounded-2xl text-[11px] font-bold outline-none focus:border-brand-blue-dark/20 transition-all placeholder:text-brand-text/20"
-                                        />
-                                    </div>
+                                    <div className="flex flex-wrap items-center gap-3 shrink-0">
+                                        <div className="flex items-center gap-2 min-w-[170px]">
+                                            <label htmlFor="admin-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
+                                            <select
+                                                id="admin-status-filter"
+                                                value={statusFilter}
+                                                onChange={(e) => setStatusFilter(e.target.value)}
+                                                className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm cursor-pointer hover:border-brand-blue/30 transition-all"
+                                            >
+                                                <option value="All">All</option>
+                                                <option value="Pending">Pending</option>
+                                                <option value="Approved">Approved</option>
+                                                <option value="Rejected">Rejected</option>
+                                            </select>
+                                        </div>
 
-                                    <div className="flex items-center gap-2 min-w-[170px]">
-                                        <label htmlFor="admin-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
-                                        <select
-                                            id="admin-status-filter"
-                                            value={statusFilter}
-                                            onChange={(e) => setStatusFilter(e.target.value)}
-                                            className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm"
+                                        <div className="h-10 px-4 flex items-center justify-center bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm text-brand-blue-dark text-[11px] font-black uppercase tracking-wider whitespace-nowrap">
+                                            TOTAL {totalFilteredCount}
+                                        </div>
+
+                                        <button
+                                            onClick={() => setIsDownloadModalOpen(true)}
+                                            className="bg-brand-blue-dark text-white px-4 py-3 rounded-2xl shadow-xl shadow-brand-blue/10 active:scale-95 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:brightness-110 shrink-0"
                                         >
-                                            <option>All</option>
-                                            <option>Pending</option>
-                                            <option>Approved</option>
-                                            <option>Rejected</option>
-                                        </select>
+                                            <Download size={14} />
+                                            DOWNLOAD TIMESHEET
+                                        </button>
                                     </div>
-
-                                    {/* <div className="h-10 px-4 flex items-center justify-center bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm text-brand-blue-dark text-[11px] font-black uppercase tracking-wider whitespace-nowrap">
-                                        TOTAL {totalFilteredCount}
-                                    </div> */}
-
-                                    <button
-                                        onClick={() => setIsDownloadModalOpen(true)}
-                                        className="bg-brand-blue-dark text-white px-3 py-3 rounded-2xl shadow-xl shadow-brand-blue/10 active:scale-95 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:brightness-110"
-                                    >
-                                        <Download size={14} />
-
-                                    </button>
                                 </div>
 
                                 <div className="space-y-4">
