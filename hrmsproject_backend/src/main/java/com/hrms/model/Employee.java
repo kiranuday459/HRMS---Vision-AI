@@ -84,6 +84,7 @@ public class Employee {
 	private Employee reportingManager;
 
 	private LocalDate hireDate;
+	private LocalDate endDate;
 	private String designation;
 	private String employmentType;
 	private String corporateEmail;

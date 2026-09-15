@@ -78,7 +78,7 @@ const TimesheetSummary = ({ weeks, onSelectWeek }) => {
                         <div
                             key={index}
                             onClick={() => onSelectWeek(week)}
-                            className="bg-white rounded-xl border-[0.5px] border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all duration-200 cursor-pointer p-4 md:p-5"
+                            className="bg-white rounded-xl border-[0.5px] border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all duration-200 cursor-pointer p-3 md:p-3"
                         >
                             {/* Header row: week range + status badge */}
                             <div className="flex items-center justify-between gap-3">
@@ -89,7 +89,7 @@ const TimesheetSummary = ({ weeks, onSelectWeek }) => {
                             </div>
 
                             {/* Hours grid: 4 columns */}
-                            <div className="grid grid-cols-4 divide-x divide-slate-100 border-t border-slate-100 mt-4 pt-4">
+                            <div className="grid grid-cols-4 divide-x divide-slate-100 border-t border-slate-100 mt-2 pt-2">
                                 {cols.map((c, i) => (
                                     <div key={i} className="px-3 first:pl-0">
                                         <p className="text-[11px] uppercase tracking-wide text-slate-400">{c.label}</p>

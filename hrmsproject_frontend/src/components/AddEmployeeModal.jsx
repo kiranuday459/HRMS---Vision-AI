@@ -83,6 +83,7 @@ export default function AddEmployeeModal({ open, onClose, onEmployeeCreated }) {
         designation: "",
         corporateEmail: "",
         joiningDate: "",
+        endDate: "",
         role: ""
     });
 
@@ -119,6 +120,7 @@ export default function AddEmployeeModal({ open, onClose, onEmployeeCreated }) {
                 designation: "",
                 corporateEmail: "",
                 joiningDate: "",
+                endDate: "",
                 role: ""
             });
             setShowUserPopup(false);
@@ -593,6 +595,18 @@ export default function AddEmployeeModal({ open, onClose, onEmployeeCreated }) {
                                             className={`w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-medium text-brand-text focus:ring-2 focus:ring-brand-blue-dark/10 focus:border-brand-blue-dark transition-all outline-none ${fieldErrors.joiningDate ? 'ring-2 ring-red-500 bg-red-50' : ''}`}
                                         />
                                         <FormFieldError error={fieldErrors.joiningDate} show={!!fieldErrors.joiningDate} />
+                                    </div>
+
+                                    {/* End Date (optional) */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-2">End Date <span className="text-gray-400 font-normal">(optional)</span></label>
+                                        <input
+                                            type="date"
+                                            value={formData.endDate}
+                                            onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-medium text-brand-text focus:ring-2 focus:ring-brand-blue-dark/10 focus:border-brand-blue-dark transition-all outline-none"
+                                        />
+                                        <p className="text-[10px] text-gray-400 mt-1">Leave blank for active employees. Login will be blocked after this date.</p>
                                     </div>
 
                                 </div>

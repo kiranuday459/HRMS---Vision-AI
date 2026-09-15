@@ -1,10 +1,13 @@
 package com.hrms.controller;
 
 import com.hrms.model.User;
+import com.hrms.model.Employee;
 import com.hrms.repository.UserRepository;
+import com.hrms.repository.EmployeeRepository;
 import com.hrms.service.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
@@ -49,6 +52,9 @@ public class AuthController {
     @Autowired
     private AccountLockoutService accountLockoutService;
 
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
     @PostMapping("/login")
     public ResponseEntity<?> login(
             @RequestBody Map<String, String> body,
@@ -83,6 +89,24 @@ public class AuthController {
 
             // Reset failed attempts counter on successful login post-cooldown
             accountLockoutService.resetAttempts(accountKey);
+
+            // ---- End Date login enforcement ----
+            // If the authenticated user is linked to an employee whose end date has
+            // passed, block login with a clear, non-technical message.
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof com.hrms.model.UserPrincipal userPrincipal) {
+                Long userId = userPrincipal.getUser().getId();
+                java.util.Optional<Employee> empOpt = employeeRepository.findByUser_Id(userId);
+                if (empOpt.isPresent()) {
+                    Employee emp = empOpt.get();
+                    if (emp.getEndDate() != null && emp.getEndDate().isBefore(LocalDate.now())) {
+                        SecurityContextHolder.clearContext();
+                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body(Map.of("message",
+                                        "This account is no longer active. Please contact HR."));
+                    }
+                }
+            }
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             String jwt = jwtUtils.generateJwtToken(authentication);

@@ -429,6 +429,7 @@ public class EmployeeService {
         employee.setEmergencyAddress(dto.getEmergencyAddress());
         employee.setActive(
                 dto.getActive() != null ? dto.getActive() : employee.getActive());
+        employee.setEndDate(dto.getEndDate());
 
         // Update Company Details if present
         if (dto.getDesignation() != null || dto.getCorporateEmail() != null || dto.getOryfolksId() != null) {
@@ -671,6 +672,7 @@ public class EmployeeService {
         dto.setEmergencyRelationship(employee.getEmergencyRelationship());
         dto.setEmergencyPhone(employee.getEmergencyPhone());
         dto.setActive(employee.getActive());
+        dto.setEndDate(employee.getEndDate());
         dto.setClientProject(employee.getClientProject());
         dto.setClientProjectId(employee.getClientProjectId());
         dto.setClientAssignmentDate(employee.getClientAssignmentDate());
@@ -789,6 +791,7 @@ public class EmployeeService {
         employee.setEmergencyRelationship(dto.getEmergencyRelationship());
         employee.setEmergencyPhone(dto.getEmergencyPhone());
         employee.setActive(dto.getActive() != null ? dto.getActive() : true);
+        employee.setEndDate(dto.getEndDate());
 
         /*
          * =========================

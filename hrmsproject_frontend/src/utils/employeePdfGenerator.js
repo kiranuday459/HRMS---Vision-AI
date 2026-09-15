@@ -148,8 +148,9 @@ export async function generateEmployeeProfilePDF(employeeOrId, showToast = null)
     doc.setTextColor(71, 85, 105);
     doc.text(`Email: ${emp.corporateEmail || emp.email || "N/A"}`, rightColX, currentY + 16, { align: "right" });
     doc.text(`Joining Date: ${formatDate(emp.joiningDate)}`, rightColX, currentY + 22, { align: "right" });
+    doc.text(`End Date: ${emp.endDate ? formatDate(emp.endDate) : '\u2014'}`, rightColX, currentY + 28, { align: "right" });
 
-    currentY += 34;
+    currentY += 40;
 
     // Helper for Section Headings
     const addSectionHeading = (title) => {

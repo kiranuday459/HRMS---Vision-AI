@@ -332,6 +332,7 @@ public class EmployeeDTO {
 	private String designation;
 	private String oryfolksId;
 	private java.time.LocalDate joiningDate;
+	private java.time.LocalDate endDate;
 	private Long userId;
 	private Boolean createAccount;
 
@@ -445,6 +446,14 @@ public class EmployeeDTO {
 
 	public void setJoiningDate(java.time.LocalDate joiningDate) {
 		this.joiningDate = joiningDate;
+	}
+
+	public java.time.LocalDate getEndDate() {
+		return endDate;
+	}
+
+	public void setEndDate(java.time.LocalDate endDate) {
+		this.endDate = endDate;
 	}
 
 	public String getOryfolksId() {

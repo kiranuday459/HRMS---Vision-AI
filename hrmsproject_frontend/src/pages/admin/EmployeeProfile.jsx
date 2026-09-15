@@ -248,6 +248,7 @@ export default function EmployeeProfile() {
           lastName: data.lastName || "",
           photoUrl: data.photoPath || "",
           joiningDate: data.joiningDate || "",
+          endDate: data.endDate || "",
         });
 
         // Populate documents
@@ -658,6 +659,7 @@ export default function EmployeeProfile() {
           corporateEmail: form.companyMail || null,
           oryfolksId: form.companyId || null,
           joiningDate: form.joiningDate || null,
+          endDate: form.endDate || null,
         };
 
         const res = await api(`/api/employees/${id}`, {
@@ -956,6 +958,7 @@ export default function EmployeeProfile() {
                           { label: 'Company ID', name: 'companyId', placeholder: 'Enter company ID' },
                           { label: 'Corporate Email', name: 'companyMail', placeholder: 'Enter corporate email' },
                           { label: 'Joining Date', name: 'joiningDate', type: 'date', placeholder: 'Select joining date' },
+                          { label: 'End Date', name: 'endDate', type: 'date', placeholder: 'Select end date' },
                           { label: 'Personal Email', name: 'personalEmail', placeholder: 'Enter personal email' },
                           { label: 'Mobile No', name: 'mobile', placeholder: 'Enter mobile number' },
                           { label: 'Date of Birth', name: 'dob', type: 'date', placeholder: 'Select date of birth' },
@@ -966,7 +969,7 @@ export default function EmployeeProfile() {
                           { label: 'PAN No', name: 'pan', placeholder: 'Enter PAN number' },
                           { label: 'Passport No', name: 'passport', placeholder: 'Enter passport number' },
                         ].map((field) => {
-                          const isAdminField = ['role', 'companyId', 'companyMail', 'joiningDate'].includes(field.name);
+                          const isAdminField = ['role', 'companyId', 'companyMail', 'joiningDate', 'endDate'].includes(field.name);
                           const isDisabled = !editing || (userRole === 'HR' && isAdminField);
                           const isDropdown = ['gender', 'maritalStatus'].includes(field.name);
                           const maxLengths = { aadhar: 12, pan: 10, passport: 9 };
