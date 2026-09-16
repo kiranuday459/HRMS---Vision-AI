@@ -1261,13 +1261,20 @@ export default function EmployeeProfile() {
                                       </svg>
                                     </button>
                                   ) : (
-                                    <label className="cursor-pointer text-brand-text/60 hover:text-brand-yellow p-1.5 rounded-lg hover:bg-gray-100 transition-all" title="Upload Document">
+                                    <label
+                                      className={`p-1.5 rounded-lg transition-all ${
+                                        editing
+                                          ? "cursor-pointer text-brand-text/60 hover:text-brand-yellow hover:bg-gray-100"
+                                          : "cursor-not-allowed text-gray-300 opacity-50 pointer-events-none"
+                                      }`}
+                                      title={editing ? "Upload Document" : "Click Edit Profile to enable upload"}
+                                    >
                                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                         <polyline points="17 8 12 3 7 8"></polyline>
                                         <line x1="12" y1="3" x2="12" y2="15"></line>
                                       </svg>
-                                      <input type="file" className="hidden" onChange={(e) => handleFileUpload(edu.id, e, true)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
+                                      <input type="file" className="hidden" disabled={!editing} onChange={(e) => handleFileUpload(edu.id, e, true)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
                                     </label>
                                   )}
                                 </div>
@@ -1300,14 +1307,19 @@ export default function EmployeeProfile() {
                                     </div>
                                   </div>
                                 ) : (
-                                  <label className="w-full h-full flex flex-col items-center justify-center text-center p-2 cursor-pointer hover:bg-gray-100/60 transition-all">
+                                  <label
+                                    className={`w-full h-full flex flex-col items-center justify-center text-center p-2 transition-all ${
+                                      editing ? "cursor-pointer hover:bg-gray-100/60" : "cursor-not-allowed opacity-60 pointer-events-none"
+                                    }`}
+                                    title={editing ? "Upload Document" : "Click Edit Profile to enable upload"}
+                                  >
                                     <svg className="w-5 h-5 text-brand-text/30 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                       <polyline points="14 2 14 8 20 8"></polyline>
                                     </svg>
                                     <span className="text-[10px] font-bold text-brand-text/60">PDF, DOC, DOCX, ZIP, JPG, JPEG, PNG</span>
                                     <span className="text-[9px] font-medium text-brand-text/40 mt-0.5">Max file size ≤ 5MB</span>
-                                    <input type="file" className="hidden" onChange={(e) => handleFileUpload(edu.id, e, true)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
+                                    <input type="file" className="hidden" disabled={!editing} onChange={(e) => handleFileUpload(edu.id, e, true)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
                                   </label>
                                 )}
                               </div>
@@ -1331,13 +1343,20 @@ export default function EmployeeProfile() {
                                     </svg>
                                   </button>
                                 ) : (
-                                  <label className="cursor-pointer text-brand-text/60 hover:text-brand-yellow p-1.5 rounded-lg hover:bg-gray-100 transition-all" title="Upload Document">
+                                  <label
+                                    className={`p-1.5 rounded-lg transition-all ${
+                                      editing
+                                        ? "cursor-pointer text-brand-text/60 hover:text-brand-yellow hover:bg-gray-100"
+                                        : "cursor-not-allowed text-gray-300 opacity-50 pointer-events-none"
+                                    }`}
+                                    title={editing ? "Upload Document" : "Click Edit Profile to enable upload"}
+                                  >
                                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                       <polyline points="17 8 12 3 7 8"></polyline>
                                       <line x1="12" y1="3" x2="12" y2="15"></line>
                                     </svg>
-                                    <input type="file" className="hidden" onChange={(e) => handleFileUpload('educational', e)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
+                                    <input type="file" className="hidden" disabled={!editing} onChange={(e) => handleFileUpload('educational', e)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
                                   </label>
                                 )}
                               </div>
@@ -1399,14 +1418,19 @@ export default function EmployeeProfile() {
                                   </div>
                                 )
                               ) : (
-                                <label className="w-full h-full flex flex-col items-center justify-center text-center p-2 cursor-pointer hover:bg-gray-100/60 transition-all" title="Upload Document">
+                                <label
+                                  className={`w-full h-full flex flex-col items-center justify-center text-center p-2 transition-all ${
+                                    editing ? "cursor-pointer hover:bg-gray-100/60" : "cursor-not-allowed opacity-60 pointer-events-none"
+                                  }`}
+                                  title={editing ? "Upload Document" : "Click Edit Profile to enable upload"}
+                                >
                                   <svg className="w-5 h-5 text-brand-text/30 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                     <polyline points="14 2 14 8 20 8"></polyline>
                                   </svg>
                                   <span className="text-[10px] font-bold text-brand-text/60">PDF, DOC, DOCX, ZIP, JPG, JPEG, PNG</span>
                                   <span className="text-[9px] font-medium text-brand-text/40 mt-0.5">Max file size ≤ 5MB</span>
-                                  <input type="file" className="hidden" onChange={(e) => handleFileUpload('educational', e)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
+                                  <input type="file" className="hidden" disabled={!editing} onChange={(e) => handleFileUpload('educational', e)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
                                 </label>
                               )}
                             </div>
@@ -1421,10 +1445,17 @@ export default function EmployeeProfile() {
                               <h3 className="text-xl font-bold text-brand-text capitalize">{cat} Certifications</h3>
                               <p className="text-xs text-brand-text/40 font-medium whitespace-nowrap overflow-hidden text-ellipsis">Manage {cat} certificates</p>
                             </div>
-                            <label className="cursor-pointer bg-brand-blue-dark text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-blue-hover transition-all flex items-center gap-2" title="Upload Document">
+                            <label
+                              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                                editing
+                                  ? "cursor-pointer bg-brand-blue-dark text-white hover:bg-brand-blue-hover"
+                                  : "cursor-not-allowed bg-gray-300 text-gray-500 opacity-60 pointer-events-none"
+                              }`}
+                              title={editing ? "Upload Document" : "Click Edit Profile to enable upload"}
+                            >
                               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                              Upload
-                              <input type="file" className="hidden" onChange={(e) => handleFileUpload(cat, e)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
+                              Upload New
+                              <input type="file" className="hidden" disabled={!editing} onChange={(e) => handleFileUpload(cat, e)} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
                             </label>
                           </div>
                           {editing && <p className="text-[9px] font-medium text-brand-text/40 mb-5 -mt-2">Supported: PDF, DOC, DOCX, ZIP, JPG, JPEG, PNG (Max 5MB)</p>}
@@ -1455,14 +1486,16 @@ export default function EmployeeProfile() {
                                     >
                                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); removeFile(cat, idx); }}
-                                      className="bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-lg transition-colors"
-                                      title="Delete"
-                                    >
-                                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                    </button>
+                                    {editing && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); removeFile(cat, idx); }}
+                                        className="bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-lg transition-colors"
+                                        title="Delete"
+                                      >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               </div>
