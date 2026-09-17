@@ -218,7 +218,7 @@ export default function HrManagerLeaves() {
                             <h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight">
                                 {ribbonTitle}
                             </h1>
-                            <p className="text-[12px] text-brand-text-secondary mt-0.5">
+                            <p className="text-[12px] text-brand-text-secondary mt-0.5 break-words">
                                 {ribbonRoleLabel}{ribbonRoleLabel && ribbonName ? " · " : ""}{ribbonName}
                             </p>
                         </div>
@@ -339,17 +339,17 @@ export default function HrManagerLeaves() {
                         </header>
 
                         <div className="bg-white rounded-[20px] shadow-xl overflow-hidden border border-brand-blue/5">
-                            <div className="overflow-x-auto">
+                            <div className="max-h-[65vh] overflow-auto">
                                 <table className="w-full text-left border-separate border-spacing-0">
-                                    <thead className="bg-bg-slate/50 sticky top-0 z-10">
+                                    <thead className="sticky top-0 z-10">
                                         <tr className="text-brand-text/40 font-black uppercase tracking-[0.15em] text-[11px]">
-                                            <th className="p-5 px-8 border-b border-brand-blue/5">Emp ID</th>
-                                            <th className="p-5 px-6 border-b border-brand-blue/5">Name</th>
-                                            <th className="p-5 px-6 border-b border-brand-blue/5 text-center">Type</th>
-                                            <th className="p-5 px-6 border-b border-brand-blue/5 text-center">Dates</th>
-                                            <th className="p-5 px-6 border-b border-brand-blue/5 text-center">Days</th>
-                                            <th className="p-5 px-6 border-b border-brand-blue/5 text-center">Status</th>
-                                            <th className="p-5 px-8 border-b border-brand-blue/5 text-right">Actions</th>
+                                            <th className="sticky top-0 z-10 bg-bg-slate p-5 px-8 border-b border-brand-blue/5">Emp ID</th>
+                                            <th className="sticky top-0 z-10 bg-bg-slate p-5 px-6 border-b border-brand-blue/5">Name</th>
+                                            <th className="sticky top-0 z-10 bg-bg-slate p-5 px-6 border-b border-brand-blue/5 text-center">Type</th>
+                                            <th className="sticky top-0 z-10 bg-bg-slate p-5 px-6 border-b border-brand-blue/5 text-center">Dates</th>
+                                            <th className="sticky top-0 z-10 bg-bg-slate p-5 px-6 border-b border-brand-blue/5 text-center">Days</th>
+                                            <th className="sticky top-0 z-10 bg-bg-slate p-5 px-6 border-b border-brand-blue/5 text-center">Status</th>
+                                            <th className="sticky top-0 z-10 bg-bg-slate p-5 px-8 border-b border-brand-blue/5 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-brand-blue/5">

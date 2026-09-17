@@ -28,6 +28,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +38,12 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class LeaveService {
+
+    // Business timezone: LocalDateTime.now() alone follows the JVM/host default zone, which can
+    // drift from IST on servers provisioned with UTC as default and silently skew review/approval
+    // timestamps shown to users. Anchor to Asia/Kolkata explicitly, matching the zone already used
+    // by the scheduled jobs (see TimesheetScheduler).
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Kolkata");
 
     @Autowired
     private LeaveRepository leaveRepository;
@@ -436,7 +443,7 @@ public class LeaveService {
         if (rmHandlesAll && approverIsRm && atRmStage) {
             // First (RM-stage) approval — advance the sub-stage, keep PENDING, do not finalize.
             leave.setApprovalStage("PENDING_RM_AS_HR_APPROVAL");
-            leave.setReviewedAt(LocalDateTime.now());
+            leave.setReviewedAt(LocalDateTime.now(APP_ZONE));
             Leave staged = leaveRepository.save(leave);
             if (staged.getEmployee().getUser() != null) {
                 notificationService.createNotification(
@@ -451,7 +458,7 @@ public class LeaveService {
 
         leave.setStatus(LeaveStatus.APPROVED);
         leave.setApprovedBy(approver);
-        leave.setReviewedAt(LocalDateTime.now());
+        leave.setReviewedAt(LocalDateTime.now(APP_ZONE));
 
         // Stamp the HR-stage stand-in when the RM finalized in place of a disabled HR.
         if (rmHandlesAll && approverIsRm) {
@@ -460,7 +467,7 @@ public class LeaveService {
                     .orElse(approver.getUsername());
             leave.setHrStageApprovedByName(approverName);
             leave.setHrStageApprovedByRole("REPORTING_MANAGER");
-            leave.setHrStageApprovedAt(LocalDateTime.now());
+            leave.setHrStageApprovedAt(LocalDateTime.now(APP_ZONE));
             leave.setHrDisabledReroute(true);
         }
 
@@ -505,7 +512,7 @@ public class LeaveService {
         leave.setStatus(LeaveStatus.REJECTED);
         leave.setRejectionReason(reason);
         leave.setApprovedBy(approver);
-        leave.setReviewedAt(LocalDateTime.now());
+        leave.setReviewedAt(LocalDateTime.now(APP_ZONE));
 
         Leave rejected = leaveRepository.save(leave);
 
@@ -811,7 +818,7 @@ public class LeaveService {
 
         List<Leave> pending = leaveRepository.findByEmployeeIdAndStatus(employeeId, LeaveStatus.PENDING);
         int transferred = 0;
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(APP_ZONE);
         for (Leave leave : pending) {
             if (!Boolean.TRUE.equals(leave.getTransferredFromAdmin())) {
                 leave.setTransferredFromAdmin(true);

@@ -167,12 +167,12 @@ export async function generateTimesheetExcel({
         worksheet.getColumn(13).width = 14.0; // M: Summary Label Part 3
         worksheet.getColumn(14).width = 12.45; // N: Summary Value
 
-        // 2. Freeze Panes at A9 (Row 9 starts scrolling; Rows 1..8 stay locked at top)
-        // Omitting xSplit avoids creating a 4-way split quadrant in OpenXML, preventing visual
-        // header ghosting/duplication during high-frequency touchpad scrolling.
-        worksheet.views = [
-            { state: "frozen", ySplit: 8, topLeftCell: "A9", activePane: "bottomLeft" }
-        ];
+        // 2. No frozen panes: Excel's freeze-pane rendering re-draws the frozen rows on top of
+        // the scrollable region, and on some Excel builds/trackpads that redraw lags, leaving a
+        // duplicate "ghost" copy of the title/employee/table-header rows visible until the user
+        // scrolls again. The exported file is a static report (not a live worksheet meant for
+        // heavy scrolling), so skip freezing entirely rather than risk that visual duplication.
+        worksheet.views = [{ state: "normal" }];
 
         // Set default row height = 20px for all rows except Row 1 & 2.
         const lastStyledRow = Math.max(100, 9 + plannedDataRows + 5);
