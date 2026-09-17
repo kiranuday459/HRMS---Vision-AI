@@ -665,7 +665,7 @@ export default function AdminDashboard() {
                           const cells = [];
                           for (let i = 0; i < startingPadding; i++) {
                             const padDate = new Date(year, month, 1 - (startingPadding - i));
-                            if (padDate.getDay() !== 0 && padDate.getDay() !== 6) cells.push(<div key={`pad-${i}`} className="h-12 opacity-10 bg-bg-slate/5 border border-dashed border-brand-blue/5 rounded-xl" />);
+                            if (padDate.getDay() !== 0 && padDate.getDay() !== 6) cells.push(<div key={`pad-${i}`} className="h-[56px] min-h-[56px] rounded-2xl opacity-10 bg-bg-slate/5 border border-dashed border-brand-blue/5" />);
                           }
                           for (let day = 1; day <= daysInMonth; day++) {
                             const dateObj = new Date(year, month, day);
@@ -673,11 +673,36 @@ export default function AdminDashboard() {
                             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                             const isToday = new Date().toISOString().split('T')[0] === dateStr;
                             const onLeave = calendarData[dateStr] || [];
+                            const hasLeaves = onLeave.length > 0;
+                            const leaveText = onLeave.length === 1 ? "1 LEAVE" : `${onLeave.length} LEAVES`;
                             cells.push(
-                              <div key={day} onMouseEnter={(e) => onLeave.length > 0 && setHoveredLeaveData({ data: onLeave, rect: e.currentTarget.getBoundingClientRect() })} onMouseLeave={() => setHoveredLeaveData(null)}
-                                className={`h-12 rounded-xl border transition-all p-1.5 flex flex-col items-center justify-center relative group ${isToday ? "bg-brand-blue/5 border-brand-blue ring-2 ring-brand-blue/10" : ""} ${onLeave.length > 0 ? "bg-white border-brand-yellow/50 shadow-lg cursor-pointer" : "bg-bg-slate/30 border-transparent hover:bg-white hover:border-brand-blue/10"}`}>
-                                <span className="text-xs font-black text-brand-text">{day}</span>
-                                {onLeave.length > 0 && <div className="mt-0.5 px-1 py-0 bg-brand-blue/5 rounded"><span className="text-[6px] font-black text-brand-text">{onLeave.length} LEAVE</span></div>}
+                              <div
+                                key={day}
+                                onMouseEnter={(e) => hasLeaves && setHoveredLeaveData({ data: onLeave, rect: e.currentTarget.getBoundingClientRect() })}
+                                onMouseLeave={() => setHoveredLeaveData(null)}
+                                className={`h-[56px] min-h-[56px] rounded-2xl border transition-all p-1.5 flex flex-col items-center ${
+                                  hasLeaves ? "justify-start pt-1.5" : "justify-center"
+                                } relative group ${
+                                  isToday
+                                    ? "bg-brand-blue/5 border-brand-blue ring-2 ring-brand-blue/10 shadow-sm z-10"
+                                    : hasLeaves
+                                    ? "bg-white border-blue-200/80 shadow-sm cursor-pointer hover:border-blue-400 hover:shadow-md"
+                                    : "bg-bg-slate/30 border-transparent hover:bg-white hover:border-brand-blue/10"
+                                }`}
+                              >
+                                <span className={`text-xs font-black leading-none ${isToday ? "text-brand-blue" : "text-brand-text"}`}>
+                                  {day}
+                                </span>
+                                {hasLeaves && (
+                                  <>
+                                    <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#3B82F6]" />
+                                    <div className="mt-1 px-1.5 py-0.5 bg-slate-100/90 rounded-md flex items-center justify-center max-w-full">
+                                      <span className="text-[8px] font-bold text-brand-text uppercase tracking-tight whitespace-nowrap leading-none select-none">
+                                        {leaveText}
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             );
                           }
