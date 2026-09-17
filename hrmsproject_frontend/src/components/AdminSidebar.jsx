@@ -136,7 +136,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
             </button>
             <div className="text-center mb-4 pt-4">
               <img src={Logo} alt="VisionAi Logo" className="h-16 mx-auto mb-2 object-contain" />
-              <h1 className="text-xl font-bold text-[#2C2C2A]">
+              <h1 className="text-xl font-bold text-[#2C2C2A] break-words">
                 {displayName}
               </h1>
               <p className="text-sm uppercase tracking-widest mt-1 text-[#888780]">
@@ -186,7 +186,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
           {!collapsed && (
             <div className="flex flex-col items-center text-center min-w-0 flex-1">
               <img src={Logo} alt="VisionAi Logo" className="h-11 mb-2 object-contain" />
-              <h1 className="text-lg font-bold text-[#2C2C2A] truncate w-full text-center">
+              <h1 className="text-lg font-bold text-[#2C2C2A] break-words w-full text-center">
                 {displayName}
               </h1>
               <p className="text-[10px] uppercase tracking-[0.2em] mt-1 font-bold text-[#888780] truncate w-full text-center">

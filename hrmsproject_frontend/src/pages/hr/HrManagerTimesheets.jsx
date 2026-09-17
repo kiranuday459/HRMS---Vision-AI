@@ -446,7 +446,7 @@ export default function HrManagerTimesheets() {
                             <h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight">
                                 {ribbonTitle}
                             </h1>
-                            <p className="text-[12px] text-brand-text-secondary mt-0.5">
+                            <p className="text-[12px] text-brand-text-secondary mt-0.5 break-words">
                                 {ribbonRoleLabel}{ribbonRoleLabel && ribbonName ? " · " : ""}{ribbonName}
                             </p>
                         </div>

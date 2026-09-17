@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
@@ -78,7 +79,9 @@ public class Leave {
 
     @PrePersist
     protected void onCreate() {
-        submittedAt = LocalDateTime.now();
+        // Anchor to the business timezone (Asia/Kolkata) rather than the JVM/host default zone,
+        // so submittedAt/reviewedAt stay consistent regardless of where the server is deployed.
+        submittedAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
     }
     
     // Getters and Setters

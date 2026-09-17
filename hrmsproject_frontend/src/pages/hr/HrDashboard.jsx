@@ -344,7 +344,7 @@ const weekStatus = getWeekStatus(week.entries, 'HR');
 							<h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight">
 								{ribbonTitle}
 							</h1>
-							<p className="text-[12px] text-brand-text-secondary mt-0.5">
+							<p className="text-[12px] text-brand-text-secondary mt-0.5 break-words">
 									{ribbonRoleLabel}{ribbonRoleLabel && ribbonName ? " · " : ""}{ribbonName}
 								</p>
 							</div>
@@ -371,7 +371,7 @@ const weekStatus = getWeekStatus(week.entries, 'HR');
 									<div className="px-4 py-2 space-y-3 text-left">
 										<div>
 											<p className="text-[9px] font-black text-brand-text/40 uppercase tracking-[0.15em]">Employee Name</p>
-											<p className="text-sm font-extrabold text-brand-text">{user.fullName || "—"}</p>
+											<p className="text-sm font-extrabold text-brand-text break-words">{user.fullName || "—"}</p>
 										</div>
 										<div>
 											<p className="text-[9px] font-black text-brand-text/40 uppercase tracking-[0.15em]">Reporting Manager</p>
@@ -423,7 +423,7 @@ const weekStatus = getWeekStatus(week.entries, 'HR');
 							<h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight">
 								{ribbonTitle}
 							</h1>
-							<p className="text-[12px] text-brand-text-secondary mt-0.5">
+							<p className="text-[12px] text-brand-text-secondary mt-0.5 break-words">
 									{ribbonRoleLabel}{ribbonRoleLabel && ribbonName ? " · " : ""}{ribbonName}
 								</p>
 							</div>
@@ -450,7 +450,7 @@ const weekStatus = getWeekStatus(week.entries, 'HR');
 									<div className="px-4 py-2 space-y-3 text-left">
 										<div>
 											<p className="text-[9px] font-black text-brand-text/40 uppercase tracking-[0.15em]">Employee Name</p>
-											<p className="text-sm font-extrabold text-brand-text">{user.fullName || "—"}</p>
+											<p className="text-sm font-extrabold text-brand-text break-words">{user.fullName || "—"}</p>
 										</div>
 										<div>
 											<p className="text-[9px] font-black text-brand-text/40 uppercase tracking-[0.15em]">Reporting Manager</p>
