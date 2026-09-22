@@ -100,6 +100,9 @@ const LoginPage = ({ setUser }) => {
             if (empData.id) {
               normalizedUser.employeeId = empData.id;
             }
+            if (empData.oryfolksId) {
+              normalizedUser.oryfolksId = empData.oryfolksId;
+            }
             if (empData.firstName) {
               normalizedUser.firstName = empData.firstName;
               normalizedUser.lastName = empData.lastName;

@@ -723,7 +723,7 @@ export default function AdminDashboard() {
                     <table className="hidden lg:table w-full text-left border-collapse">
                       <thead className="sticky top-0 z-20 bg-white">
                         <tr className="bg-brand-blue/[0.02]">
-                          <th className="py-3 px-4 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 w-20">Record ID</th>
+                          <th className="py-3 px-4 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 w-20">Emp ID</th>
                           <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Requester</th>
                           <th className="py-3 px-4 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5">Category</th>
                           <th className="py-3 px-6 text-[11px] font-black uppercase tracking-[0.15em] text-brand-text/40 border-b border-brand-blue/5 text-center">Dates</th>
@@ -760,7 +760,7 @@ export default function AdminDashboard() {
                           }
                           return filtered.map((leave) => (
                             <tr key={leave.id} className="group hover:bg-bg-slate/40 transition-all duration-300">
-                              <td className="py-3 px-4"><span className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest">#{leave.id}</span></td>
+                              <td className="py-3 px-4"><span className="text-[10px] font-black text-brand-text/40 tracking-widest">{(() => { const emp = employees.find(e => String(e.id) === String(leave.employeeId) || e.id === leave.employeeId); return emp?.oryfolksId || leave.employeeId; })()}</span></td>
                               <td className="py-3 px-6"><div className="flex flex-col"><span className="text-sm font-black text-brand-text tracking-tight uppercase">{leave.employeeName}</span></div></td>
                               <td className="py-3 px-6"><span className="px-3 py-1 bg-brand-blue/5 text-brand-text text-[8px] font-black uppercase tracking-widest rounded-lg border border-brand-blue/10">{leave.leaveType}</span></td>
                               <td className="py-3 px-6 text-brand-text/60 text-xs text-center whitespace-nowrap">
@@ -822,7 +822,7 @@ export default function AdminDashboard() {
                           <div key={leave.id} className="bg-bg-slate/40 rounded-2xl p-4 border border-brand-blue/5 space-y-4">
                             <div className="flex justify-between items-start">
                               <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest">#{leave.id}</span>
+                                <span className="text-[10px] font-black text-brand-text/40 tracking-widest">{(() => { const emp = employees.find(e => String(e.id) === String(leave.employeeId) || e.id === leave.employeeId); return emp?.oryfolksId || leave.employeeId; })()}</span>
                                 <span className="text-base font-black text-brand-text tracking-tight uppercase">{leave.employeeName}</span>
                               </div>
                               <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${leave.status === 'PENDING' ? 'bg-brand-yellow/10 text-brand-yellow-dark border-brand-yellow/20' : leave.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
