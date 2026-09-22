@@ -278,21 +278,21 @@ export default function HrManagerLeaves() {
 
                 <div className="flex-1 overflow-auto p-4 md:p-10">
                     <div className="max-w-[1200px] mx-auto">
-                        <header className="flex justify-end items-center mb-8">
-                            <div className="flex items-center gap-4">
-                                <div className="flex bg-bg-slate/50 p-1.5 rounded-2xl w-full sm:w-auto overflow-x-auto scrollbar-hide">
-                                    {["ALL", "REPORTING_MANAGERS", "OTHERS"].map((role) => (
-                                        <button
-                                            key={role}
-                                            onClick={() => setLeaveRoleFilter(role)}
-                                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${leaveRoleFilter === role
-                                                ? "bg-brand-blue-dark text-white shadow-lg active"
-                                                : "text-brand-text/40 hover:text-brand-text hover:bg-white"
-                                                }`}
-                                        >
-                                            {role === "REPORTING_MANAGERS" ? "REPORTING MANAGERS" : role === "OTHERS" ? "EMPLOYEES" : role}
-                                        </button>
-                                    ))}
+                        <header className="sticky top-0 z-20 bg-bg-slate/90 backdrop-blur-md pb-4 pt-2 flex flex-wrap items-center justify-between gap-4 mb-8">
+                            <div className="flex flex-wrap items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <label htmlFor="hr-leave-role-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Roles</label>
+                                    <select
+                                        id="hr-leave-role-filter"
+                                        value={leaveRoleFilter}
+                                        onChange={(e) => setLeaveRoleFilter(e.target.value)}
+                                        className="h-[47px] rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 cursor-pointer shadow-sm hover:border-brand-blue/30 transition-all"
+                                    >
+                                        <option value="ALL">All</option>
+                                        <option value="EMPLOYEES">Employees</option>
+                                        <option value="REPORTING_MANAGERS">Reporting Managers</option>
+                                        <option value="HR">HR</option>
+                                    </select>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <label htmlFor="hr-leave-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
@@ -313,28 +313,29 @@ export default function HrManagerLeaves() {
                                         const matchesStatus = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
                                         const matchesSearch = !leavesFilter || (lv.employeeName && lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase()));
                                         const emp = employees.find(e => e.id === lv.employeeId || e.fullName === lv.employeeName);
-                                        const role = emp?.role;
+                                        const role = (emp?.role || '').toUpperCase();
                                         if (!matchesStatus) return false;
                                         if (leaveRoleFilter === "ALL") return matchesSearch;
-                                        if (leaveRoleFilter === "REPORTING_MANAGERS") return matchesSearch && role === "REPORTING_MANAGER";
-                                        if (leaveRoleFilter === "OTHERS") return matchesSearch && role !== "REPORTING_MANAGER";
+                                        if (leaveRoleFilter === "HR") return matchesSearch && role === "HR";
+                                        if (leaveRoleFilter === "REPORTING_MANAGERS") return matchesSearch && (role === "REPORTING_MANAGER" || role === "REPORTING_MANAGERS" || role === "MANAGER");
+                                        if (leaveRoleFilter === "EMPLOYEES" || leaveRoleFilter === "OTHERS") return matchesSearch && role !== "REPORTING_MANAGER" && role !== "REPORTING_MANAGERS" && role !== "MANAGER" && role !== "HR";
                                         return matchesSearch;
                                     }).length}
                                 </div>
-                                <div className="relative group">
-                                    <input
-                                        type="text"
-                                        placeholder="Search by employee name..."
-                                        value={leavesFilter}
-                                        onChange={(e) => setLeavesFilter(e.target.value)}
-                                        className="w-[268px] h-[47px] bg-white border-2 border-transparent focus:border-brand-yellow rounded-2xl px-5 text-sm font-bold text-brand-text/60 outline-none transition-all shadow-sm"
-                                    />
-                                    <button className="absolute right-0 top-0 h-full w-[66px] bg-brand-blue-dark text-white rounded-r-2xl flex items-center justify-center hover:bg-brand-blue-hover transition-colors">
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                        </svg>
-                                    </button>
-                                </div>
+                            </div>
+                            <div className="relative group">
+                                <input
+                                    type="text"
+                                    placeholder="Search by employee name..."
+                                    value={leavesFilter}
+                                    onChange={(e) => setLeavesFilter(e.target.value)}
+                                    className="w-[268px] h-[47px] bg-white border-2 border-transparent focus:border-brand-yellow rounded-2xl px-5 text-sm font-bold text-brand-text/60 outline-none transition-all shadow-sm"
+                                />
+                                <button className="absolute right-0 top-0 h-full w-[66px] bg-brand-blue-dark text-white rounded-r-2xl flex items-center justify-center hover:bg-brand-blue-hover transition-colors">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </button>
                             </div>
                         </header>
 
@@ -362,14 +363,15 @@ export default function HrManagerLeaves() {
                                                 const matchesStatus = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
                                                 const matchesSearch = !leavesFilter || (lv.employeeName && lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase()));
                                                 const emp = employees.find(e => e.id === lv.employeeId || e.fullName === lv.employeeName);
-                                                const role = emp?.role;
+                                                 const role = (emp?.role || '').toUpperCase();
 
-                                                if (!matchesStatus) return false;
-                                                if (leaveRoleFilter === "ALL") return matchesSearch;
-                                                if (leaveRoleFilter === "REPORTING_MANAGERS") return matchesSearch && role === "REPORTING_MANAGER";
-                                                if (leaveRoleFilter === "OTHERS") return matchesSearch && role !== "REPORTING_MANAGER";
+                                                 if (!matchesStatus) return false;
+                                                 if (leaveRoleFilter === "ALL") return matchesSearch;
+                                                 if (leaveRoleFilter === "HR") return matchesSearch && role === "HR";
+                                                 if (leaveRoleFilter === "REPORTING_MANAGERS") return matchesSearch && (role === "REPORTING_MANAGER" || role === "REPORTING_MANAGERS" || role === "MANAGER");
+                                                 if (leaveRoleFilter === "EMPLOYEES" || leaveRoleFilter === "OTHERS") return matchesSearch && role !== "REPORTING_MANAGER" && role !== "REPORTING_MANAGERS" && role !== "MANAGER" && role !== "HR";
 
-                                                return matchesSearch;
+                                                 return matchesSearch;
                                             });
 
                                             if (filteredLeaves.length === 0) {

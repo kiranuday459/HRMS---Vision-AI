@@ -398,8 +398,8 @@ export default function AdminTimesheets() {
 
             if (roleFilter === "ALL") return true;
             if (roleFilter === "HR") return isHr;
-            if (roleFilter === "RM") return isRm;
-            if (roleFilter === "OTHERS") return !isHr && !isRm;
+            if (roleFilter === "REPORTING_MANAGERS" || roleFilter === "RM") return isRm;
+            if (roleFilter === "EMPLOYEES" || roleFilter === "OTHERS") return !isHr && !isRm;
 
             return true;
         });
@@ -448,9 +448,21 @@ export default function AdminTimesheets() {
                     <div className="max-w-[1200px] mx-auto animate-in fade-in duration-500">
                         {tsSubView === 'summary' ? (
                             <>
-                                <div className="bg-white rounded-[24px] p-4 shadow-xl border border-brand-blue/5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
-                                    <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
+                                <div className="sticky top-[76px] z-20 bg-white rounded-[24px] p-4 shadow-xl border border-brand-blue/5 flex flex-wrap items-center justify-between gap-3 mb-8">
+                                    <div className="relative flex-1 min-w-[200px] max-w-[280px]">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/20" size={16} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search by personnel, ID or office..."
+                                            value={tsFilter}
+                                            onChange={(e) => setTsFilter(e.target.value)}
+                                            className="w-full pl-12 pr-4 py-2.5 bg-bg-slate/50 border border-brand-blue/5 rounded-2xl text-[11px] font-bold outline-none focus:border-brand-blue-dark/20 transition-all placeholder:text-brand-text/20"
+                                        />
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-3">
                                         <div className="flex items-center gap-2">
+                                            <label htmlFor="admin-role-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Roles</label>
                                             <select
                                                 id="admin-role-filter"
                                                 value={roleFilter}
@@ -459,29 +471,16 @@ export default function AdminTimesheets() {
                                                     setRoleFilter(val);
                                                     sessionStorage.setItem("admin_timesheets_role_filter", val);
                                                 }}
-                                                className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-4 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm cursor-pointer hover:border-brand-blue/30 transition-all min-w-[170px]"
+                                                className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm cursor-pointer hover:border-brand-blue/30 transition-all"
                                             >
                                                 <option value="ALL">All</option>
+                                                <option value="EMPLOYEES">Employees</option>
+                                                <option value="REPORTING_MANAGERS">Reporting Managers</option>
                                                 <option value="HR">HR</option>
-                                                <option value="RM">Reporting Manager</option>
-                                                <option value="OTHERS">Other Departments</option>
                                             </select>
                                         </div>
 
-                                        <div className="flex-1 min-w-[200px] relative">
-                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/20" size={16} />
-                                            <input
-                                                type="text"
-                                                placeholder="Search by personnel, ID or office..."
-                                                value={tsFilter}
-                                                onChange={(e) => setTsFilter(e.target.value)}
-                                                className="w-full pl-12 pr-4 py-3 bg-bg-slate/50 border border-brand-blue/5 rounded-2xl text-[11px] font-bold outline-none focus:border-brand-blue-dark/20 transition-all placeholder:text-brand-text/20"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-wrap items-center gap-3 shrink-0">
-                                        <div className="flex items-center gap-2 min-w-[170px]">
+                                        <div className="flex items-center gap-2">
                                             <label htmlFor="admin-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
                                             <select
                                                 id="admin-status-filter"
@@ -502,7 +501,7 @@ export default function AdminTimesheets() {
 
                                         <button
                                             onClick={() => setIsDownloadModalOpen(true)}
-                                            className="bg-brand-blue-dark text-white px-4 py-3 rounded-2xl shadow-xl shadow-brand-blue/10 active:scale-95 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:brightness-110 shrink-0"
+                                            className="h-10 bg-brand-blue-dark text-white px-4 rounded-2xl shadow-xl shadow-brand-blue/10 active:scale-95 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:brightness-110 shrink-0 whitespace-nowrap"
                                         >
                                             <Download size={14} />
                                             DOWNLOAD TIMESHEET

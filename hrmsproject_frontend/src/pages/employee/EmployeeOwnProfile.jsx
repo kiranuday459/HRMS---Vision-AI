@@ -1847,14 +1847,16 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                 return (
                                   <div
                                     key={leave.label}
-                                    className={`px-4 sm:px-5 py-4 min-w-0 ${idx > 0 ? 'lg:border-l-[0.5px] lg:border-gray-200' : ''}`}
+                                    className={`px-3.5 sm:px-4 py-4 min-w-0 flex flex-col justify-between ${idx > 0 ? 'lg:border-l-[0.5px] lg:border-gray-200' : ''}`}
                                   >
-                                    <p className="text-[13px] font-medium text-brand-text leading-snug">{leave.label}</p>
-                                    <div className="mt-3 flex items-baseline flex-wrap gap-x-1.5 gap-y-0.5">
-                                      <span className="text-[28px] font-medium text-brand-text leading-none">{left.toFixed(2)}</span>
-                                      <span className="text-[11px] text-brand-text/40">Days</span>
+                                    <div className="min-h-[44px] flex items-end">
+                                      <p className="text-[13px] font-medium text-brand-text leading-snug">{leave.label}</p>
                                     </div>
-                                    <p className="text-[11px] text-brand-text/40 mt-0.5">left</p>
+                                    <div className="mt-3 flex flex-col items-start">
+                                      <div className="text-[28px] font-medium text-brand-text leading-none">{left.toFixed(2)}</div>
+                                      <p className="text-[11px] text-brand-text/40 font-normal leading-tight mt-1">Days</p>
+                                      <p className="text-[11px] text-brand-text/40 font-normal leading-tight">left</p>
+                                    </div>
                                     <div className="w-full bg-gray-200 rounded-[2px] h-1 mt-3 overflow-hidden">
                                       <div
                                         className={`${leave.barColor} h-full rounded-[2px] transition-all duration-500`}
