@@ -185,11 +185,13 @@ const NotificationComponent = () => {
                     <div className="fixed sm:absolute right-4 sm:right-0 top-16 sm:top-full mt-2 w-[calc(100vw-32px)] sm:w-80 bg-white rounded-2xl shadow-2xl border border-brand-blue/5 overflow-hidden z-[100] animate-in fade-in zoom-in duration-200 origin-top-right overscroll-contain">
                         <div className="p-4 border-b border-brand-blue/5 flex justify-between items-center bg-brand-blue-dark text-white">
                             <h3 className="font-bold text-xs uppercase tracking-widest">Notifications</h3>
-                            {unreadCount > 0 && (
-                                <button onClick={markAllAsRead} className="text-[10px] font-black hover:text-brand-yellow transition-colors underline">
-                                    Mark all as read
-                                </button>
-                            )}
+                            <button
+                                onClick={markAllAsRead}
+                                disabled={unreadCount === 0}
+                                className={`text-[10px] font-black transition-colors underline ${unreadCount > 0 ? 'hover:text-brand-stone cursor-pointer' : 'opacity-40 cursor-default'}`}
+                            >
+                                Mark all as read
+                            </button>
                         </div>
 
                         <div ref={scrollListRef} className="max-h-[400px] overflow-y-auto overscroll-contain custom-scrollbar bg-slate-50/30">
