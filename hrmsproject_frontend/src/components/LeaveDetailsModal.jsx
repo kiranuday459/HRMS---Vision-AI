@@ -1,9 +1,36 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import HrRerouteBanner from './HrRerouteBanner';
 import { isHrDisabledReroute } from '../utils/leaveStatus';
 import { formatLeaveDuration } from '../utils/leaveDuration';
+import api from '../utils/api';
 
-const LeaveDetailsModal = ({ isOpen, onClose, leave }) => {
+const LeaveDetailsModal = ({ isOpen, onClose, leave: leaveProp }) => {
+    // The list pages that open this modal don't poll, so their cached leave objects can
+    // go stale (e.g. reviewedAt from before someone else just approved/rejected it).
+    // Re-fetch the live record by id whenever the modal opens so what's shown is current.
+    const [leave, setLeave] = useState(leaveProp);
+
+    useEffect(() => {
+        setLeave(leaveProp);
+    }, [leaveProp]);
+
+    useEffect(() => {
+        if (!isOpen || !leaveProp?.id) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const response = await api(`/api/leaves/${leaveProp.id}`);
+                if (!cancelled && response.ok) {
+                    const result = await response.json();
+                    if (result.data) setLeave(result.data);
+                }
+            } catch (e) {
+                // Keep showing the data we already have if the refresh fails.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isOpen, leaveProp?.id]);
+
     if (!isOpen || !leave) return null;
 
     const formatDate = (dateString) => {
