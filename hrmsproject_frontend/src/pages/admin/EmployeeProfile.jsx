@@ -1561,9 +1561,9 @@ export default function EmployeeProfile() {
                                     <div className={`${leave.color} w-3 h-3 rounded-full shadow-sm`}></div>
                                   </div>
                                   <div className="flex items-end justify-between">
-                                    <div>
+                                    <div className="flex items-baseline flex-wrap gap-x-1.5">
                                       <span className="text-3xl font-bold text-brand-text">{left.toFixed(2)}</span>
-                                      <span className="text-xs font-bold text-brand-text/40 ml-1">Days left</span>
+                                      <span className="text-xs font-bold text-brand-text/40">Days left</span>
                                     </div>
                                     <div className="text-right">
                                       <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest">
