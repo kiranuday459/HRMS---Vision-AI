@@ -28,6 +28,7 @@ export default function HrManagerTimesheets() {
     const [timesheets, setTimesheets] = useState([]);
     const [tsFilter, setTsFilter] = useState("");
     const [tsStatusFilter, setTsStatusFilter] = useState("All");
+    const [tsRoleFilter, setTsRoleFilter] = useState("ALL");
     const [managers, setManagers] = useState([]);
     const [tsSubView, setTsSubView] = useState('summary'); // 'summary' or 'grid'
     const [selectedWeek, setSelectedWeek] = useState(null);
@@ -411,7 +412,14 @@ export default function HrManagerTimesheets() {
                 (tsStatusFilter === "Pending" && (isPendingStatus(emp.status) || (emp.status || '').toUpperCase().includes('PENDING'))) ||
                 (tsStatusFilter === "Approved" && (emp.status || '').toUpperCase() === 'APPROVED') ||
                 (tsStatusFilter === "Rejected" && (emp.status || '').toUpperCase() === 'REJECTED');
-            return matchesSearch && matchesStatus;
+            const empRole = (profile?.role || emp.employeeRole || '').toUpperCase();
+            const isRm = empRole === 'REPORTING_MANAGER' || empRole === 'REPORTING_MANAGERS' || empRole === 'MANAGER';
+            const isHr = empRole === 'HR';
+            const matchesRole = tsRoleFilter === "ALL" ||
+                (tsRoleFilter === "HR" && isHr) ||
+                (tsRoleFilter === "REPORTING_MANAGERS" && isRm) ||
+                ((tsRoleFilter === "EMPLOYEES" || tsRoleFilter === "OTHERS") && !isRm && !isHr);
+            return matchesSearch && matchesStatus && matchesRole;
         });
         return { ...week, filteredEmployees };
     }).filter(week => week.filteredEmployees.length > 0);
@@ -508,19 +516,33 @@ export default function HrManagerTimesheets() {
                     <div className="max-w-[1200px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {tsSubView === 'summary' ? (
                             <>
-                                <div className="bg-white rounded-[24px] p-4 shadow-xl border border-brand-blue/5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
-                                    <div className="relative flex-1 min-w-[280px]">
+                                <div className="sticky top-[76px] z-20 bg-white rounded-[24px] p-4 shadow-xl border border-brand-blue/5 flex flex-wrap items-center justify-between gap-3 mb-8">
+                                    <div className="relative flex-1 min-w-[200px] max-w-[280px]">
                                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/20" size={16} />
                                         <input
                                             type="text"
                                             placeholder="Search by manager name, ID or office..."
                                             value={tsFilter}
                                             onChange={(e) => setTsFilter(e.target.value)}
-                                            className="w-full pl-12 pr-4 py-3 bg-bg-slate/50 border border-brand-blue/5 rounded-2xl text-[11px] font-bold outline-none focus:border-brand-blue-dark/20 transition-all placeholder:text-brand-text/20"
+                                            className="w-full pl-12 pr-4 py-2.5 bg-bg-slate/50 border border-brand-blue/5 rounded-2xl text-[11px] font-bold outline-none focus:border-brand-blue-dark/20 transition-all placeholder:text-brand-text/20"
                                         />
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <label htmlFor="hr-ts-role-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Roles</label>
+                                            <select
+                                                id="hr-ts-role-filter"
+                                                value={tsRoleFilter}
+                                                onChange={(e) => setTsRoleFilter(e.target.value)}
+                                                className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 cursor-pointer shadow-sm hover:border-brand-blue/30 transition-all"
+                                            >
+                                                <option value="ALL">All</option>
+                                                <option value="EMPLOYEES">Employees</option>
+                                                <option value="REPORTING_MANAGERS">Reporting Managers</option>
+                                                <option value="HR">HR</option>
+                                            </select>
+                                        </div>
                                         <div className="flex items-center gap-2">
                                             <label htmlFor="hr-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
                                             <select
@@ -540,7 +562,7 @@ export default function HrManagerTimesheets() {
                                         </div>
                                         <button
                                             onClick={() => setIsDownloadModalOpen(true)}
-                                            className="bg-brand-blue-dark text-white px-4 py-3 rounded-2xl shadow-xl shadow-brand-blue/10 active:scale-95 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:brightness-110 shrink-0"
+                                            className="h-10 bg-brand-blue-dark text-white px-4 rounded-2xl shadow-xl shadow-brand-blue/10 active:scale-95 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:brightness-110 shrink-0 whitespace-nowrap"
                                         >
                                             <Download size={14} />
                                             Download Timesheet

@@ -456,28 +456,19 @@ export default function AdminDashboard() {
                   <p className="text-[9px] font-black text-[#888780] uppercase tracking-[0.2em] mt-0.5 whitespace-nowrap">Enterprise Management</p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-2">
-                  <div className="relative group w-full sm:w-48 md:w-64">
-                    <input
-                      type="text"
-                      placeholder="Search by employee name..."
-                      value={leaveSearch}
-                      onChange={(e) => setLeaveSearch(e.target.value)}
-                      className="w-full h-[38px] bg-[#F4F6FA] border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 pl-9 text-xs font-bold text-[#2C2C2A] outline-none transition-all"
-                    />
-                    <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#888780]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                  <div className="flex bg-bg-slate/50 p-1 rounded-xl">
-                    {["ALL", "MANAGERS", "HR"].map((role) => (
-                      <button
-                        key={role}
-                        onClick={() => setLeaveRoleFilter(role)}
-                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${leaveRoleFilter === role ? "bg-brand-blue-dark text-white shadow-md" : "text-brand-text/40 hover:text-brand-text hover:bg-white"}`}
-                      >
-                        {role}
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="admin-leave-role-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Roles</label>
+                    <select
+                      id="admin-leave-role-filter"
+                      value={leaveRoleFilter}
+                      onChange={(e) => setLeaveRoleFilter(e.target.value)}
+                      className="h-[38px] rounded-xl border border-[#E3E8EF] bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 shadow-sm cursor-pointer hover:border-brand-blue/30 transition-all"
+                    >
+                      <option value="ALL">All</option>
+                      <option value="EMPLOYEES">Employees</option>
+                      <option value="REPORTING_MANAGERS">Reporting Managers</option>
+                      <option value="HR">HR</option>
+                    </select>
                   </div>
                   <div className="flex items-center gap-2">
                     <label htmlFor="admin-leave-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
@@ -492,6 +483,18 @@ export default function AdminDashboard() {
                       <option>Approved</option>
                       <option>Rejected</option>
                     </select>
+                  </div>
+                  <div className="relative group w-full sm:w-48 md:w-64">
+                    <input
+                      type="text"
+                      placeholder="Search by employee name..."
+                      value={leaveSearch}
+                      onChange={(e) => setLeaveSearch(e.target.value)}
+                      className="w-full h-[38px] bg-[#F4F6FA] border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 pl-9 text-xs font-bold text-[#2C2C2A] outline-none transition-all"
+                    />
+                    <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#888780]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
                   </div>
                 </div>
               </div>
@@ -743,7 +746,7 @@ export default function AdminDashboard() {
                               ? true
                               : leaveRoleFilter === "HR"
                                 ? empRole === "HR"
-                                : leaveRoleFilter === "MANAGERS"
+                                : (leaveRoleFilter === "MANAGERS" || leaveRoleFilter === "REPORTING_MANAGERS")
                                   ? empRole === "REPORTING_MANAGER"
                                   : empRole !== "HR" && empRole !== "REPORTING_MANAGER";
                             const statusMatch = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
@@ -805,7 +808,7 @@ export default function AdminDashboard() {
                             ? true
                             : leaveRoleFilter === "HR"
                               ? empRole === "HR"
-                              : leaveRoleFilter === "MANAGERS"
+                              : (leaveRoleFilter === "MANAGERS" || leaveRoleFilter === "REPORTING_MANAGERS")
                                 ? empRole === "REPORTING_MANAGER"
                                 : empRole !== "HR" && empRole !== "REPORTING_MANAGER";
                           const statusMatch = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
