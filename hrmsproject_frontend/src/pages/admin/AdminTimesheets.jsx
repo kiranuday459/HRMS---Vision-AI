@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import AdminSidebar from "../../components/AdminSidebar";
 import WeeklyTimesheetGrid from "../employee/timesheet/WeeklyTimesheetGrid";
 import { toast } from "react-toastify";
@@ -11,13 +11,30 @@ import RejectRequestModal from "../../components/RejectRequestModal";
 import ConfirmActionModal from "../../components/ConfirmActionModal";
 
 export default function AdminTimesheets() {
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    const getInitialRoleFilter = (loc) => {
+        const params = new URLSearchParams(loc.search);
+        const queryRole = params.get("role") || params.get("section") || params.get("filter") || loc.state?.role || loc.state?.section || loc.state?.filter;
+        if (queryRole) {
+            const normalized = queryRole.toUpperCase();
+            if (normalized === "ALL") return "ALL";
+            if (normalized === "HR") return "HR";
+            if (["RM", "MANAGER", "MANAGERS", "REPORTING_MANAGER"].includes(normalized)) return "RM";
+            if (normalized === "OTHERS") return "OTHERS";
+        }
+        sessionStorage.removeItem("admin_timesheets_role_filter");
+        return "ALL";
+    };
+
     const [activeTab, setActiveTab] = useState("timesheets");
     const [user, setUser] = useState({});
     const [loading, setLoading] = useState(true);
     const [timesheets, setTimesheets] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [tsFilter, setTsFilter] = useState("");
-    const [roleFilter, setRoleFilter] = useState("HR");
+    const [roleFilter, setRoleFilter] = useState(() => getInitialRoleFilter(location));
     const [statusFilter, setStatusFilter] = useState("All");
     const [tsSubView, setTsSubView] = useState('summary'); // 'summary' or 'grid'
     const [selectedWeek, setSelectedWeek] = useState(null);
@@ -29,7 +46,26 @@ export default function AdminTimesheets() {
     const [rejectModal, setRejectModal] = useState(null);
     const [rejectReason, setRejectReason] = useState("");
     const [rejectSubmitting, setRejectSubmitting] = useState(false);
-    const navigate = useNavigate();
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const queryRole = params.get("role") || params.get("section") || params.get("filter") || location.state?.role || location.state?.section || location.state?.filter;
+        if (queryRole) {
+            const normalized = queryRole.toUpperCase();
+            let target = "";
+            if (normalized === "ALL") target = "ALL";
+            else if (normalized === "HR") target = "HR";
+            else if (["RM", "MANAGER", "MANAGERS", "REPORTING_MANAGER"].includes(normalized)) target = "RM";
+            else if (normalized === "OTHERS") target = "OTHERS";
+
+            if (target) {
+                setRoleFilter(target);
+            }
+        } else {
+            setRoleFilter("ALL");
+            sessionStorage.removeItem("admin_timesheets_role_filter");
+        }
+    }, [location.search, location.state]);
 
     useEffect(() => {
         const userData = JSON.parse(localStorage.getItem("user")) || {};
@@ -418,7 +454,11 @@ export default function AdminTimesheets() {
                                             <select
                                                 id="admin-role-filter"
                                                 value={roleFilter}
-                                                onChange={(e) => setRoleFilter(e.target.value)}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setRoleFilter(val);
+                                                    sessionStorage.setItem("admin_timesheets_role_filter", val);
+                                                }}
                                                 className="h-10 rounded-2xl border border-brand-blue/10 bg-white px-4 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/5 shadow-sm cursor-pointer hover:border-brand-blue/30 transition-all min-w-[170px]"
                                             >
                                                 <option value="ALL">All</option>
@@ -501,11 +541,13 @@ export default function AdminTimesheets() {
                                                             <div
                                                                 key={eIdx}
                                                                 onClick={() => {
+                                                                    const profile = employees.find(e => String(e.id) === String(emp.employeeId) || e.id === emp.employeeId);
                                                                     setSelectedWeek({
                                                                         ...week,
                                                                         entries: emp.entries,
                                                                         status: emp.status,
                                                                         employeeId: emp.employeeId,
+                                                                        employeeOfficeId: profile?.oryfolksId || emp.employeeId,
                                                                         employeeName: emp.employeeName,
                                                                         employeeRole: emp.employeeRole,
                                                                         employeeStatus: emp.employeeStatus,
@@ -523,8 +565,8 @@ export default function AdminTimesheets() {
                                                                 <div className="flex-1">
                                                                     <div className="flex items-center gap-2">
                                                                         <h4 className={`font-black text-sm uppercase tracking-tight ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.employeeName}</h4>
-                                                                        <span className="text-[10px] font-bold text-brand-text/20 uppercase tracking-widest">ID: {(() => {
-                                                                            const profile = employees.find(e => e.id === emp.employeeId);
+                                                                        <span className="text-[10px] font-bold text-brand-text/20 tracking-widest">ID: {(() => {
+                                                                            const profile = employees.find(e => String(e.id) === String(emp.employeeId) || e.id === emp.employeeId);
                                                                             return profile?.oryfolksId || emp.employeeId;
                                                                         })()}</span>
                                                                         {isDisabled && (

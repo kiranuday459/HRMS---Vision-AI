@@ -13,7 +13,9 @@ import {
   Clock,
   Briefcase,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  FileText,
+  History
 } from 'lucide-react';
 import useSidebarCollapsed from '../hooks/useSidebarCollapsed';
 import { useWorkspace } from '../hooks/useWorkspace';
@@ -108,8 +110,8 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout }) {
       { id: "candidates", label: "Employees", Icon: Users },
       { id: "reporting-managers", label: "Managers", Icon: UsersRound },
       { id: "hr-team", label: "HR Team", Icon: ShieldCheck },
-      { id: "leave-requests", label: "Leaves", Icon: CalendarDays },
-      { id: "timesheets", label: "Timesheets", Icon: Clock },
+      { id: "leave-requests", label: "Leaves", Icon: History },
+      { id: "timesheets", label: "Timesheets", Icon: FileText },
       // { id: "client-timesheets", label: "Client timesheets", Icon: Briefcase, hasSeparator: true, isBold: true }
     ];
 

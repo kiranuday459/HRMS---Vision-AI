@@ -736,13 +736,17 @@ export default function ReportingManagerTeam() {
                                                         {week.filteredEmployees.map((emp, eIdx) => {
                                                             const isDisabled = emp.employeeStatus === 'INACTIVE' || emp.employeeStatus === 'DISABLED';
                                                             return (
-                                                            <div key={eIdx} onClick={() => { setSelectedWeek({ ...week, entries: emp.entries, status: emp.status, statusLabel: emp.statusLabel, employeeId: emp.employeeId, employeeName: emp.employeeName, employeeStatus: emp.employeeStatus, hrDisabledReroute: emp.hrDisabledReroute, startDate: week.startDateStr, endDate: week.endDateStr }); setTsSubView('grid'); }} className={`group p-4 rounded-2xl flex items-center gap-4 border border-transparent transition-all cursor-pointer ${isDisabled ? 'bg-[#F1EFE8]' : 'bg-bg-slate/30 hover:bg-white hover:border-brand-blue/10 hover:shadow-xl'}`}>
+                                                            <div key={eIdx} onClick={() => {
+                                                                const member = teamMembers.find(m => String(m.id) === String(emp.employeeId) || m.id === emp.employeeId);
+                                                                setSelectedWeek({ ...week, entries: emp.entries, status: emp.status, statusLabel: emp.statusLabel, employeeId: emp.employeeId, employeeOfficeId: member?.oryfolksId || emp.employeeId, employeeName: emp.employeeName, employeeStatus: emp.employeeStatus, hrDisabledReroute: emp.hrDisabledReroute, startDate: week.startDateStr, endDate: week.endDateStr });
+                                                                setTsSubView('grid');
+                                                            }} className={`group p-4 rounded-2xl flex items-center gap-4 border border-transparent transition-all cursor-pointer ${isDisabled ? 'bg-[#F1EFE8]' : 'bg-bg-slate/30 hover:bg-white hover:border-brand-blue/10 hover:shadow-xl'}`}>
                                                                 <div className={`w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black transition-all shadow-sm ${isDisabled ? 'text-brand-text/20' : 'text-brand-text/30 group-hover:bg-brand-blue group-hover:text-white'}`}>{emp.employeeName?.[0]}</div>
                                                                 <div className="flex-1">
                                                                     <div className="flex items-center gap-2">
                                                                         <h4 className={`font-black text-sm uppercase tracking-tight ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.employeeName}</h4>
-                                                                        <span className="text-[10px] font-bold text-brand-text/20 uppercase tracking-widest">ID: {(() => {
-                                                                            const member = teamMembers.find(m => m.id === emp.employeeId);
+                                                                        <span className="text-[10px] font-bold text-brand-text/20 tracking-widest">ID: {(() => {
+                                                                            const member = teamMembers.find(m => String(m.id) === String(emp.employeeId) || m.id === emp.employeeId);
                                                                             return member?.oryfolksId || emp.employeeId;
                                                                         })()}</span>
                                                                         {isDisabled && (
@@ -836,8 +840,8 @@ export default function ReportingManagerTeam() {
                                                      const isDisabled = leave.employeeStatus === 'INACTIVE' || leave.employeeStatus === 'DISABLED';
                                                      return (
                                                      <tr key={leave.id} className={`transition-colors font-medium ${isDisabled ? 'bg-[#F1EFE8]' : 'hover:bg-bg-slate/40'}`}>
-                                                         <td className="p-5 px-8 text-xs font-black text-brand-text/40">#{(() => {
-                                                             const member = teamMembers.find(m => m.id === leave.employeeId);
+                                                         <td className="p-5 px-8 text-xs font-black text-brand-text/40">{(() => {
+                                                             const member = teamMembers.find(m => String(m.id) === String(leave.employeeId) || m.id === leave.employeeId);
                                                              return member?.oryfolksId || leave.employeeId;
                                                          })()}</td>
                                                          <td className={`p-5 px-6 font-bold uppercase text-xs ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>

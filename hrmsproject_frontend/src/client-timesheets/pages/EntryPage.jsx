@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MessageSquare, MessageSquareText, Plus, Minus, ArrowLeft, Maximize2 } from "lucide-react";
+import { MessageSquare, MessageSquareText, Plus, Minus, ArrowLeft, Maximize2, LayoutDashboard, Clock, CalendarDays } from "lucide-react";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { clientTimesheetStatusMeta } from "../../utils/clientTimesheetStatus";
@@ -171,12 +171,11 @@ const handleHourKeyDown = (e) => {
 };
 
 function useNavItems() {
-    const clock = (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>);
     return [
-        { tab: "dashboard", label: "Dashboard", to: roleDashboardPath(), icon: (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>) },
-        { tab: "timesheet", label: "Timesheet", to: `${roleDashboardPath()}?tab=timesheet`, icon: clock },
+        { tab: "dashboard", label: "Dashboard", to: roleDashboardPath(), icon: <LayoutDashboard className="w-5 h-5" /> },
+        { tab: "timesheet", label: "Timesheet", to: `${roleDashboardPath()}?tab=timesheet`, icon: <Clock className="w-5 h-5" /> },
         { tab: "client-timesheet", label: "Client Timesheet", to: clientTimesheetBase(), icon: (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline><path d="M8 3h8"></path></svg>) },
-        { tab: "leave", label: "Leave Request", to: `${roleDashboardPath()}?tab=leave`, icon: (<svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>) },
+        { tab: "leave", label: "Leave Request", to: `${roleDashboardPath()}?tab=leave`, icon: <CalendarDays className="w-5 h-5" /> },
     ];
 }
 

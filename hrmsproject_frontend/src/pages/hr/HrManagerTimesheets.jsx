@@ -579,11 +579,13 @@ export default function HrManagerTimesheets() {
                                                             <div
                                                                 key={eIdx}
                                                                 onClick={() => {
+                                                                    const profile = employees.find(e => String(e.id) === String(emp.employeeId) || e.id === emp.employeeId);
                                                                     setSelectedWeek({
                                                                         ...week,
                                                                         entries: emp.entries,
                                                                         status: emp.status,
                                                                         employeeId: emp.employeeId,
+                                                                        employeeOfficeId: profile?.oryfolksId || emp.employeeId,
                                                                         employeeName: emp.employeeName,
                                                                         employeeStatus: emp.employeeStatus,
                                                                         startDate: week.startDateStr,
@@ -600,8 +602,8 @@ export default function HrManagerTimesheets() {
                                                                 <div className="flex-1">
                                                                     <div className="flex items-center gap-2">
                                                                         <h4 className={`font-black text-sm uppercase tracking-tight ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.employeeName}</h4>
-                                                                        <span className="text-[10px] font-bold text-brand-text/20 uppercase tracking-widest">ID: {(() => {
-                                                                            const profile = employees.find(e => String(e.id) === String(emp.employeeId));
+                                                                        <span className="text-[10px] font-bold text-brand-text/25 tracking-widest">ID: {(() => {
+                                                                            const profile = employees.find(e => String(e.id) === String(emp.employeeId) || e.id === emp.employeeId);
                                                                             return profile?.oryfolksId || emp.employeeId;
                                                                         })()}</span>
                                                                         {isDisabled && (
