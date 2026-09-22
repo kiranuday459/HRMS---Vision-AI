@@ -1847,12 +1847,12 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                 return (
                                   <div
                                     key={leave.label}
-                                    className={`px-5 py-4 ${idx > 0 ? 'lg:border-l-[0.5px] lg:border-gray-200' : ''}`}
+                                    className={`px-4 sm:px-5 py-4 min-w-0 ${idx > 0 ? 'lg:border-l-[0.5px] lg:border-gray-200' : ''}`}
                                   >
                                     <p className="text-[13px] font-medium text-brand-text leading-snug">{leave.label}</p>
-                                    <div className="mt-3">
+                                    <div className="mt-3 flex items-baseline flex-wrap gap-x-1.5 gap-y-0.5">
                                       <span className="text-[28px] font-medium text-brand-text leading-none">{left.toFixed(2)}</span>
-                                      <span className="text-[11px] text-brand-text/40 ml-1">Days</span>
+                                      <span className="text-[11px] text-brand-text/40">Days</span>
                                     </div>
                                     <p className="text-[11px] text-brand-text/40 mt-0.5">left</p>
                                     <div className="w-full bg-gray-200 rounded-[2px] h-1 mt-3 overflow-hidden">
