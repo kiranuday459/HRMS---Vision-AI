@@ -10,7 +10,7 @@ import AssignEmployeeToHrModal from "../../components/AssignEmployeeToHrModal";
 import AssignEmployeeToClientProjectModal from "../../components/AssignEmployeeToClientProjectModal";
 import MetricCard from "../../components/MetricCard";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, Label } from 'recharts';
-import { Calendar as CalendarIconSVG, Eye, ShieldCheck } from "lucide-react";
+import { Calendar as CalendarIconSVG, Eye, ShieldCheck, Search } from "lucide-react";
 import YearlyHolidayCalendar from "../common/YearlyHolidayCalendar";
 import LeaveDetailsModal from "../../components/LeaveDetailsModal";
 import { formatLeaveDuration } from "../../utils/leaveDuration";
@@ -449,84 +449,27 @@ export default function AdminDashboard() {
 
         <main className="flex-1 flex flex-col min-w-0">
           <header className="sticky top-0 z-30 bg-white py-4 px-4 md:px-6 flex flex-wrap items-center justify-between shadow-sm border-b border-[#E3E8EF] w-full">
-            {activeTab === "leave-requests" ? (
-              <div className="flex items-center md:gap-16 gap-6">
-                <div className="hidden sm:block">
-                  <h1 className="text-xl font-black text-[#2C2C2A] tracking-tight whitespace-nowrap">Leave Records</h1>
-                  <p className="text-[9px] font-black text-[#888780] uppercase tracking-[0.2em] mt-0.5 whitespace-nowrap">Enterprise Management</p>
-                </div>
-                <div className="flex flex-col sm:flex-row items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="admin-leave-role-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Roles</label>
-                    <select
-                      id="admin-leave-role-filter"
-                      value={leaveRoleFilter}
-                      onChange={(e) => setLeaveRoleFilter(e.target.value)}
-                      className="h-[38px] rounded-xl border border-[#E3E8EF] bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 shadow-sm cursor-pointer hover:border-brand-blue/30 transition-all"
-                    >
-                      <option value="ALL">All</option>
-                      <option value="EMPLOYEES">Employees</option>
-                      <option value="REPORTING_MANAGERS">Reporting Managers</option>
-                      <option value="HR">HR</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="admin-leave-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
-                    <select
-                      id="admin-leave-status-filter"
-                      value={leaveStatusFilter}
-                      onChange={(e) => setLeaveStatusFilter(e.target.value)}
-                      className="h-[38px] rounded-xl border border-[#E3E8EF] bg-white px-3 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 shadow-sm"
-                    >
-                      <option>All</option>
-                      <option>Pending</option>
-                      <option>Approved</option>
-                      <option>Rejected</option>
-                    </select>
-                  </div>
-                  <div className="relative group w-full sm:w-48 md:w-64">
-                    <input
-                      type="text"
-                      placeholder="Search by employee name..."
-                      value={leaveSearch}
-                      onChange={(e) => setLeaveSearch(e.target.value)}
-                      className="w-full h-[38px] bg-[#F4F6FA] border border-[#E3E8EF] focus:border-brand-yellow rounded-xl px-4 pl-9 text-xs font-bold text-[#2C2C2A] outline-none transition-all"
-                    />
-                    <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#888780]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                </div>
+            <div className="flex items-center gap-3 md:gap-6">
+              <div className="w-10 h-10 md:w-11 md:h-11 bg-brand-blue/5 rounded-lg md:rounded-xl flex items-center justify-center border border-brand-blue/10 shadow-sm overflow-hidden text-xs md:text-sm font-black text-brand-text">
+                {JSON.parse(localStorage.getItem("user"))?.firstName?.[0] || "A"}
               </div>
-            ) : (
-              // ─── DEFAULT / HR BAR ───
-              <>
-                <div className="flex items-center gap-3 md:gap-6">
-                  <div className="w-10 h-10 md:w-11 md:h-11 bg-brand-blue/5 rounded-lg md:rounded-xl flex items-center justify-center border border-brand-blue/10 shadow-sm overflow-hidden text-xs md:text-sm font-black text-brand-text">
-                    {JSON.parse(localStorage.getItem("user"))?.firstName?.[0] || "A"}
-                  </div>
-                  <div>
-                    <h1 className="text-lg md:text-xl font-black text-brand-text tracking-tight">
-                      {activeTab === "hr-team" ? "HR Operations" : "Admin Dashboard"}
-                    </h1>
-                    <p className="hidden xs:block text-[8px] md:text-[10px] text-brand-text/40 uppercase font-black tracking-[0.2em] mt-0.5">
-                      {activeTab === "hr-team" ? "Human Capital Management System" : "Enterprise Infrastructure Control"}
-                    </p>
-                  </div>
+              <div>
+                <h1 className="text-lg md:text-xl font-black text-brand-text tracking-tight">
+                  {activeTab === "leave-requests" ? "Leave Records" : activeTab === "hr-team" ? "HR Operations" : "Admin Dashboard"}
+                </h1>
+                <p className="hidden xs:block text-[8px] md:text-[10px] text-brand-text/40 uppercase font-black tracking-[0.2em] mt-0.5">
+                  {activeTab === "leave-requests" ? "Enterprise Management" : activeTab === "hr-team" ? "Human Capital Management System" : "Enterprise Infrastructure Control"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 md:gap-3">
+              {activeTab === "dashboard" && (
+                <div>
+                  <ClientTimesheetSwitch />
                 </div>
-                <div className="flex items-center gap-2 md:gap-3">
-                  {/* Sits in the title row rather than its own full-width banner. Wrapped in a
-                      plain div so the component's own `self-start` (meant for the column
-                      layouts on the employee/RM dashboards) doesn't top-align it here. */}
-                  {activeTab === "dashboard" && (
-                    <div>
-                      <ClientTimesheetSwitch />
-                    </div>
-                  )}
-                  {activeTab !== "hr-team" && <NotificationComponent />}
-                </div>
-              </>
-            )}
+              )}
+              {activeTab !== "hr-team" && <NotificationComponent />}
+            </div>
           </header>
 
           <div className="flex-1 p-4 overflow-y-auto md:overflow-hidden flex flex-col">
@@ -719,7 +662,63 @@ export default function AdminDashboard() {
             )}
 
             {activeTab === "leave-requests" && (
-              <div className="flex flex-col gap-6 h-full pr-2 overflow-hidden">
+              <div className="flex flex-col gap-4 h-full pr-2 overflow-hidden">
+                <div className="sticky top-0 z-20 bg-white rounded-[24px] p-3 shadow-xl border border-brand-blue/5 flex flex-nowrap items-center gap-2.5 overflow-hidden shrink-0">
+                  <div className="relative w-44 sm:w-52 md:w-56 shrink-0">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/20" size={14} />
+                    <input
+                      type="text"
+                      placeholder="Search by employee name..."
+                      value={leaveSearch}
+                      onChange={(e) => setLeaveSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-bg-slate/50 border border-brand-blue/5 rounded-2xl text-[11px] font-bold outline-none focus:border-brand-blue-dark/20 transition-all placeholder:text-brand-text/20"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <label htmlFor="admin-leave-role-filter" className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Roles</label>
+                    <select
+                      id="admin-leave-role-filter"
+                      value={leaveRoleFilter}
+                      onChange={(e) => setLeaveRoleFilter(e.target.value)}
+                      className="h-9 rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 cursor-pointer shadow-sm hover:border-brand-blue/30 transition-all"
+                    >
+                      <option value="ALL">All</option>
+                      <option value="EMPLOYEES">Employees</option>
+                      <option value="REPORTING_MANAGERS">Reporting Managers</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <label htmlFor="admin-leave-status-filter" className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Status</label>
+                    <select
+                      id="admin-leave-status-filter"
+                      value={leaveStatusFilter}
+                      onChange={(e) => setLeaveStatusFilter(e.target.value)}
+                      className="h-9 rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 cursor-pointer shadow-sm hover:border-brand-blue/30 transition-all"
+                    >
+                      <option>All</option>
+                      <option>Pending</option>
+                      <option>Approved</option>
+                      <option>Rejected</option>
+                    </select>
+                  </div>
+
+                  <div className="h-9 px-3.5 flex items-center justify-center bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm text-brand-blue-dark text-[11px] font-black uppercase tracking-wider shrink-0 whitespace-nowrap">
+                    TOTAL {leaveRequests.filter(lv => {
+                      const nameMatch = !leaveSearch || lv.employeeName.toLowerCase().includes(leaveSearch.toLowerCase());
+                      const empRole = employeeRoleMap[lv.employeeId] || "";
+                      const roleMatch = leaveRoleFilter === "ALL"
+                        ? true
+                        : (leaveRoleFilter === "MANAGERS" || leaveRoleFilter === "REPORTING_MANAGERS")
+                          ? empRole === "REPORTING_MANAGER"
+                          : empRole !== "HR" && empRole !== "REPORTING_MANAGER";
+                      const statusMatch = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
+                      return nameMatch && roleMatch && statusMatch;
+                    }).length}
+                  </div>
+                </div>
+
                 <div className="px-2 bg-white rounded-[32px] shadow-2xl shadow-brand-blue/5 border border-brand-blue/5 overflow-hidden flex-1 flex flex-col min-h-0">
                   <div className="overflow-x-auto flex-1 overflow-y-auto custom-scrollbar relative">
                     {/* Desktop Table */}

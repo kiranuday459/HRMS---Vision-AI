@@ -210,21 +210,21 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, timesheetIds,
                         {/* Project table (read-only) */}
                         <div className="border border-[#E3E8EF] rounded-xl overflow-hidden">
                             <table className="w-full text-left border-collapse table-fixed">
-                                <thead>
+                                <thead className="sticky top-0 z-20 bg-brand-blue-dark">
                                     <tr className="bg-brand-blue-dark text-white text-[9px] uppercase tracking-wide">
-                                        <th className="px-2 py-2 font-bold w-[7%]">Project ID</th>
-                                        <th className="px-2 py-2 font-bold w-[9%]">Project Name</th>
-                                        <th className="px-2 py-2 font-bold w-[7%]">Task ID</th>
-                                        <th className="px-2 py-2 font-bold w-[12%]">Task Description</th>
-                                        <th className="px-2 py-2 font-bold w-[11%]">Onsite/Offshore</th>
-                                        <th className="px-2 py-2 font-bold w-[8%]">Client Billable</th>
-                                        <th className="px-2 py-2 font-bold w-[7%]">Billing Location</th>
-                                        {days.map((d, i) => (<th key={i} className="px-0.5 py-2 font-bold text-center w-[4%]"><div>{d.dom}</div><div className="text-[7px] opacity-80">{d.wd}</div></th>))}
-                                        <th className="px-1 py-2 font-bold text-center w-[5%]">Total</th>
+                                        <th className="sticky top-0 z-20 bg-brand-blue-dark px-2 py-2 font-bold w-[7%]">Project ID</th>
+                                        <th className="sticky top-0 z-20 bg-brand-blue-dark px-2 py-2 font-bold w-[9%]">Project Name</th>
+                                        <th className="sticky top-0 z-20 bg-brand-blue-dark px-2 py-2 font-bold w-[7%]">Task ID</th>
+                                        <th className="sticky top-0 z-20 bg-brand-blue-dark px-2 py-2 font-bold w-[12%]">Task Description</th>
+                                        <th className="sticky top-0 z-20 bg-brand-blue-dark px-2 py-2 font-bold w-[11%]">Onsite/Offshore</th>
+                                        <th className="sticky top-0 z-20 bg-brand-blue-dark px-2 py-2 font-bold w-[8%]">Client Billable</th>
+                                        <th className="sticky top-0 z-20 bg-brand-blue-dark px-2 py-2 font-bold w-[7%]">Billing Location</th>
+                                        {days.map((d, i) => (<th key={i} className="sticky top-0 z-20 bg-brand-blue-dark px-0.5 py-2 font-bold text-center w-[4%]"><div>{d.dom}</div><div className="text-[7px] opacity-80">{d.wd}</div></th>))}
+                                        <th className="sticky top-0 z-20 bg-brand-blue-dark px-1 py-2 font-bold text-center w-[5%]">Total</th>
                                         {/* Holds only the icon now, but the width stays as it is:
                                             these percentages total 100% and narrowing this one
                                             would reflow every column beside it. */}
-                                        <th className="px-1 py-2 font-bold w-[9%]">Comment</th>
+                                        <th className="sticky top-0 z-20 bg-brand-blue-dark px-1 py-2 font-bold w-[9%]">Comment</th>
                                     </tr>
                                 </thead>
                                 <tbody>

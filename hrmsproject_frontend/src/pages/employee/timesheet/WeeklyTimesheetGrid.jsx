@@ -797,14 +797,14 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                     {/* Desktop View (Table) */}
                     <div className="hidden lg:block">
                         <table className="w-full border-collapse">
-                            <thead className="sticky top-0 z-20">
+                            <thead className="sticky top-0 z-20 bg-white">
                                 <tr className="bg-white text-[#0C447C] text-[11px] font-bold uppercase tracking-wider">
-                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[70px]">Project ID <span className="text-red-500">*</span></th>
-                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[100px]">Project Name <span className="text-red-500">*</span></th>
-                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-left min-w-[70px]">Task ID</th>
-                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[110px]">On/Off</th>
-                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[80px]">Billable</th>
-                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[110px]">Location</th>
+                                    <th className="sticky top-0 z-20 bg-white p-1 border-r border-b border-[#F1EFE8] text-left min-w-[70px]">Project ID <span className="text-red-500">*</span></th>
+                                    <th className="sticky top-0 z-20 bg-white p-1 border-r border-b border-[#F1EFE8] text-left min-w-[100px]">Project Name <span className="text-red-500">*</span></th>
+                                    <th className="sticky top-0 z-20 bg-white p-1 border-r border-b border-[#F1EFE8] text-left min-w-[70px]">Task ID</th>
+                                    <th className="sticky top-0 z-20 bg-white p-1 border-r border-b border-[#F1EFE8] text-center min-w-[110px]">On/Off</th>
+                                    <th className="sticky top-0 z-20 bg-white p-1 border-r border-b border-[#F1EFE8] text-center min-w-[80px]">Billable</th>
+                                    <th className="sticky top-0 z-20 bg-white p-1 border-r border-b border-[#F1EFE8] text-center min-w-[110px]">Location</th>
                                     {dates.map((d, i) => {
                                         const header = formatDateHeader(d);
                                         const future = isFutureDay(d);
@@ -812,14 +812,14 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                         const approvedLeave = isApprovedLeaveDay(i);
                                         const titleText = preJoining ? "Timesheet entry is not allowed before your joining date." : approvedLeave ? "Timesheet entry is not allowed on approved leave days." : undefined;
                                         return (
-                                            <th key={i} title={titleText} className="p-2 border-r border-b border-[#F1EFE8] text-center min-w-[45px]">
+                                            <th key={i} title={titleText} className="sticky top-0 z-20 bg-white p-2 border-r border-b border-[#F1EFE8] text-center min-w-[45px]">
                                                 <div className={`text-[13px] font-medium ${future || preJoining || approvedLeave ? 'text-[#B4B2A9]' : 'text-[#185FA5]'}`}>{header.day}</div>
                                                 <div className={`text-[11px] font-normal ${future || preJoining || approvedLeave ? 'text-[#D3D1C7]' : 'text-[#0C447C]'}`}>{header.name}</div>
                                             </th>
                                         );
                                     })}
-                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[50px]">Total</th>
-                                    <th className="p-1 border-r border-b border-[#F1EFE8] text-center min-w-[90px]">Comment</th>
+                                    <th className="sticky top-0 z-20 bg-white p-1 border-r border-b border-[#F1EFE8] text-center min-w-[50px]">Total</th>
+                                    <th className="sticky top-0 z-20 bg-white p-1 border-r border-b border-[#F1EFE8] text-center min-w-[90px]">Comment</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#F1EFE8]">
