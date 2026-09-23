@@ -6,7 +6,7 @@ import LeaveDetailsModal from "../../components/LeaveDetailsModal";
 import LeaveDecisionButtons from "../../components/LeaveDecisionButtons";
 import RejectRequestModal from "../../components/RejectRequestModal";
 import ConfirmActionModal from "../../components/ConfirmActionModal";
-import { Eye } from "lucide-react";
+import { Eye, Search } from "lucide-react";
 import NotificationComponent from "../../components/NotificationComponent";
 import { ROLE_LABELS, resolveHeading } from "../../config/pageHeadings";
 import api from "../../utils/api";
@@ -276,68 +276,64 @@ export default function HrManagerLeaves() {
                 </header>
 
 
-                <div className="flex-1 overflow-auto p-4 md:p-10">
+                <div className="flex-1 overflow-auto p-4 md:py-4 md:px-10">
                     <div className="max-w-[1200px] mx-auto">
-                        <header className="sticky top-0 z-20 bg-bg-slate/90 backdrop-blur-md pb-4 pt-2 flex flex-wrap items-center justify-between gap-4 mb-8">
-                            <div className="flex flex-wrap items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                    <label htmlFor="hr-leave-role-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Roles</label>
-                                    <select
-                                        id="hr-leave-role-filter"
-                                        value={leaveRoleFilter}
-                                        onChange={(e) => setLeaveRoleFilter(e.target.value)}
-                                        className="h-[47px] rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 cursor-pointer shadow-sm hover:border-brand-blue/30 transition-all"
-                                    >
-                                        <option value="ALL">All</option>
-                                        <option value="EMPLOYEES">Employees</option>
-                                        <option value="REPORTING_MANAGERS">Reporting Managers</option>
-                                        <option value="HR">HR</option>
-                                    </select>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <label htmlFor="hr-leave-status-filter" className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text/50">Status</label>
-                                    <select
-                                        id="hr-leave-status-filter"
-                                        value={leaveStatusFilter}
-                                        onChange={(e) => setLeaveStatusFilter(e.target.value)}
-                                        className="h-[47px] rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10"
-                                    >
-                                        <option>All</option>
-                                        <option>Pending</option>
-                                        <option>Approved</option>
-                                        <option>Rejected</option>
-                                    </select>
-                                </div>
-                                <div className="h-[47px] px-4 flex items-center justify-center bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm text-brand-blue-dark text-[11px] font-black uppercase tracking-wider whitespace-nowrap">
-                                    TOTAL {leaves.filter(lv => {
-                                        const matchesStatus = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
-                                        const matchesSearch = !leavesFilter || (lv.employeeName && lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase()));
-                                        const emp = employees.find(e => e.id === lv.employeeId || e.fullName === lv.employeeName);
-                                        const role = (emp?.role || '').toUpperCase();
-                                        if (!matchesStatus) return false;
-                                        if (leaveRoleFilter === "ALL") return matchesSearch;
-                                        if (leaveRoleFilter === "HR") return matchesSearch && role === "HR";
-                                        if (leaveRoleFilter === "REPORTING_MANAGERS") return matchesSearch && (role === "REPORTING_MANAGER" || role === "REPORTING_MANAGERS" || role === "MANAGER");
-                                        if (leaveRoleFilter === "EMPLOYEES" || leaveRoleFilter === "OTHERS") return matchesSearch && role !== "REPORTING_MANAGER" && role !== "REPORTING_MANAGERS" && role !== "MANAGER" && role !== "HR";
-                                        return matchesSearch;
-                                    }).length}
-                                </div>
-                            </div>
-                            <div className="relative group">
+                        <div className="sticky top-0 z-20 bg-white rounded-[24px] p-3 shadow-xl border border-brand-blue/5 flex flex-nowrap items-center gap-2.5 overflow-hidden mb-6">
+                            <div className="relative w-44 sm:w-52 md:w-56 shrink-0">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/20" size={14} />
                                 <input
                                     type="text"
                                     placeholder="Search by employee name..."
                                     value={leavesFilter}
                                     onChange={(e) => setLeavesFilter(e.target.value)}
-                                    className="w-[268px] h-[47px] bg-white border-2 border-transparent focus:border-brand-yellow rounded-2xl px-5 text-sm font-bold text-brand-text/60 outline-none transition-all shadow-sm"
+                                    className="w-full pl-9 pr-3 py-2 bg-bg-slate/50 border border-brand-blue/5 rounded-2xl text-[11px] font-bold outline-none focus:border-brand-blue-dark/20 transition-all placeholder:text-brand-text/20"
                                 />
-                                <button className="absolute right-0 top-0 h-full w-[66px] bg-brand-blue-dark text-white rounded-r-2xl flex items-center justify-center hover:bg-brand-blue-hover transition-colors">
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                    </svg>
-                                </button>
                             </div>
-                        </header>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <label htmlFor="hr-leave-role-filter" className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Roles</label>
+                                <select
+                                    id="hr-leave-role-filter"
+                                    value={leaveRoleFilter}
+                                    onChange={(e) => setLeaveRoleFilter(e.target.value)}
+                                    className="h-9 rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 cursor-pointer shadow-sm hover:border-brand-blue/30 transition-all"
+                                >
+                                    <option value="ALL">All</option>
+                                    <option value="EMPLOYEES">Employees</option>
+                                    <option value="REPORTING_MANAGERS">Reporting Managers</option>
+                                </select>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <label htmlFor="hr-leave-status-filter" className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-text/50">Status</label>
+                                <select
+                                    id="hr-leave-status-filter"
+                                    value={leaveStatusFilter}
+                                    onChange={(e) => setLeaveStatusFilter(e.target.value)}
+                                    className="h-9 rounded-2xl border border-brand-blue/10 bg-white px-3 text-[11px] font-bold text-brand-text outline-none focus:ring-2 focus:ring-brand-blue/10 cursor-pointer shadow-sm hover:border-brand-blue/30 transition-all"
+                                >
+                                    <option>All</option>
+                                    <option>Pending</option>
+                                    <option>Approved</option>
+                                    <option>Rejected</option>
+                                </select>
+                            </div>
+
+                            <div className="h-9 px-3.5 flex items-center justify-center bg-brand-blue/5 border border-brand-blue/10 rounded-2xl shadow-sm text-brand-blue-dark text-[11px] font-black uppercase tracking-wider shrink-0 whitespace-nowrap">
+                                TOTAL {leaves.filter(lv => {
+                                    const matchesStatus = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
+                                    const matchesSearch = !leavesFilter || (lv.employeeName && lv.employeeName.toLowerCase().includes(leavesFilter.toLowerCase()));
+                                    const emp = employees.find(e => e.id === lv.employeeId || e.fullName === lv.employeeName);
+                                    const role = (emp?.role || '').toUpperCase();
+                                    if (!matchesStatus) return false;
+                                    if (leaveRoleFilter === "ALL") return matchesSearch;
+                                    if (leaveRoleFilter === "HR") return matchesSearch && role === "HR";
+                                    if (leaveRoleFilter === "REPORTING_MANAGERS") return matchesSearch && (role === "REPORTING_MANAGER" || role === "REPORTING_MANAGERS" || role === "MANAGER");
+                                    if (leaveRoleFilter === "EMPLOYEES" || leaveRoleFilter === "OTHERS") return matchesSearch && role !== "REPORTING_MANAGER" && role !== "REPORTING_MANAGERS" && role !== "MANAGER" && role !== "HR";
+                                    return matchesSearch;
+                                }).length}
+                            </div>
+                        </div>
 
                         <div className="bg-white rounded-[20px] shadow-xl overflow-hidden border border-brand-blue/5">
                             <div className="max-h-[65vh] overflow-auto">
