@@ -636,24 +636,24 @@ export default function ReportingManagerTeam() {
                                     </div>
                                 ) : (
                                     teamMembers.map((member) => (
-                                        <div key={member.id} className="bg-bg-slate p-6 rounded-2xl border border-brand-blue/5 flex flex-col items-center text-center group card-hover relative">
+                                        <div key={member.id} className="bg-bg-slate p-6 rounded-2xl border border-brand-blue/5 flex flex-col items-center text-center group card-hover relative min-w-0">
                                             <div className="w-14 h-14 bg-white rounded-2xl mb-4 flex items-center justify-center p-3 text-brand-text/20 group-hover:bg-brand-yellow group-hover:text-brand-text transition-all duration-300 shadow-sm border border-brand-blue/5">
                                                 <svg fill="currentColor" viewBox="0 0 24 24" className="w-full h-full">
                                                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                                                 </svg>
                                             </div>
-                                            <h2 className="text-sm font-bold text-brand-text leading-tight mb-0.5">{member.name || member.fullName}</h2>
+                                            <h2 className="text-sm font-bold text-brand-text leading-tight mb-0.5 w-full break-words [overflow-wrap:anywhere]">{member.name || member.fullName}</h2>
                                             {member.active === false && (
                                                 <span className="inline-flex px-2 py-0.5 mb-1 bg-[#D3D1C7] text-[#5F5E5A] text-[10px] font-medium rounded-[4px]">DISABLED</span>
                                             )}
-                                            <p className="text-[10px] text-brand-text/40 font-bold mb-4 tracking-wider">ID: {member.oryfolksId || member.id}</p>
+                                            <p className="text-[10px] text-brand-text/40 font-bold mb-4 tracking-wider w-full break-words [overflow-wrap:anywhere]">ID: {member.oryfolksId || member.id}</p>
                                             <div className="w-full space-y-3 pt-4 border-t border-brand-blue/5 mt-auto">
                                                 <div className="flex flex-col items-center">
                                                     <span className="text-[8px] uppercase font-bold text-brand-text/30 tracking-[0.2em] mb-1">Position</span>
-                                                    <span className="text-[11px] font-bold text-brand-text/70 leading-tight">{member.role || "Employee"}</span>
+                                                    <span className="text-[11px] font-bold text-brand-text/70 leading-tight w-full break-words [overflow-wrap:anywhere] px-1">{member.role || "Employee"}</span>
                                                 </div>
                                                 <div className="flex flex-col items-center gap-2">
-                                                    <span className="text-[10px] font-semibold text-brand-text/50 truncate w-full px-2">{member.corporateEmail || "Not Available"}</span>
+                                                    <span className="text-[10px] font-semibold text-brand-text/50 truncate w-full px-2" title={member.corporateEmail || "Not Available"}>{member.corporateEmail || "Not Available"}</span>
                                                     <button onClick={() => navigate(`/admin/employee/${member.id}`)} className="w-full py-2 bg-brand-blue-dark text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-brand-blue-hover transition-all active:scale-95 shadow-md">View Profile</button>
                                                 </div>
                                             </div>
@@ -742,9 +742,9 @@ export default function ReportingManagerTeam() {
                                                                 setTsSubView('grid');
                                                             }} className={`group p-4 rounded-2xl flex items-center gap-4 border border-transparent transition-all cursor-pointer ${isDisabled ? 'bg-[#F1EFE8]' : 'bg-bg-slate/30 hover:bg-white hover:border-brand-blue/10 hover:shadow-xl'}`}>
                                                                 <div className={`w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black transition-all shadow-sm ${isDisabled ? 'text-brand-text/20' : 'text-brand-text/30 group-hover:bg-brand-blue group-hover:text-white'}`}>{emp.employeeName?.[0]}</div>
-                                                                <div className="flex-1">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <h4 className={`font-black text-sm uppercase tracking-tight ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.employeeName}</h4>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                                        <h4 className={`font-black text-sm uppercase tracking-tight break-words [overflow-wrap:anywhere] ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>{emp.employeeName}</h4>
                                                                         <span className="text-[10px] font-bold text-brand-text/20 tracking-widest">ID: {(() => {
                                                                             const member = teamMembers.find(m => String(m.id) === String(emp.employeeId) || m.id === emp.employeeId);
                                                                             return member?.oryfolksId || emp.employeeId;
@@ -846,7 +846,7 @@ export default function ReportingManagerTeam() {
                                                          })()}</td>
                                                          <td className={`p-5 px-6 font-bold uppercase text-xs ${isDisabled ? 'text-brand-text/40' : 'text-brand-text'}`}>
                                                              <div className="flex items-center gap-2">
-                                                                 <span>{leave.employeeName}</span>
+                                                                 <span className="break-words [overflow-wrap:anywhere]">{leave.employeeName}</span>
                                                                  {isDisabled && (
                                                                      <span className="inline-flex px-2 py-0.5 bg-[#D3D1C7] text-[#5F5E5A] text-[10px] font-medium rounded-[4px] normal-case tracking-normal">DISABLED ACCOUNT</span>
                                                                  )}

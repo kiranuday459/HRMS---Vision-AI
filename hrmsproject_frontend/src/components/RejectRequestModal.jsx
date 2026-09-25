@@ -100,7 +100,7 @@ export default function RejectRequestModal({
               }`}
             />
             {error && (
-              <p className="mt-1.5 text-xs font-bold text-red-500 flex items-center gap-1">
+              <p className="mt-1.5 text-xs font-bold text-red-500 flex items-center justify-center gap-1 text-center">
                 <span>⚠</span> {error}
               </p>
             )}
