@@ -133,14 +133,14 @@ export default function ClientTimesheetDetailDrawer({ timesheetId, timesheetIds,
     // Per-day OT, derived from the same saved day hours the employee's Time Entry page uses
     // — only the week-level total is stored, so both sides compute the daily split the same
     // way. Rule (mirrors EntryPage.dayBreakdown and the server's applyRegularAndOvertime):
-    // full-day leave (>= 8h) earns no OT; otherwise OT is the worked hours beyond the day's
-    // remaining regular capacity. Weekends never carry OT. Read-only here, as everywhere.
+    // full-day leave (>= 8h) earns no OT; otherwise OT is the worked hours beyond 8h.
+    // Weekends never carry OT. Read-only here, as everywhere.
     const hoursAt = (rows, i) => rows.reduce((s, r) => s + (r.days && r.days[i] ? Number(r.days[i].hours) || 0 : 0), 0);
     const otByDay = days.map((d, i) => {
         if (d.isWeekend) return 0;
         const leave = hoursAt(timeOffRows, i);
         if (leave >= REGULAR_HOURS_PER_DAY) return 0;
-        return Math.max(0, hoursAt(projectRows, i) - (REGULAR_HOURS_PER_DAY - leave));
+        return Math.max(0, hoursAt(projectRows, i) - REGULAR_HOURS_PER_DAY);
     });
     const totalOt = otByDay.reduce((s, h) => s + h, 0);
 

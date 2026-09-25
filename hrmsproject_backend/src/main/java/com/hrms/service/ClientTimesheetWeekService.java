@@ -440,8 +440,8 @@ public class ClientTimesheetWeekService {
         dto.setTotalBillableHours(billable);
         dto.setTotalNonBillableHours(nonBillable);
         dto.setTotalTimeOffHours(timeOff);
-        dto.setGrandTotal(billable + nonBillable + timeOff);
         applyRegularAndOvertime(dto);
+        dto.setGrandTotal(dto.getTotalRegularHours() + dto.getTotalOtHours() + dto.getTotalTimeOffHours());
     }
 
     /**
@@ -494,9 +494,9 @@ public class ClientTimesheetWeekService {
             if (leave >= REGULAR_HOURS_PER_DAY) {
                 continue; // the day is spent on leave: nothing worked, no overtime earned
             }
-            double capacity = REGULAR_HOURS_PER_DAY - leave;
+            double capacity = Math.max(0, REGULAR_HOURS_PER_DAY - leave);
             regular += Math.min(worked, capacity);
-            overtime += Math.max(0, worked - capacity);
+            overtime += Math.max(0, worked - REGULAR_HOURS_PER_DAY);
         }
 
         dto.setTotalRegularHours(regular);

@@ -705,24 +705,20 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                     const lvMin = Math.round(leaveHrs * 60);
 
                     // Clock times describe worked hours only — a day spent on leave was not
-                    // clocked in, so it no longer reports a 9:30–18:30 shift it never had.
+                    // clocked in, so it does not report a shift it never had.
                     //
-                    // Clock-in is the same nominal 9:30 on every worked day, and clock-out is
-                    // capped at 24:00 so it can never print a time that does not exist on a
-                    // clock. A 24-hour day used to read 34:30 — 9:30 + 24h + 1h — on a row whose
-                    // own Total already said 24:00.
-                    //
-                    // The cap only engages past 13.5 worked hours; every ordinary day, and most
-                    // overtime ones, are unaffected. Past it the window stops tracking the hours
-                    // (9:30–24:00 less the break is 13:30, not 24:00) — deliberately, because a
-                    // uniform clock-in was the requirement. Regular / OT / Leave / Total remain
-                    // the authoritative figures and are untouched by any of this.
+                    // Standard workday definition: 9:00 AM to 6:00 PM (9 hours span), with a 1-hour
+                    // unpaid break, giving 8 hours of net regular time.
+                    // Nominal Clock-in is 9:00 AM on every worked day, break is 1:00, and clock-out
+                    // is capped at 24:00.
+                    // Clock-out − Clock-in − Break = Net Working Hours (Regular capped at 8 + OT).
                     if (workMin > 0) {
-                        const startMin = 9 * 60 + 30; // 9:30
-                        const breakMin = 60; // 1:00
+                        const startMin = 9 * 60; // 9:00 AM
+                        const endMin = 18 * 60;  // 18:00 (6:00 PM standard clock-out)
+                        const breakMin = 60;     // 1:00 (1 hour unpaid break)
                         clockIn = minutesToHMM(startMin);
                         brk = minutesToHMM(breakMin);
-                        clockOut = minutesToHMM(Math.min(startMin + workMin + breakMin, MINUTES_IN_DAY));
+                        clockOut = minutesToHMM(endMin);
                     }
                     if (lvMin > 0) {
                         // Prefixed with Half Day / Partial Day when the leave does not cover the

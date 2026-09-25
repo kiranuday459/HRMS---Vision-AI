@@ -126,20 +126,20 @@ class ClientTimesheetTotalsTest {
 
     // ── The split itself ────────────────────────────────────────────────────
 
-    /** Leave still eats the day's capacity, so work beyond what is left becomes OT. */
+    /** Leave no longer eats the day's capacity for OT. OT is only work beyond 8 hours. */
     @Test
-    void leaveStillConsumesTheDaysRegularCapacity() {
+    void leaveDoesNotConsumeTheDaysRegularCapacityForOT() {
         ClientTimesheetWeekDTO dto = week();
         worked(dto, MON, 6);
-        leave(dto, "SICK", MON, 4);      // 4h capacity left, 6h worked
+        leave(dto, "SICK", MON, 4);      // 4h leave, 6h worked
 
         service.applyTotals(dto);
 
-        assertEquals(4.0, dto.getTotalRegularHours(), 0.001, "only 4h of capacity remained");
-        assertEquals(2.0, dto.getTotalOtHours(), 0.001, "the 2h beyond it is overtime");
+        assertEquals(4.0, dto.getTotalRegularHours(), 0.001, "Regular is Math.min(worked, 8 - leave), so min(6, 4) = 4 regular");
+        assertEquals(0.0, dto.getTotalOtHours(), 0.001, "No OT because worked is not > 8");
         assertEquals(4.0, dto.getTotalTimeOffHours(), 0.001);
-        assertEquals(6.0, working(dto), 0.001, "6 hours were worked");
-        assertEquals(10.0, dto.getGrandTotal(), 0.001);
+        assertEquals(4.0, working(dto), 0.001, "4 hours of regular were counted for working hours");
+        assertEquals(8.0, dto.getGrandTotal(), 0.001);
     }
 
     @Test

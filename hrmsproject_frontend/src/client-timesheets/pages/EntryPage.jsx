@@ -497,11 +497,11 @@ export default function ClientTimesheetEntry() {
     const totalTimeOff = timeOffRows.reduce((s, r) => s + rowTotal(r), 0);
 
     // ── Daily Regular / OT split ────────────────────────────────────────────────
-    // Every weekday carries 8 hours of Regular capacity, shared between leave taken and
-    // project hours worked. Leave consumes the capacity but is NOT itself Regular:
+    // Every weekday carries 8 hours of Regular capacity. Leave reduces the amount of
+    // regular hours you can claim (so you don't get paid > 8 hours of straight time if you mix work and leave):
     //   full-day leave (>= 8h) → Regular 0, OT 0 — the day is spent, nothing can be worked
-    //   otherwise              → Regular = min(worked, 8 - leave)
-    //                            OT      = worked beyond that remaining capacity
+    //   otherwise              → Regular = max(0, min(worked, 8) - leave)
+    //                            OT      = worked beyond 8 hours
     // Weekends are locked for entry and are never Regular or OT.
     //
     // Regular used to be `leave + min(worked, capacity)`, which put the leave hours inside
@@ -521,13 +521,13 @@ export default function ClientTimesheetEntry() {
             // both this cell and the day's project cells are locked.
             return { ymd: d.ymd, wd: d.wd, dom: d.dom, regular: 0, ot: 0, locked: true };
         }
-        const capacity = FULL_DAY_LEAVE_HOURS - leave;
+        const capacity = Math.max(0, FULL_DAY_LEAVE_HOURS - leave);
         return {
             ymd: d.ymd,
             wd: d.wd,
             dom: d.dom,
             regular: Math.min(worked, capacity),
-            ot: Math.max(0, worked - capacity),
+            ot: Math.max(0, worked - FULL_DAY_LEAVE_HOURS),
             locked: false,
         };
     });

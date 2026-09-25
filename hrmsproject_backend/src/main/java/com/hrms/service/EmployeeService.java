@@ -39,8 +39,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,6 +91,9 @@ public class EmployeeService {
 
     @Autowired
     private LeaveBalanceService leaveBalanceService;
+
+    @Autowired
+    private EmailService emailService;
 
     // Field injection (cycle-tolerant) so setEmployeeActive can trigger disabled-approver
     // rerouting of timesheets/leaves (Part 1/7).
@@ -328,10 +336,12 @@ public class EmployeeService {
                 userRole = Role.HR;
             }
 
+            String initialPassword = generateSecureTemporaryPassword();
+
             User user = new User();
             user.setUsername(username);
             user.setEmail(corporateEmail);
-            user.setPassword(passwordEncoder.encode("emp123")); // Default password
+            user.setPassword(passwordEncoder.encode(initialPassword));
             user.setRole(userRole);
             user.setActive(true);
             User savedUser = userRepository.save(user);
@@ -339,6 +349,31 @@ public class EmployeeService {
             // Link to Employee
             saved.setUser(savedUser);
             employeeRepository.save(saved);
+
+            // Send credentials email to the new employee's corporate address.
+            // Fired via afterCommit() so the Graph API network call runs outside the DB
+            // transaction — a slow/failing mail send cannot stall or roll back the creation.
+            final String emailTo          = corporateEmail;
+            final String emailCorporateId = username;
+            final String emailDesignation = dto.getDesignation();
+            final String firstName = dto.getFirstName() == null ? "" : dto.getFirstName().trim();
+            final String lastName  = dto.getLastName()  == null ? "" : dto.getLastName().trim();
+            final String fullName  = lastName.isBlank() ? firstName : firstName + " " + lastName;
+            final String emailName = fullName.isBlank() ? "Employee" : fullName;
+            final String emailPassword    = initialPassword;
+
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        emailService.sendEmployeeWelcomeEmail(
+                                emailTo, emailName, emailCorporateId, emailDesignation, emailPassword);
+                    } catch (Exception emailEx) {
+                        System.err.println("[Email] Failed to send credentials email to "
+                                + emailTo + ": " + emailEx.getMessage());
+                    }
+                }
+            });
         }
 
         // Initialize Leave Balance
@@ -897,5 +932,36 @@ public class EmployeeService {
                 .fileSize(document.getFileSize())
                 .uploadedAt(document.getUploadedAt())
                 .build();
+    }
+
+    /**
+     * Generates a 10-character cryptographically secure temporary password.
+     * Contains at least one uppercase letter, one lowercase letter, one digit,
+     * and one special character (@#$%!). Excludes ambiguous glyphs (I, l, 1, 0, O).
+     */
+    private String generateSecureTemporaryPassword() {
+        final String upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        final String lower = "abcdefghijkmnpqrstuvwxyz";
+        final String digits = "23456789";
+        final String special = "@#$%!";
+        final String all = upper + lower + digits + special;
+
+        SecureRandom random = new SecureRandom();
+        List<Character> chars = new ArrayList<>();
+        chars.add(upper.charAt(random.nextInt(upper.length())));
+        chars.add(lower.charAt(random.nextInt(lower.length())));
+        chars.add(digits.charAt(random.nextInt(digits.length())));
+        chars.add(special.charAt(random.nextInt(special.length())));
+
+        for (int i = 0; i < 6; i++) {
+            chars.add(all.charAt(random.nextInt(all.length())));
+        }
+
+        Collections.shuffle(chars, random);
+        StringBuilder sb = new StringBuilder();
+        for (char c : chars) {
+            sb.append(c);
+        }
+        return sb.toString();
     }
 }

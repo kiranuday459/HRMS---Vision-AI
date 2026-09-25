@@ -508,5 +508,48 @@ public class EmailService {
         sendEmail(new String[] { to }, null, subject, body.toString());
     }
 
+    /**
+     * Credentials email sent to a newly created employee immediately after their
+     * account is provisioned by an admin.
+     *
+     * Contains strictly:
+     * 1. Employee Name
+     * 2. Corporate ID (this is also their username for login)
+     * 3. Designation
+     * 4. Login credentials:
+     *    - Username: the Corporate ID
+     *    - Password: the system default password
+     *    - A line stating: "Use this default password to log in. After logging in, you must change it to your own password."
+     *
+     * @param to              the corporate email address
+     * @param employeeName    the employee's full name
+     * @param corporateId     the Corporate ID (also their login username)
+     * @param designation     the employee's designation
+     * @param defaultPassword the system default/temporary password
+     */
+    public void sendEmployeeWelcomeEmail(String to, String employeeName, String corporateId,
+            String designation, String defaultPassword) {
+        String subject = "VisionAI HRMS Login Credentials";
+
+        StringBuilder b = new StringBuilder();
+        b.append(HtmlEmailTemplate.detailRows(java.util.List.of(
+                new String[] { "Employee Name", employeeName },
+                new String[] { "Corporate ID",  corporateId },
+                new String[] { "Designation",   (designation != null && !designation.isBlank()) ? designation : "—" }
+        )));
+
+        b.append(HtmlEmailTemplate.sectionLabel("Login credentials"));
+        b.append(HtmlEmailTemplate.detailRows(java.util.List.of(
+                new String[] { "Username", corporateId },
+                new String[] { "Password", defaultPassword }
+        )));
+
+        b.append(HtmlEmailTemplate.paragraph(
+                "Use this default password to log in. After logging in, you must change it to your own password."));
+
+        sendHtmlEmail(new String[] { to }, null, subject,
+                HtmlEmailTemplate.page("VisionAI HRMS Login Credentials", null, b.toString()));
+    }
+
     private double nz(Double v) { return v == null ? 0.0 : v; }
 }
