@@ -475,6 +475,7 @@ export default function AdminTimesheets() {
                                             <option value="ALL">All</option>
                                             <option value="EMPLOYEES">Employees</option>
                                             <option value="REPORTING_MANAGERS">Reporting Managers</option>
+                                            <option value="HR">HR</option>
                                         </select>
                                     </div>
 

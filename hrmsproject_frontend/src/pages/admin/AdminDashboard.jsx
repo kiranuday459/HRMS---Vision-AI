@@ -686,6 +686,7 @@ export default function AdminDashboard() {
                       <option value="ALL">All</option>
                       <option value="EMPLOYEES">Employees</option>
                       <option value="REPORTING_MANAGERS">Reporting Managers</option>
+                      <option value="HR">HR</option>
                     </select>
                   </div>
 
@@ -710,9 +711,11 @@ export default function AdminDashboard() {
                       const empRole = employeeRoleMap[lv.employeeId] || "";
                       const roleMatch = leaveRoleFilter === "ALL"
                         ? true
-                        : (leaveRoleFilter === "MANAGERS" || leaveRoleFilter === "REPORTING_MANAGERS")
-                          ? empRole === "REPORTING_MANAGER"
-                          : empRole !== "HR" && empRole !== "REPORTING_MANAGER";
+                        : leaveRoleFilter === "HR"
+                          ? empRole === "HR"
+                          : (leaveRoleFilter === "MANAGERS" || leaveRoleFilter === "REPORTING_MANAGERS")
+                            ? empRole === "REPORTING_MANAGER"
+                            : empRole !== "HR" && empRole !== "REPORTING_MANAGER";
                       const statusMatch = leaveStatusFilter === "All" || (lv.status || '').toUpperCase() === leaveStatusFilter.toUpperCase();
                       return nameMatch && roleMatch && statusMatch;
                     }).length}
