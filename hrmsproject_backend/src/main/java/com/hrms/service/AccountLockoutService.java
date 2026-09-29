@@ -128,7 +128,14 @@ public class AccountLockoutService {
         }
         String key = username.trim().toLowerCase();
         LockoutInfo info = lockoutMap.get(key);
-        return info != null ? info.failedAttempts : 0;
+        if (info == null) {
+            return 0;
+        }
+        if (info.lockoutTime != null && !LocalDateTime.now().isBefore(info.lockoutTime.plusMinutes(LOCKOUT_DURATION_MINUTES))) {
+            lockoutMap.remove(key);
+            return 0;
+        }
+        return info.failedAttempts;
     }
 
     /**

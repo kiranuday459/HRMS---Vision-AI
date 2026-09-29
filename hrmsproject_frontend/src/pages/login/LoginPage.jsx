@@ -5,12 +5,62 @@ import Logo from '../../assets/visionai-logo.png';
 import api from '../../utils/api';
 
 const LoginPage = ({ setUser }) => {
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(() => localStorage.getItem('lastUsername') || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [sessionMsg, setSessionMsg] = useState('');
   const [lockoutTimer, setLockoutTimer] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
+  const [remainingAttempts, setRemainingAttempts] = useState(null);
+  const [maxAttempts, setMaxAttempts] = useState(5);
   const navigate = useNavigate();
+
+  // Check lockout status from server whenever username changes or on mount
+  const checkLockoutStatus = async (userToCheck) => {
+    if (!userToCheck || !userToCheck.trim()) {
+      setIsLocked(false);
+      setLockoutTimer(0);
+      setRemainingAttempts(null);
+      return;
+    }
+    try {
+      const res = await api(`/api/auth/lockout-status?username=${encodeURIComponent(userToCheck.trim())}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.maxAttempts === 'number') {
+          setMaxAttempts(data.maxAttempts);
+        }
+        if (data.isLocked) {
+          setIsLocked(true);
+          setLockoutTimer(data.lockoutSeconds || 0);
+          setRemainingAttempts(0);
+          const mins = Math.floor((data.lockoutSeconds || 0) / 60);
+          const secs = (data.lockoutSeconds || 0) % 60;
+          const timeFormatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          setError(
+            data.message || `Your account is temporarily locked. Please try again in ${timeFormatted}.`
+          );
+        } else {
+          setIsLocked(false);
+          setLockoutTimer(0);
+          if (typeof data.failedAttempts === 'number' && data.failedAttempts > 0) {
+            setRemainingAttempts(data.remainingAttempts);
+          } else {
+            setRemainingAttempts(null);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch lockout status", err);
+    }
+  };
+
+  // Check initial lockout state for saved username on page load
+  useEffect(() => {
+    if (username) {
+      checkLockoutStatus(username);
+    }
+  }, []);
 
   // Show an expiry notice when redirected here by a session timeout — either via
   // the idle timer (sessionStorage flag) or a 401/403 redirect (?reason=session_expired).
@@ -29,7 +79,12 @@ const LoginPage = ({ setUser }) => {
     const interval = setInterval(() => {
       setLockoutTimer((prev) => {
         if (prev <= 1) {
+          setIsLocked(false);
           setError(''); // Lockout timer finished
+          setRemainingAttempts(null);
+          if (username) {
+            checkLockoutStatus(username);
+          }
           return 0;
         }
         return prev - 1;
@@ -37,28 +92,65 @@ const LoginPage = ({ setUser }) => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [lockoutTimer]);
+  }, [lockoutTimer, username]);
+
+  const handleUsernameChange = (e) => {
+    const val = e.target.value;
+    setUsername(val);
+    localStorage.setItem('lastUsername', val);
+    if (!val.trim()) {
+      setIsLocked(false);
+      setLockoutTimer(0);
+      setRemainingAttempts(null);
+      setError('');
+    } else {
+      checkLockoutStatus(val);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    if (isLocked || lockoutTimer > 0) {
+      setError("Your account is temporarily locked. Please try again after the lockout period expires.");
+      return;
+    }
+
     setError("");
+    if (username) {
+      localStorage.setItem('lastUsername', username.trim());
+    }
 
     console.log("🔵 Login started");
 
     try {
       const loginRes = await api("/api/login", {
         method: "POST",
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
 
       console.log("🟢 Login response:", loginRes.status);
 
       if (!loginRes.ok) {
-        // Surface backend message (e.g. disabled-account notice or lockout) when available
         const data = await loginRes.json().catch(() => ({}));
-        if (data.lockoutSeconds) {
-          setLockoutTimer(data.lockoutSeconds);
+
+        if (loginRes.status === 429 || data.isLocked || (data.lockoutSeconds && data.lockoutSeconds > 0)) {
+          setIsLocked(true);
+          setLockoutTimer(data.lockoutSeconds || 900);
+          setRemainingAttempts(0);
+          const mins = Math.floor((data.lockoutSeconds || 900) / 60);
+          const secs = (data.lockoutSeconds || 900) % 60;
+          const timeFormatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          setError(
+            data.message || `Your account is temporarily locked. Please try again in ${timeFormatted}.`
+          );
+          return;
         }
+
+        if (typeof data.remainingAttempts === 'number') {
+          setRemainingAttempts(data.remainingAttempts);
+        }
+
         setError(data.message || "Invalid username or password");
         return;
       }
@@ -79,18 +171,16 @@ const LoginPage = ({ setUser }) => {
       }
 
       const user = await meRes.json();
-      // ✅ NORMALIZE USER OBJECT (IMPORTANT)
       const normalizedUser = {
         id: user.id || user.user?.id,
         userId: user.userId || user.user?.userId,
-        employeeId: user.employeeId, // may be filled later
-        role: user.role || user.user?.role, // ⭐ THIS FIXES YOUR ISSUE
+        employeeId: user.employeeId,
+        role: user.role || user.user?.role,
         email: user.email || user.user?.email,
       };
 
       console.log("🟢 User:", user);
 
-      // Try to fetch employee details to get the name and employeeId
       try {
         const empRes = await api("/api/me/employee");
         if (empRes.ok) {
@@ -106,8 +196,6 @@ const LoginPage = ({ setUser }) => {
             if (empData.firstName) {
               normalizedUser.firstName = empData.firstName;
               normalizedUser.lastName = empData.lastName;
-              // Trimmed: an admin has no surname, and the cached name reaches exports and
-              // notification text where a trailing space is not swallowed the way HTML does.
               normalizedUser.fullName = `${empData.firstName} ${empData.lastName || ""}`.trim();
               normalizedUser.designation = empData.designation;
             }
@@ -144,8 +232,6 @@ const LoginPage = ({ setUser }) => {
     }
   };
 
-
-
   return (
     <div
       className="flex justify-center items-center min-h-screen bg-cover bg-center bg-no-repeat font-brand relative overflow-hidden"
@@ -158,6 +244,7 @@ const LoginPage = ({ setUser }) => {
         <div className="flex flex-col items-center mb-6">
           <img src={Logo} alt="VisionAi Logo" className="h-14 mb-2 object-contain" />
           <h2 className="text-2xl font-bold text-brand-text">HRMS Login</h2>
+          <p className="text-xs text-brand-text/60 mt-1 font-medium">Maximum {maxAttempts} login attempts are allowed.</p>
         </div>
 
         {sessionMsg && !error && (
@@ -169,7 +256,7 @@ const LoginPage = ({ setUser }) => {
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-lg text-center mb-4 text-sm font-medium border border-red-100 whitespace-pre-line leading-relaxed">
             {lockoutTimer > 0
-              ? `Too Many Attempts.\nPlease try again in ${String(Math.floor(lockoutTimer / 60)).padStart(2, '0')}:${String(lockoutTimer % 60).padStart(2, '0')}.`
+              ? `Your account is temporarily locked. Please try again in ${String(Math.floor(lockoutTimer / 60)).padStart(2, '0')}:${String(lockoutTimer % 60).padStart(2, '0')}.`
               : error}
           </div>
         )}
@@ -180,9 +267,10 @@ const LoginPage = ({ setUser }) => {
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={handleUsernameChange}
               required
-              className="w-full p-3 rounded-lg border border-brand-blue/20 bg-white/50 focus:bg-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/20 outline-none transition-all"
+              disabled={isLocked || lockoutTimer > 0}
+              className="w-full p-3 rounded-lg border border-brand-blue/20 bg-white/50 focus:bg-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/20 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="Enter your username"
             />
           </div>
@@ -194,14 +282,18 @@ const LoginPage = ({ setUser }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full p-3 rounded-lg border border-brand-blue/20 bg-white/50 focus:bg-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/20 outline-none transition-all"
+              disabled={isLocked || lockoutTimer > 0}
+              className="w-full p-3 rounded-lg border border-brand-blue/20 bg-white/50 focus:bg-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/20 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="Enter your password"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full py-3 bg-brand-blue-dark text-white rounded-lg font-bold hover:bg-brand-blue-hover active:scale-[0.98] transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+            disabled={isLocked || lockoutTimer > 0}
+            className={`w-full py-3 bg-brand-blue-dark text-white rounded-lg font-bold hover:bg-brand-blue-hover active:scale-[0.98] transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group ${
+              isLocked || lockoutTimer > 0 ? "opacity-50 cursor-not-allowed hover:bg-brand-blue-dark active:scale-100" : ""
+            }`}
           >
             <span>LOGIN</span>
             <svg
@@ -229,9 +321,3 @@ const LoginPage = ({ setUser }) => {
 };
 
 export default LoginPage;
-
-
-
-
-
-
