@@ -438,85 +438,85 @@ export default function HrManagerTimesheets() {
                 hideLogout={true}
             />
 
-            <main className="flex-1 flex flex-col min-w-0">
-                <header className="sticky top-0 z-30 bg-white px-4 md:px-8 py-4 flex flex-wrap items-center justify-between shadow-sm border-b border-[#E3E8EF]">
-                    <div className="flex items-center gap-6">
-                        <div className="w-11 h-11 bg-[#F1EFE8] rounded-xl flex items-center justify-center border border-[#E3E8EF] shadow-sm overflow-hidden">
-                            <svg
-                                className="w-7 h-7 text-[#5F5E5A]"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                            >
-                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight">
-                                {ribbonTitle}
-                            </h1>
-                            <p className="text-[12px] text-brand-text-secondary mt-0.5 break-words">
-                                {ribbonRoleLabel}{ribbonRoleLabel && ribbonName ? " · " : ""}{ribbonName}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3 relative" id="profile-dropdown-container">
-                        <NotificationComponent />
-                        <button
-                            onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                            className="w-10 h-10 rounded-full border-2 border-brand-blue/10 overflow-hidden cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-md flex items-center justify-center bg-white p-0"
-                            title="View Profile"
-                        >
-                            {user.photoPath ? (
-                                <img src={user.photoPath} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                <svg className="w-6 h-6 text-brand-text/20" viewBox="0 0 24 24" fill="currentColor">
+            <main className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
+                {/* Standardized Header + Filter Bar (Fixed Top Section) */}
+                <div className="sticky top-0 z-30 bg-white border-b border-[#E3E8EF] shadow-sm shrink-0">
+                    <header className="px-4 md:px-8 py-4 flex flex-wrap items-center justify-between">
+                        <div className="flex items-center gap-6">
+                            <div className="w-11 h-11 bg-[#F1EFE8] rounded-xl flex items-center justify-center border border-[#E3E8EF] shadow-sm overflow-hidden">
+                                <svg
+                                    className="w-7 h-7 text-[#5F5E5A]"
+                                    viewBox="0 0 24 24"
+                                    fill="currentColor"
+                                >
                                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                                 </svg>
-                            )}
-                        </button>
-
-                        {/* Dropdown Menu */}
-                        {isProfileDropdownOpen && (
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-brand-blue/5 py-2 z-[100] animate-in fade-in zoom-in duration-200 origin-top-right">
-                                <button
-                                    onClick={() => {
-                                        navigate("/hr/profile");
-                                        setIsProfileDropdownOpen(false);
-                                    }}
-                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-brand-text hover:bg-bg-slate transition-colors"
-                                >
-                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                        <circle cx="12" cy="7" r="4"></circle>
-                                    </svg>
-                                    My Profile
-                                </button>
-                                <div className="h-px bg-brand-blue/5 mx-2 my-1"></div>
-                                <button
-                                    onClick={() => {
-                                        setIsProfileDropdownOpen(false);
-                                        handleLogout();
-                                    }}
-                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
-                                >
-                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                        <polyline points="16 17 21 12 16 7"></polyline>
-                                        <line x1="21" y1="12" x2="9" y2="12"></line>
-                                    </svg>
-                                    Logout
-                                </button>
                             </div>
-                        )}
-                    </div>
-                </header>
+                            <div>
+                                <h1 className="text-[16px] font-medium text-brand-text tracking-tight leading-tight">
+                                    {ribbonTitle}
+                                </h1>
+                                <p className="text-[12px] text-brand-text-secondary mt-0.5 break-words">
+                                    {ribbonRoleLabel}{ribbonRoleLabel && ribbonName ? " · " : ""}{ribbonName}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 relative" id="profile-dropdown-container">
+                            <NotificationComponent />
+                            <button
+                                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                                className="w-10 h-10 rounded-full border-2 border-brand-blue/10 overflow-hidden cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-md flex items-center justify-center bg-white p-0"
+                                title="View Profile"
+                            >
+                                {user.photoPath ? (
+                                    <img src={user.photoPath} alt="Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                    <svg className="w-6 h-6 text-brand-text/20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                    </svg>
+                                )}
+                            </button>
 
+                            {/* Dropdown Menu */}
+                            {isProfileDropdownOpen && (
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-brand-blue/5 py-2 z-[100] animate-in fade-in zoom-in duration-200 origin-top-right">
+                                    <button
+                                        onClick={() => {
+                                            navigate("/hr/profile");
+                                            setIsProfileDropdownOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-brand-text hover:bg-bg-slate transition-colors"
+                                    >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                            <circle cx="12" cy="7" r="4"></circle>
+                                        </svg>
+                                        My Profile
+                                    </button>
+                                    <div className="h-px bg-brand-blue/5 mx-2 my-1"></div>
+                                    <button
+                                        onClick={() => {
+                                            setIsProfileDropdownOpen(false);
+                                            handleLogout();
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
+                                    >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                            <polyline points="16 17 21 12 16 7"></polyline>
+                                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                                        </svg>
+                                        Logout
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </header>
 
-                <div className="flex-1 p-4 md:py-4 md:px-10 overflow-y-auto">
-                    <div className="max-w-[1200px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        {tsSubView === 'summary' ? (
-                            <>
-                                <div className="sticky top-0 z-20 bg-white rounded-[24px] p-3 shadow-xl border border-brand-blue/5 flex flex-nowrap items-center gap-2.5 overflow-hidden mb-6">
+                    {tsSubView === 'summary' && (
+                        <div className="px-4 md:px-8 pb-3 pt-1 border-t border-brand-blue/5 bg-bg-slate/30">
+                            <div className="max-w-[1200px] mx-auto">
+                                <div className="bg-white rounded-[24px] p-2.5 shadow-md border border-brand-blue/5 flex flex-nowrap items-center gap-2.5 overflow-x-auto custom-scrollbar">
                                     <div className="relative w-44 sm:w-52 md:w-56 shrink-0">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/20" size={14} />
                                         <input
@@ -570,8 +570,15 @@ export default function HrManagerTimesheets() {
                                         DOWNLOAD TIMESHEET
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
-                                <div className="space-y-8">
+                <div className="flex-1 p-4 md:py-6 md:px-10 overflow-y-auto">
+                    <div className="max-w-[1200px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {tsSubView === 'summary' ? (
+                            <div className="space-y-8">
                                     {loading ? (
                                         <div className="py-20 flex flex-col items-center justify-center space-y-4 bg-white rounded-[32px] border border-brand-blue/5 shadow-sm">
                                             <div className="w-12 h-12 border-4 border-brand-blue border-t-transparent rounded-full animate-spin" />
@@ -671,7 +678,6 @@ export default function HrManagerTimesheets() {
                                             ))
                                     )}
                                 </div>
-                            </>
                         ) : (
                             <div className="flex flex-col gap-6">
                                 <WeeklyTimesheetGrid
