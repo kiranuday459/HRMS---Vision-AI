@@ -46,7 +46,7 @@ class DailyHoursTimesheetValidationTest {
     private TimesheetService timesheetService;
 
     private static final Long EMPLOYEE_ID = 101L;
-    private static final LocalDate TEST_DATE = LocalDate.now().minusDays(1);
+    private static final LocalDate TEST_DATE = LocalDate.now().minusWeeks(2);
 
     @BeforeEach
     void setUp() {

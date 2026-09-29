@@ -32,6 +32,7 @@ public class Timesheet {
     private String notes;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 50)
     private TimesheetStatus status = TimesheetStatus.PENDING_RM_APPROVAL;
 
     private String managerComments;

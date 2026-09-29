@@ -20,6 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -229,7 +230,7 @@ public class TimesheetController {
         // Convert Map to DTOs
         List<TimesheetDTO> dtos = entriesList.stream().map(m -> {
             TimesheetDTO d = new TimesheetDTO();
-            d.setDate(LocalDate.parse(m.get("date").toString()));
+            if (m.get("date") != null) d.setDate(LocalDate.parse(m.get("date").toString().split("T")[0]));
             if (m.get("startTime") != null) d.setStartTime(java.time.LocalTime.parse(m.get("startTime").toString()));
             if (m.get("endTime") != null) d.setEndTime(java.time.LocalTime.parse(m.get("endTime").toString()));
             d.setProject(m.get("project") != null ? m.get("project").toString() : null);
@@ -252,6 +253,72 @@ public class TimesheetController {
 
         timesheetService.saveWeeklyTimesheet(employeeId, weekStart, dtos, callerRole);
         return ResponseEntity.ok(ApiResponse.success("Weekly timesheet saved successfully", null));
+    }
+
+    @PostMapping("/save-draft")
+    public ResponseEntity<ApiResponse<Void>> saveDraft(
+            @RequestBody Map<String, Object> request,
+            Authentication authentication) {
+
+        Long authEmployeeId = getEmployeeIdFromAuth(authentication);
+        Role callerRole = Role.EMPLOYEE;
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal) {
+            callerRole = ((UserPrincipal) authentication.getPrincipal()).getUser().getRole();
+        }
+
+        Long employeeId = authEmployeeId;
+        if (request.get("employeeId") != null && (callerRole == Role.HR || callerRole == Role.REPORTING_MANAGER || callerRole == Role.ADMIN)) {
+            try {
+                employeeId = Long.valueOf(request.get("employeeId").toString());
+            } catch (Exception ignored) {}
+        }
+
+        if (employeeId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Employee not found"));
+        }
+
+        Object weekStartRaw = request.get("weekStart");
+        if (weekStartRaw == null || weekStartRaw.toString().isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("weekStart is required"));
+        }
+
+        LocalDate weekStart;
+        try {
+            weekStart = LocalDate.parse(weekStartRaw.toString().split("T")[0]);
+        } catch (java.time.format.DateTimeParseException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("weekStart is not a valid date"));
+        }
+
+        Object entriesRaw = request.get("entries");
+        List<TimesheetDTO> dtos = Collections.emptyList();
+        if (entriesRaw instanceof List) {
+            List<Map<String, Object>> entriesList = (List<Map<String, Object>>) entriesRaw;
+            dtos = entriesList.stream().map(m -> {
+                TimesheetDTO d = new TimesheetDTO();
+                if (m.get("date") != null) d.setDate(LocalDate.parse(m.get("date").toString().split("T")[0]));
+                if (m.get("startTime") != null) d.setStartTime(java.time.LocalTime.parse(m.get("startTime").toString()));
+                if (m.get("endTime") != null) d.setEndTime(java.time.LocalTime.parse(m.get("endTime").toString()));
+                d.setProject(m.get("project") != null ? m.get("project").toString() : null);
+                d.setTask(m.get("task") != null ? m.get("task").toString() : null);
+                d.setNotes(m.get("notes") != null ? m.get("notes").toString() : null);
+                d.setCategory(m.get("category") != null ? m.get("category").toString() : null);
+                d.setProjectName(m.get("projectName") != null ? m.get("projectName").toString() : null);
+                d.setTaskDescription(m.get("taskDescription") != null ? m.get("taskDescription").toString() : null);
+                d.setOnsiteOffshore(m.get("onsiteOffshore") != null ? m.get("onsiteOffshore").toString() : null);
+                d.setBillingLocation(m.get("billingLocation") != null ? m.get("billingLocation").toString() : null);
+                d.setBillable(m.get("billable") != null ? (Boolean) m.get("billable") : null);
+                d.setLeaveType(m.get("leaveType") != null ? m.get("leaveType").toString() : null);
+                if (m.get("totalHours") != null) {
+                    try {
+                        d.setTotalHours(Double.parseDouble(m.get("totalHours").toString()));
+                    } catch (NumberFormatException ignored) {}
+                }
+                return d;
+            }).collect(Collectors.toList());
+        }
+
+        timesheetService.saveDraftWeeklyTimesheet(employeeId, weekStart, dtos, callerRole);
+        return ResponseEntity.ok(ApiResponse.success("Weekly timesheet draft saved successfully", null));
     }
 
     private static final java.util.concurrent.ConcurrentHashMap<Long, java.time.Instant> lastNotificationMap = new java.util.concurrent.ConcurrentHashMap<>();

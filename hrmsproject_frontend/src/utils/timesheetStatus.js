@@ -1,4 +1,5 @@
 export const APPROVAL_STATUS = {
+    DRAFT: 'DRAFT',
     PENDING_RM_APPROVAL: 'PENDING_RM_APPROVAL',
     PENDING_HR_APPROVAL: 'PENDING_HR_APPROVAL',
     // HR account disabled — the Reporting Manager handles the HR stage as well.
@@ -41,6 +42,8 @@ export const getTimesheetDisplayLabel = (status, viewerRole = 'EMPLOYEE', reject
     // HR viewing their own timesheet: the only approver is Admin.
     if (viewerRole === HR_SELF) {
         switch (status) {
+            case APPROVAL_STATUS.DRAFT:
+                return 'Draft';
             case APPROVAL_STATUS.PENDING_RM_APPROVAL:
             case APPROVAL_STATUS.PENDING_HR_APPROVAL:
             case APPROVAL_STATUS.PENDING_RM_AS_HR_APPROVAL:
@@ -59,6 +62,8 @@ export const getTimesheetDisplayLabel = (status, viewerRole = 'EMPLOYEE', reject
     // can never be the approver of their own sheet.
     if (viewerRole === REPORTING_MANAGER_SELF) {
         switch (status) {
+            case APPROVAL_STATUS.DRAFT:
+                return 'Draft';
             case APPROVAL_STATUS.PENDING_RM_APPROVAL:
             case APPROVAL_STATUS.PENDING_HR_APPROVAL:
             case APPROVAL_STATUS.PENDING_RM_AS_HR_APPROVAL:
@@ -127,6 +132,8 @@ export const getTimesheetDisplayLabel = (status, viewerRole = 'EMPLOYEE', reject
     }
 
     switch (status) {
+        case APPROVAL_STATUS.DRAFT:
+            return 'Draft';
         case APPROVAL_STATUS.PENDING_RM_APPROVAL:
             return viewerRole === 'EMPLOYEE'
                 ? 'Pending approval from Reporting Manager and HR'
@@ -189,6 +196,7 @@ export const getHighestTimesheetStatus = (entries) => {
     if (statuses.includes(APPROVAL_STATUS.PENDING_HR_APPROVAL)) return APPROVAL_STATUS.PENDING_HR_APPROVAL;
     if (statuses.includes(APPROVAL_STATUS.PENDING_ADMIN_APPROVAL)) return APPROVAL_STATUS.PENDING_ADMIN_APPROVAL;
     if (statuses.includes(APPROVAL_STATUS.APPROVED)) return APPROVAL_STATUS.APPROVED;
+    if (statuses.includes(APPROVAL_STATUS.DRAFT)) return APPROVAL_STATUS.DRAFT;
     return null;
 };
 
@@ -219,8 +227,11 @@ export const getWeekStatus = (entries, viewerRole = 'EMPLOYEE') => {
 // "PENDING HR APPROVAL" rather than the raw "PENDING_RM_APPROVAL".
 export const getTimesheetStatusBadge = (status, viewerRole = 'EMPLOYEE') => {
     if (!status) return '';
+    if (status === APPROVAL_STATUS.DRAFT) return 'DRAFT';
     if (viewerRole === REPORTING_MANAGER_SELF) {
         switch (status) {
+            case APPROVAL_STATUS.DRAFT:
+                return 'DRAFT';
             case APPROVAL_STATUS.PENDING_RM_APPROVAL:
             case APPROVAL_STATUS.PENDING_HR_APPROVAL:
             case APPROVAL_STATUS.PENDING_RM_AS_HR_APPROVAL:

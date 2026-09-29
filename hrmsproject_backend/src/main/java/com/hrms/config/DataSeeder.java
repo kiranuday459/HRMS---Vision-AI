@@ -44,6 +44,11 @@ public class DataSeeder implements CommandLineRunner {
             jdbcTemplate.execute("ALTER TABLE leaves DROP CONSTRAINT IF EXISTS leaves_leave_type_check");
         } catch (Exception ignored) {}
 
+        // Ensure timesheets.status column allows VARCHAR(50) so new statuses like DRAFT are accepted without truncation
+        try {
+            jdbcTemplate.execute("ALTER TABLE timesheets MODIFY COLUMN status VARCHAR(50) DEFAULT 'PENDING_RM_APPROVAL'");
+        } catch (Exception ignored) {}
+
         try {
             // Check if our new admin setup already exists
             if (userRepository.findByUsername("admin1").isEmpty()) {
