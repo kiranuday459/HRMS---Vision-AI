@@ -89,7 +89,7 @@ export default function AdminTimesheets() {
 
             if (tsRes.ok) {
                 const tsJson = await tsRes.json();
-                const allTs = tsJson.data || tsJson || [];
+                const allTs = (tsJson.data || tsJson || []).filter(e => e.status !== 'DRAFT');
 
                 if (Array.isArray(allTs)) {
                     setTimesheets(allTs);

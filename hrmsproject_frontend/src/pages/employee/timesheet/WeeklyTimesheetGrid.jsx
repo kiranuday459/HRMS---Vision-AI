@@ -1,15 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import HrRerouteBanner from '../../../components/HrRerouteBanner';
 import api from '../../../utils/api';
+import { isPendingStatus } from '../../../utils/timesheetStatus';
 
 const EMPTY_ARRAY = [];
 
-const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate: initialJoiningDate = null, approvedLeaves = EMPTY_ARRAY, holidays = EMPTY_ARRAY, readOnly = false, onApprove, onReject, canApprove = false, canReject = false, onProbation = false, disabledAccount = false, hrDisabledReroute = false, hrRerouteEmployeeName = '' }) => {
+const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, onSaveDraft, employeeId, joiningDate: initialJoiningDate = null, approvedLeaves = EMPTY_ARRAY, holidays = EMPTY_ARRAY, readOnly = false, onApprove, onReject, canApprove = false, canReject = false, onProbation = false, disabledAccount = false, hrDisabledReroute = false, hrRerouteEmployeeName = '' }) => {
     // Dates for the week (7 days)
     const [dates, setDates] = useState([]);
     const [joiningDate, setJoiningDate] = useState(initialJoiningDate);
     const [leaves, setLeaves] = useState(approvedLeaves || EMPTY_ARRAY);
+
+    const isDirtyRef = useRef(false);
+    const inFlightRef = useRef(false);
+    const pendingSaveRef = useRef(false);
+    const debounceTimerRef = useRef(null);
 
     useEffect(() => {
         if (approvedLeaves && approvedLeaves.length > 0) {
@@ -66,6 +72,22 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
         leaveB: Array(7).fill({ value: '', id: null }),
         leaveL: Array(7).fill({ value: '', id: null })
     });
+
+    const projectRowsRef = useRef(projectRows);
+    const truTimeRowsRef = useRef(truTimeRows);
+    const leaveRowsRef = useRef(leaveRows);
+    const datesRef = useRef(dates);
+
+    useEffect(() => { projectRowsRef.current = projectRows; }, [projectRows]);
+    useEffect(() => { truTimeRowsRef.current = truTimeRows; }, [truTimeRows]);
+    useEffect(() => { leaveRowsRef.current = leaveRows; }, [leaveRows]);
+    useEffect(() => { datesRef.current = dates; }, [dates]);
+
+    const isSubmittedOrApprovedOrLocked = readOnly ||
+        weekData?.status === 'APPROVED' ||
+        weekData?.status === 'Approved' ||
+        (weekData?.statusLabel && weekData.statusLabel.toLowerCase() === 'approved') ||
+        isPendingStatus(weekData?.status);
 
     useEffect(() => {
         if (weekData && weekData.start) {
@@ -225,6 +247,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
     }, [weekData, approvedLeaves, holidays]);
 
     const handleAddRow = () => {
+        isDirtyRef.current = true;
         setProjectRows([...projectRows, { id: Date.now(), projectId: '', projectName: '', taskId: '', taskDesc: '', onsite: 'Offshore', billable: 'Billable', location: 'India', hours: Array.from({ length: 7 }, () => ({ value: '', id: null })), comment: '' }]);
     };
 
@@ -233,7 +256,23 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
             idx === rowIndex ? { ...row, [field]: value } : row
         );
         setProjectRows(updated);
+        triggerAutoSave();
     };
+
+    const [localHolidays, setLocalHolidays] = useState(holidays || EMPTY_ARRAY);
+
+    useEffect(() => {
+        if (holidays && holidays.length > 0) {
+            setLocalHolidays(holidays);
+        } else {
+            api('/api/holidays')
+                .then(res => res.json())
+                .then(json => {
+                    if (json && json.data) setLocalHolidays(json.data);
+                })
+                .catch(() => {});
+        }
+    }, [holidays]);
 
     const getLocalDateStr = (date) => {
         if (!date) return "";
@@ -272,7 +311,43 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
     const isHolidayDay = (dayIdx) => {
         if (!dates[dayIdx]) return false;
         const ds = getLocalDateStr(dates[dayIdx]);
-        return holidays.some(h => h.holidayDate === ds);
+        return (localHolidays || []).some(h => {
+            const hDate = typeof h === 'string' ? h : (h?.holidayDate || h?.date);
+            if (!hDate) return false;
+            return (typeof hDate === 'string' ? hDate.split('T')[0] : getLocalDateStr(hDate)) === ds;
+        });
+    };
+
+    const getLastWorkingDayOfWeek = (weekStartDate, hList = localHolidays) => {
+        if (!weekStartDate) return null;
+        const start = typeof weekStartDate === 'string' ? parseDateLocal(weekStartDate) : new Date(weekStartDate);
+        start.setHours(0, 0, 0, 0);
+
+        // Check backwards from Friday (day 6 of week) to Saturday (day 0)
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(start);
+            d.setDate(start.getDate() + i);
+            d.setHours(0, 0, 0, 0);
+            const dayOfWeek = d.getDay(); // 0 = Sunday, 6 = Saturday
+            if (dayOfWeek === 0 || dayOfWeek === 6) continue; // Skip weekends
+
+            const dateStr = getLocalDateStr(d);
+            const isHol = (hList || []).some(h => {
+                const hDate = typeof h === 'string' ? h : (h?.holidayDate || h?.date);
+                if (!hDate) return false;
+                return (typeof hDate === 'string' ? hDate.split('T')[0] : getLocalDateStr(hDate)) === dateStr;
+            });
+
+            if (!isHol) {
+                return d;
+            }
+        }
+
+        // Fallback to Friday (day 6 from Saturday start)
+        const fallback = new Date(start);
+        fallback.setDate(start.getDate() + 6);
+        fallback.setHours(0, 0, 0, 0);
+        return fallback;
     };
 
     // A day is "future" when its calendar date is strictly after today (local time).
@@ -339,8 +414,12 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
         return null;
     };
 
+    const isFullDayApprovedLeave = (dayIdx) => {
+        return getApprovedLeaveTypeForDay(dayIdx) === 'FULL';
+    };
+
     const isApprovedLeaveDay = (dayIdx) => {
-        return getApprovedLeaveTypeForDay(dayIdx) !== null;
+        return isFullDayApprovedLeave(dayIdx);
     };
 
     // Numeric-only sanitizer for timesheet hour fields:
@@ -399,6 +478,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
             return { ...row, hours: newHours };
         });
         setProjectRows(updated);
+        triggerAutoSave();
     };
 
     const handleLeaveHourChange = (typeKey, dayIndex, value) => {
@@ -414,6 +494,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
         const updated = { ...leaveRows, [typeKey]: [...leaveRows[typeKey]] };
         updated[typeKey][dayIndex] = { ...updated[typeKey][dayIndex], value: clean };
         setLeaveRows(updated);
+        triggerAutoSave();
     };
 
     const handleTruTimeChange = (dayIndex, value) => {
@@ -429,6 +510,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
             ...truTimeRows,
             swipe: truTimeRows.swipe.map((sh, idx) => idx === dayIndex ? { ...sh, value: clean } : sh)
         });
+        triggerAutoSave();
     };
 
     const calculateRowTotal = (hours) => {
@@ -467,7 +549,256 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
         return total;
     };
 
+    const buildDraftPayload = () => {
+        const curDates = datesRef.current || dates;
+        const curProjects = projectRowsRef.current || projectRows;
+        const curTruTime = truTimeRowsRef.current || truTimeRows;
+        const curLeaves = leaveRowsRef.current || leaveRows;
+
+        const payload = {
+            employeeId,
+            weekStart: getLocalDateStr(weekData.start),
+            entries: []
+        };
+
+        curProjects.forEach(row => {
+            const hasAnyHours = row.hours.some(h => h.value !== '' && h.value !== null && h.value !== undefined);
+            if (!row.projectId?.trim() && !row.projectName?.trim() && !hasAnyHours) {
+                return;
+            }
+            row.hours.forEach((h, i) => {
+                if (h.value !== '' && h.value !== null && h.value !== undefined && curDates[i]) {
+                    const val = parseFloat(h.value);
+                    if (!isNaN(val) && val >= 0) {
+                        payload.entries.push({
+                            id: h.id,
+                            date: getLocalDateStr(curDates[i]),
+                            project: row.projectId,
+                            projectName: row.projectName,
+                            task: row.taskId,
+                            taskDescription: row.taskDesc,
+                            onsiteOffshore: row.onsite,
+                            billingLocation: row.location,
+                            billable: row.billable === 'Billable',
+                            totalHours: val,
+                            category: 'PROJECT',
+                            notes: row.comment
+                        });
+                    }
+                }
+            });
+        });
+
+        if (curTruTime?.swipe) {
+            curTruTime.swipe.forEach((h, i) => {
+                if (h.value !== '' && h.value !== null && h.value !== undefined && curDates[i]) {
+                    const val = parseFloat(h.value);
+                    if (!isNaN(val) && val >= 0) {
+                        payload.entries.push({
+                            id: h.id,
+                            date: getLocalDateStr(curDates[i]),
+                            totalHours: val,
+                            category: 'TRUTIME',
+                            projectName: 'TruTime Swipe'
+                        });
+                    }
+                }
+            });
+        }
+
+        if (curLeaves?.holiday) {
+            curLeaves.holiday.forEach((h, i) => {
+                if (h.value !== '' && h.value !== null && h.value !== undefined && curDates[i]) {
+                    const val = parseFloat(h.value);
+                    if (!isNaN(val) && val > 0) {
+                        payload.entries.push({
+                            id: h.id,
+                            date: getLocalDateStr(curDates[i]),
+                            totalHours: val,
+                            category: 'HOLIDAY',
+                            projectName: 'Holiday'
+                        });
+                    }
+                }
+            });
+        }
+
+        const leaveTypes = ['S', 'C', 'M', 'P', 'B', 'L'];
+        const fullNames = ['Sick', 'Casual & Earned', 'Maternity', 'Paternity', 'Bereavement', 'LOP'];
+        ['leaveS', 'leaveC', 'leaveM', 'leaveP', 'leaveB', 'leaveL'].forEach((key, typeIdx) => {
+            if (curLeaves?.[key]) {
+                curLeaves[key].forEach((h, i) => {
+                    if (h.value !== '' && h.value !== null && h.value !== undefined && curDates[i]) {
+                        const val = parseFloat(h.value);
+                        if (!isNaN(val) && val > 0) {
+                            payload.entries.push({
+                                id: h.id,
+                                date: getLocalDateStr(curDates[i]),
+                                totalHours: val,
+                                category: 'LEAVE',
+                                leaveType: leaveTypes[typeIdx],
+                                projectName: `Leave (${fullNames[typeIdx]})`
+                            });
+                        }
+                    }
+                });
+            }
+        });
+
+        payload.entries = payload.entries.filter(e => {
+            if (e.category === 'LEAVE' || e.category === 'HOLIDAY') return true;
+            const d = parseDateLocal(e.date);
+            const dayIdx = curDates.findIndex(dt => getLocalDateStr(dt) === e.date);
+            return !isFutureDay(d) && !isBeforeJoiningDate(d) && (dayIdx === -1 || !isApprovedLeaveDay(dayIdx));
+        });
+
+        return payload;
+    };
+
+    const performSaveDraft = async (options = {}) => {
+        if (isSubmittedOrApprovedOrLocked || !onSaveDraft || !isDirtyRef.current) return;
+
+        const curProjects = projectRowsRef.current || projectRows;
+        const hasIncompleteProjectRow = curProjects.some(row => {
+            const hasHours = row.hours.some(h => h.value !== '' && h.value !== null && h.value !== undefined && parseFloat(h.value) > 0);
+            return hasHours && (!row.projectId?.trim() || !row.projectName?.trim());
+        });
+        if (hasIncompleteProjectRow) {
+            return;
+        }
+
+        if (inFlightRef.current) {
+            pendingSaveRef.current = true;
+            return;
+        }
+
+        inFlightRef.current = true;
+        const payload = buildDraftPayload();
+
+        try {
+            const res = await onSaveDraft(payload, options);
+            if (res && res.success) {
+                if (!pendingSaveRef.current) {
+                    isDirtyRef.current = false;
+                }
+            } else if (res && !res.success && res.message) {
+                console.warn('[Draft AutoSave] Failed:', res.message);
+            }
+        } catch (err) {
+            console.error('[Draft AutoSave] Exception:', err);
+        } finally {
+            inFlightRef.current = false;
+            if (pendingSaveRef.current) {
+                pendingSaveRef.current = false;
+                performSaveDraft();
+            }
+        }
+    };
+
+    const triggerAutoSave = () => {
+        if (isSubmittedOrApprovedOrLocked || !onSaveDraft) return;
+        isDirtyRef.current = true;
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = setTimeout(() => {
+            performSaveDraft();
+        }, 1500);
+    };
+
+    const handleFieldBlur = () => {
+        if (isSubmittedOrApprovedOrLocked || !onSaveDraft || !isDirtyRef.current) return;
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = null;
+        }
+        performSaveDraft();
+    };
+
+    const handleBackClick = async () => {
+        if (isDirtyRef.current && !isSubmittedOrApprovedOrLocked && onSaveDraft) {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+                debounceTimerRef.current = null;
+            }
+            const curProjects = projectRowsRef.current || projectRows;
+            const hasIncompleteProjectRow = curProjects.some(row => {
+                const hasHours = row.hours.some(h => h.value !== '' && h.value !== null && h.value !== undefined && parseFloat(h.value) > 0);
+                return hasHours && (!row.projectId?.trim() || !row.projectName?.trim());
+            });
+            if (!hasIncompleteProjectRow) {
+                const payload = buildDraftPayload();
+                await onSaveDraft(payload);
+                isDirtyRef.current = false;
+            }
+        }
+        onBack();
+    };
+
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            if (isDirtyRef.current && !isSubmittedOrApprovedOrLocked && onSaveDraft) {
+                if (debounceTimerRef.current) {
+                    clearTimeout(debounceTimerRef.current);
+                }
+                const curProjects = projectRowsRef.current || projectRows;
+                const hasIncompleteProjectRow = curProjects.some(row => {
+                    const hasHours = row.hours.some(h => h.value !== '' && h.value !== null && h.value !== undefined && parseFloat(h.value) > 0);
+                    return hasHours && (!row.projectId?.trim() || !row.projectName?.trim());
+                });
+                if (!hasIncompleteProjectRow) {
+                    const payload = buildDraftPayload();
+                    onSaveDraft(payload, { keepalive: true });
+                }
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden' && isDirtyRef.current && !isSubmittedOrApprovedOrLocked && onSaveDraft) {
+                if (debounceTimerRef.current) {
+                    clearTimeout(debounceTimerRef.current);
+                }
+                const curProjects = projectRowsRef.current || projectRows;
+                const hasIncompleteProjectRow = curProjects.some(row => {
+                    const hasHours = row.hours.some(h => h.value !== '' && h.value !== null && h.value !== undefined && parseFloat(h.value) > 0);
+                    return hasHours && (!row.projectId?.trim() || !row.projectName?.trim());
+                });
+                if (!hasIncompleteProjectRow) {
+                    const payload = buildDraftPayload();
+                    onSaveDraft(payload, { keepalive: true });
+                }
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+            if (isDirtyRef.current && !isSubmittedOrApprovedOrLocked && onSaveDraft) {
+                const curProjects = projectRowsRef.current || projectRows;
+                const hasIncompleteProjectRow = curProjects.some(row => {
+                    const hasHours = row.hours.some(h => h.value !== '' && h.value !== null && h.value !== undefined && parseFloat(h.value) > 0);
+                    return hasHours && (!row.projectId?.trim() || !row.projectName?.trim());
+                });
+                if (!hasIncompleteProjectRow) {
+                    const payload = buildDraftPayload();
+                    onSaveDraft(payload);
+                }
+            }
+        };
+    }, [weekData, isSubmittedOrApprovedOrLocked, employeeId, onSaveDraft]);
+
     const handleSave = () => {
+        if (isBeforeLastWorkingDay) {
+            toast.error(`Weekly timesheet cannot be submitted before the last working day of the week (${lastWorkingDayStr}).`);
+            return;
+        }
+
         // Probation guard: only LOP leave hours are valid; reject if other paid-leave hours were entered.
         if (onProbation) {
             const paidLeaveKeys = ['leaveS', 'leaveC', 'leaveM', 'leaveP', 'leaveB'];
@@ -560,89 +891,12 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
             }
         }
 
-        const payload = {
-            employeeId,
-            weekStart: getLocalDateStr(weekData.start),
-            entries: []
-        };
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = null;
+        }
 
-        projectRows.forEach(row => {
-            const hasAnyHours = row.hours.some(h => h.value !== '' && h.value !== null && h.value !== undefined);
-            if (!row.projectId?.trim() && !row.projectName?.trim() && !hasAnyHours) {
-                return;
-            }
-            row.hours.forEach((h, i) => {
-                if (h.value !== '' && h.value !== null && h.value !== undefined) {
-                    const val = parseFloat(h.value);
-                    if (!isNaN(val) && val >= 0) {
-                        payload.entries.push({
-                            id: h.id,
-                            date: getLocalDateStr(dates[i]),
-                            project: row.projectId,
-                            projectName: row.projectName,
-                            task: row.taskId,
-                            taskDescription: row.taskDesc,
-                            onsiteOffshore: row.onsite,
-                            billingLocation: row.location,
-                            billable: row.billable === 'Billable',
-                            totalHours: val,
-                            category: 'PROJECT',
-                            notes: row.comment
-                        });
-                    }
-                }
-            });
-        });
-
-        truTimeRows.swipe.forEach((h, i) => {
-            if (h.value !== '' && h.value !== null && h.value !== undefined) {
-                const val = parseFloat(h.value);
-                if (!isNaN(val) && val >= 0) {
-                    payload.entries.push({
-                        id: h.id,
-                        date: getLocalDateStr(dates[i]),
-                        totalHours: val,
-                        category: 'TRUTIME',
-                        projectName: 'TruTime Swipe'
-                    });
-                }
-            }
-        });
-
-        leaveRows.holiday.forEach((h, i) => {
-            if (h.value !== '' && h.value !== null && h.value !== undefined) {
-                const val = parseFloat(h.value);
-                if (!isNaN(val) && val > 0) {
-                    payload.entries.push({
-                        id: h.id,
-                        date: getLocalDateStr(dates[i]),
-                        totalHours: val,
-                        category: 'HOLIDAY',
-                        projectName: 'Holiday'
-                    });
-                }
-            }
-        });
-
-        const leaveTypes = ['S', 'C', 'M', 'P', 'B', 'L'];
-        const fullNames = ['Sick', 'Casual & Earned', 'Maternity', 'Paternity', 'Bereavement', 'LOP'];
-        ['leaveS', 'leaveC', 'leaveM', 'leaveP', 'leaveB', 'leaveL'].forEach((key, typeIdx) => {
-            leaveRows[key].forEach((h, i) => {
-                if (h.value !== '' && h.value !== null && h.value !== undefined) {
-                    const val = parseFloat(h.value);
-                    if (!isNaN(val) && val > 0) {
-                        payload.entries.push({
-                            id: h.id,
-                            date: getLocalDateStr(dates[i]),
-                            totalHours: val,
-                            category: 'LEAVE',
-                            leaveType: leaveTypes[typeIdx],
-                            projectName: `Leave (${fullNames[typeIdx]})`
-                        });
-                    }
-                }
-            });
-        });
+        const payload = buildDraftPayload();
 
         // Check if any entries are before joining date
         if (joiningDate && payload.entries.some(e => isBeforeJoiningDate(e.date))) {
@@ -650,14 +904,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
             return;
         }
 
-        // Safety: never submit hours for a future date, pre-joining date, or work hours on approved leave dates.
-        payload.entries = payload.entries.filter(e => {
-            if (e.category === 'LEAVE' || e.category === 'HOLIDAY') return true;
-            const d = parseDateLocal(e.date);
-            const dayIdx = dates.findIndex(dt => getLocalDateStr(dt) === e.date);
-            return !isFutureDay(d) && !isBeforeJoiningDate(d) && (dayIdx === -1 || !isApprovedLeaveDay(dayIdx));
-        });
-
+        isDirtyRef.current = false;
         onSave(payload);
     };
 
@@ -675,11 +922,19 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
     const allPreJoiningWeek = dates.length === 7 && dates.every(isBeforeJoiningDate);
     const allDisabledWeek = dates.length === 7 && dates.every(d => isFutureDay(d) || isBeforeJoiningDate(d));
 
+    const lastWorkingDay = getLastWorkingDayOfWeek(weekData?.start || (dates.length > 0 ? dates[0] : null), localHolidays);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isBeforeLastWorkingDay = lastWorkingDay ? today < lastWorkingDay : false;
+    const lastWorkingDayStr = lastWorkingDay ? getLocalDateStr(lastWorkingDay) : '';
+    const isSubmitDisabled = allDisabledWeek || isBeforeLastWorkingDay;
+    const submitTooltip = isBeforeLastWorkingDay ? `Available from ${lastWorkingDayStr}` : undefined;
+
     return (
         <div className="flex flex-col max-w-6xl mx-auto w-full flex-1 min-h-0">
             {/* Back navigation — standalone, ABOVE/OUTSIDE the timesheet card */}
             <button
-                onClick={onBack}
+                onClick={handleBackClick}
                 aria-label="Back"
                 className="self-start mb-3 inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 font-bold text-sm transition-colors group"
             >
@@ -771,7 +1026,12 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto">
                             {!readOnly ? (
-                                <button onClick={handleSave} disabled={allDisabledWeek} className={`flex-1 sm:flex-none px-4 md:px-5 py-2 rounded-lg text-[9px] md:text-[10px] font-bold transition-all shadow-sm tracking-widest uppercase ${allDisabledWeek ? 'bg-[#D3D1C7] text-[#8A8880] cursor-not-allowed' : 'bg-[#185FA5] text-white hover:bg-[#0C447C] active:scale-95'}`}>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={isSubmitDisabled}
+                                    title={submitTooltip}
+                                    className={`flex-1 sm:flex-none px-4 md:px-5 py-2 rounded-lg text-[9px] md:text-[10px] font-bold transition-all shadow-sm tracking-widest uppercase ${isSubmitDisabled ? 'bg-[#D3D1C7] text-[#8A8880] cursor-not-allowed' : 'bg-[#185FA5] text-white hover:bg-[#0C447C] active:scale-95'}`}
+                                >
                                     SUBMIT SHEET
                                 </button>
                             ) : (canApprove && canReject && onApprove && onReject && !disabledAccount && (() => {
@@ -823,26 +1083,26 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#F1EFE8]">
-                                {/* Project Rows */}
+                                 {/* Project Rows */}
                                 {projectRows.map((row, index) => (
                                     <tr key={row.id} className="hover:bg-white transition-colors group">
                                         <td className="p-0.5 border-r border-[#F1EFE8]">
-                                            <input type="text" value={row.projectId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
+                                            <input type="text" value={row.projectId} disabled={readOnly} maxLength={32} onBlur={handleFieldBlur} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
                                         </td>
                                         <td className="p-0.5 border-r border-[#F1EFE8]">
-                                            <input type="text" value={row.projectName} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
+                                            <input type="text" value={row.projectName} disabled={readOnly} maxLength={32} onBlur={handleFieldBlur} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
                                         </td>
                                         <td className="p-0.5 border-r border-[#F1EFE8]">
-                                            <input type="text" value={row.taskId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
+                                            <input type="text" value={row.taskId} disabled={readOnly} maxLength={32} onBlur={handleFieldBlur} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-[11px] border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded bg-transparent focus:bg-white outline-none disabled:cursor-not-allowed" />
                                         </td>
                                         <td className="p-0.5 border-r border-[#F1EFE8] min-w-[110px]">
-                                            <select value={row.onsite} disabled={readOnly} onChange={(e) => handleRowChange(index, 'onsite', e.target.value)} className="w-full px-2.5 py-1.5 text-[11px] font-medium text-[#0C447C] bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded-md outline-none cursor-pointer disabled:cursor-not-allowed transition-all duration-150">
+                                            <select value={row.onsite} disabled={readOnly} onBlur={handleFieldBlur} onChange={(e) => handleRowChange(index, 'onsite', e.target.value)} className="w-full px-2.5 py-1.5 text-[11px] font-medium text-[#0C447C] bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-[#F1EFE8] focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 rounded-md outline-none cursor-pointer disabled:cursor-not-allowed transition-all duration-150">
                                                 <option>Onsite</option>
                                                 <option>Offshore</option>
                                             </select>
                                         </td>
                                         <td className="p-0.5 border-r border-[#F1EFE8]">
-                                            <select value={row.billable} disabled={readOnly} onChange={(e) => handleRowChange(index, 'billable', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed">
+                                            <select value={row.billable} disabled={readOnly} onBlur={handleFieldBlur} onChange={(e) => handleRowChange(index, 'billable', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed">
                                                 <option>Billable</option>
                                                 <option>Non-Billable</option>
                                             </select>
@@ -851,6 +1111,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                             <select
                                                 value={row.location}
                                                 disabled={readOnly}
+                                                onBlur={handleFieldBlur}
                                                 onChange={(e) => handleRowChange(index, 'location', e.target.value)}
                                                 className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed"
                                             >
@@ -883,6 +1144,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                                         value={h.value}
                                                         disabled={isDisabled}
                                                         onKeyDown={handleHoursKeyDown}
+                                                        onBlur={handleFieldBlur}
                                                         onChange={(e) => handleHourChange(index, i, e.target.value)}
                                                         className={`w-full p-2 text-[11px] text-center rounded outline-none font-bold ${isExceeded
                                                             ? 'border-2 border-red-500 text-red-600 bg-red-50 focus:border-red-600 focus:ring-2 focus:ring-red-500/20'
@@ -898,7 +1160,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                             {calculateRowTotal(row.hours).toFixed(2)}
                                         </td>
                                         <td className="p-0.5 border-r border-[#F1EFE8]">
-                                            <input type="text" value={row.comment} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'comment', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed" />
+                                            <input type="text" value={row.comment} disabled={readOnly} maxLength={32} onBlur={handleFieldBlur} onChange={(e) => handleRowChange(index, 'comment', e.target.value)} className="w-full p-2 text-[11px] bg-transparent outline-none disabled:cursor-not-allowed" />
                                         </td>
                                     </tr>
                                 ))}
@@ -945,6 +1207,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                                     value={h.value}
                                                     disabled={isDisabled}
                                                     onKeyDown={handleHoursKeyDown}
+                                                    onBlur={handleFieldBlur}
                                                     onChange={(e) => {
                                                         const val = sanitizeHours(e.target.value);
                                                         const updated = { ...truTimeRows, swipe: [...truTimeRows.swipe] };
@@ -1019,6 +1282,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                                             value={h.value}
                                                             disabled={isDisabled}
                                                             onKeyDown={handleHoursKeyDown}
+                                                            onBlur={handleFieldBlur}
                                                             onChange={(e) => handleLeaveHourChange(key, i, e.target.value)}
                                                             className={`w-full text-center h-full outline-none font-bold transition-colors disabled:cursor-not-allowed ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9]' : 'bg-transparent text-slate-500 hover:bg-white focus:bg-white'}`}
                                                         />
@@ -1049,19 +1313,19 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1">
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Proj ID</label>
-                                            <input type="text" value={row.projectId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
+                                            <input type="text" value={row.projectId} disabled={readOnly} maxLength={32} onBlur={handleFieldBlur} onChange={(e) => handleRowChange(index, 'projectId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Proj Name</label>
-                                            <input type="text" value={row.projectName} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
+                                            <input type="text" value={row.projectName} disabled={readOnly} maxLength={32} onBlur={handleFieldBlur} onChange={(e) => handleRowChange(index, 'projectName', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Task ID</label>
-                                            <input type="text" value={row.taskId} disabled={readOnly} maxLength={32} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
+                                            <input type="text" value={row.taskId} disabled={readOnly} maxLength={32} onBlur={handleFieldBlur} onChange={(e) => handleRowChange(index, 'taskId', e.target.value)} className="w-full p-2 text-xs bg-white rounded border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 outline-none disabled:cursor-not-allowed" />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location</label>
-                                            <select value={row.location} disabled={readOnly} onChange={(e) => handleRowChange(index, 'location', e.target.value)} className="w-full p-2 text-xs bg-white rounded outline-none border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 disabled:cursor-not-allowed">
+                                            <select value={row.location} disabled={readOnly} onBlur={handleFieldBlur} onChange={(e) => handleRowChange(index, 'location', e.target.value)} className="w-full p-2 text-xs bg-white rounded outline-none border-[#F1EFE8] border focus:border-[#185FA5] focus:ring-2 focus:ring-[#185FA5]/20 disabled:cursor-not-allowed">
                                                 <option value="India">India</option>
                                                 <option value="Japan">Japan</option>
                                                 <option value="Singapore">Singapore</option>
@@ -1097,6 +1361,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                                             value={h.value}
                                                             disabled={isDisabled}
                                                             onKeyDown={handleHoursKeyDown}
+                                                            onBlur={handleFieldBlur}
                                                             onChange={(e) => handleHourChange(index, i, e.target.value)}
                                                             className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded outline-none ${isExceeded
                                                                 ? 'border-2 border-red-500 text-red-600 bg-red-50 focus:border-red-600'
@@ -1167,6 +1432,7 @@ const WeeklyTimesheetGrid = ({ weekData, onBack, onSave, employeeId, joiningDate
                                                                 disabled={isDisabled}
                                                                 title={preJoining ? "Timesheet entry is not allowed before your joining date." : undefined}
                                                                 onKeyDown={handleHoursKeyDown}
+                                                                onBlur={handleFieldBlur}
                                                                 onChange={(e) => key === 'swipe' ? handleTruTimeChange(i, e.target.value) : handleLeaveHourChange(key, i, e.target.value)}
                                                                 className={`w-full h-8 p-0 text-center text-[10px] font-bold rounded border-transparent border outline-none disabled:cursor-not-allowed ${future || preJoining ? 'bg-[#F1EFE8] text-[#B4B2A9]' : key === 'holiday' ? 'bg-amber-100/50 text-amber-700' : key.startsWith('leave') ? 'bg-white text-slate-500' : 'bg-white text-slate-400'}`}
                                                             />

@@ -5,6 +5,7 @@ const statusBadgeClass = (status) => {
     if (status === 'APPROVED') return 'bg-emerald-50 text-emerald-700';
     if (status === 'REJECTED') return 'bg-red-50 text-red-700';
     if (status === 'NOT_FILLED') return 'bg-slate-100 text-slate-600';
+    if (status === 'DRAFT') return 'bg-indigo-50 text-indigo-700';
     return 'bg-amber-50 text-amber-700'; // any pending state
 };
 
@@ -19,6 +20,9 @@ const TimesheetSummary = ({ weeks, onSelectWeek }) => {
 
         if (statusFilter === 'Not Filled') {
             return rawStatus === 'NOT_FILLED' || label === 'not filled';
+        }
+        if (statusFilter === 'Draft') {
+            return rawStatus === 'DRAFT' || label === 'draft';
         }
         if (statusFilter === 'Approved') {
             return rawStatus === 'APPROVED' || label.startsWith('approved');
@@ -55,6 +59,7 @@ const TimesheetSummary = ({ weeks, onSelectWeek }) => {
                     >
                         <option value="All">All</option>
                         <option value="Not Filled">Not Filled</option>
+                        <option value="Draft">Draft</option>
                         <option value="Pending approval from Reporting Manager">Pending approval from Reporting Manager</option>
                         <option value="Pending approval from HR">Pending approval from HR</option>
                         <option value="Pending approval from Admin">Pending approval from Admin</option>

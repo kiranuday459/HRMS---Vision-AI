@@ -230,6 +230,19 @@ const PersonalTimesheetContent = ({ employeeId, user, profileResolved = true }) 
         setView("grid");
     };
 
+    const fetchTimesheetsSilently = async (id) => {
+        if (!id) return;
+        try {
+            const response = await api(`/api/timesheets?employeeId=${id}`);
+            const result = await response.json();
+            if (response.ok) {
+                setTimesheetData(result.data || []);
+            }
+        } catch (err) {
+            console.error("Failed to silently refresh timesheets", err);
+        }
+    };
+
     const handleSaveWeekly = async (payload) => {
         try {
             setLoading(true);
@@ -270,6 +283,40 @@ const PersonalTimesheetContent = ({ employeeId, user, profileResolved = true }) 
         }
     };
 
+    const handleSaveDraftWeekly = async (payload, fetchOptions = {}) => {
+        if (!employeeId) return null;
+        try {
+            const formattedEntries = (payload.entries || []).map(entry => {
+                const startTime = "09:00:00";
+                const totalHrs = (entry.totalHours !== null && entry.totalHours !== undefined) ? entry.totalHours : 0;
+                const endHour = Math.floor(totalHrs + 9);
+                const endMin = Math.round((totalHrs % 1) * 60);
+                const endTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}:00`;
+                return { ...entry, employeeId, startTime, endTime, totalHours: totalHrs };
+            });
+
+            const weeklyPayload = { weekStart: payload.weekStart, entries: formattedEntries };
+            const response = await api("/api/timesheets/save-draft", {
+                method: 'POST',
+                body: JSON.stringify(weeklyPayload),
+                ...fetchOptions
+            });
+
+            const result = await response.json().catch(() => null);
+            if (!response.ok) {
+                const errMsg = result?.message || `Error saving draft (${response.status})`;
+                return { success: false, message: errMsg };
+            }
+
+            if (!fetchOptions.keepalive) {
+                fetchTimesheetsSilently(employeeId);
+            }
+            return { success: true, data: result?.data };
+        } catch (err) {
+            console.error('[Timesheet] Save draft error:', err);
+            return { success: false, message: err?.message || 'Error connecting to server' };
+        }
+    };
 
     return (
         <div className="h-[600px] flex flex-col overflow-hidden">
@@ -305,8 +352,12 @@ const PersonalTimesheetContent = ({ employeeId, user, profileResolved = true }) 
                     readOnly={selectedWeek.status === 'APPROVED' || selectedWeek.status === 'Approved' || (selectedWeek.statusLabel && selectedWeek.statusLabel.toLowerCase() === 'approved')}
                     onProbation={!!(leaveBalance && leaveBalance.onProbation)}
                     probationEndDate={leaveBalance ? leaveBalance.probationEndDate : null}
-                    onBack={() => setView('summary')}
+                    onBack={() => {
+                        fetchTimesheetsSilently(employeeId);
+                        setView('summary');
+                    }}
                     onSave={handleSaveWeekly}
+                    onSaveDraft={handleSaveDraftWeekly}
                 />
             )}
         </div>
