@@ -17,6 +17,7 @@ export default function RejectRequestModal({
   submitting = false,
   title = "Reject Request",
   label = "Rejection Reason",
+  errorMessage = "",
 }) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -24,9 +25,15 @@ export default function RejectRequestModal({
   useEffect(() => {
     if (isOpen) {
       setReason("");
-      setError("");
+      setError(errorMessage || "");
     }
-  }, [isOpen]);
+  }, [isOpen, errorMessage]);
+
+  useEffect(() => {
+    if (errorMessage) {
+      setError(errorMessage);
+    }
+  }, [errorMessage]);
 
   if (!isOpen) return null;
 
@@ -37,7 +44,7 @@ export default function RejectRequestModal({
       setError("Rejection reason is required.");
       return;
     }
-    if (trimmed.length > 500) {
+    if (trimmed.length > 500 || reason.length > 500) {
       setError("Exceeded maximum characters limit");
       return;
     }
@@ -53,7 +60,7 @@ export default function RejectRequestModal({
       if (error && error !== "Exceeded maximum characters limit") {
         setError("");
       }
-    } else if (trimmed.length > 500) {
+    } else if (trimmed.length > 500 || val.length > 500) {
       setError("Exceeded maximum characters limit");
     } else {
       setError("");
