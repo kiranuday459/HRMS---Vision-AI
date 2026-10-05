@@ -186,9 +186,9 @@ const NotificationComponent = () => {
                         <div className="p-4 border-b border-brand-blue/5 flex justify-between items-center bg-brand-blue-dark text-white">
                             <h3 className="font-bold text-xs uppercase tracking-widest">Notifications</h3>
                             <button
-                                onClick={markAllAsRead}
-                                disabled={unreadCount === 0}
-                                className={`text-[10px] font-black transition-colors underline ${unreadCount > 0 ? 'hover:text-brand-stone cursor-pointer' : 'opacity-40 cursor-default'}`}
+                                onClick={() => { if (unreadCount > 0) markAllAsRead(); }}
+                                style={{ color: '#000000', opacity: 1 }}
+                                className={`text-xs font-bold tracking-wide transition-colors underline underline-offset-2 !text-black ${unreadCount > 0 ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
                             >
                                 Mark all as read
                             </button>
