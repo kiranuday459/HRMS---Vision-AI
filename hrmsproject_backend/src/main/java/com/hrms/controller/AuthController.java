@@ -78,8 +78,11 @@ public class AuthController {
             String timeFormatted = String.format("%02d:%02d", minutes, seconds);
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(Map.of(
-                            "message", "Too Many Attempts.\nPlease try again in " + timeFormatted + ".",
-                            "lockoutSeconds", remainingSecs
+                            "message", "Your account is temporarily locked. Please try again in " + timeFormatted + ".",
+                            "lockoutSeconds", remainingSecs,
+                            "remainingAttempts", 0,
+                            "isLocked", true,
+                            "maxAttempts", AccountLockoutService.MAX_ATTEMPTS
                     ));
         }
 
@@ -126,13 +129,21 @@ public class AuthController {
                 String timeFormatted = String.format("%02d:%02d", minutes, seconds);
                 return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                         .body(Map.of(
-                                "message", "Too Many Attempts.\nPlease try again in " + timeFormatted + ".",
-                                "lockoutSeconds", remainingSecs
+                                "message", "Your account is temporarily locked. Please try again in " + timeFormatted + ".",
+                                "lockoutSeconds", remainingSecs,
+                                "remainingAttempts", 0,
+                                "isLocked", true,
+                                "maxAttempts", AccountLockoutService.MAX_ATTEMPTS
                         ));
             } else {
                 int remainingAttempts = AccountLockoutService.MAX_ATTEMPTS - attempts;
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("message", "Invalid username or password.\nRemaining Attempts: " + remainingAttempts));
+                        .body(Map.of(
+                                "message", "Invalid username or password. Remaining attempts: " + remainingAttempts,
+                                "remainingAttempts", remainingAttempts,
+                                "maxAttempts", AccountLockoutService.MAX_ATTEMPTS,
+                                "isLocked", false
+                        ));
             }
         } catch (Exception e) {
             // Unexpected server/DB error — log server-side only, do not leak internals
@@ -140,6 +151,47 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("message", "An unexpected error occurred. Please try again."));
         }
+    }
+
+    @GetMapping("/auth/lockout-status")
+    public ResponseEntity<?> getLockoutStatus(@RequestParam(value = "username", required = false) String username) {
+        if (username == null || username.isBlank()) {
+            return ResponseEntity.ok(Map.of(
+                    "isLocked", false,
+                    "lockoutSeconds", 0,
+                    "remainingAttempts", AccountLockoutService.MAX_ATTEMPTS,
+                    "maxAttempts", AccountLockoutService.MAX_ATTEMPTS,
+                    "failedAttempts", 0
+            ));
+        }
+
+        String accountKey = username.trim().toLowerCase();
+        boolean locked = accountLockoutService.isLocked(accountKey);
+        long remainingSecs = accountLockoutService.getRemainingLockoutSeconds(accountKey);
+        int failedAttempts = accountLockoutService.getFailedAttempts(accountKey);
+        int remainingAttempts = locked ? 0 : Math.max(0, AccountLockoutService.MAX_ATTEMPTS - failedAttempts);
+
+        if (locked) {
+            long minutes = remainingSecs / 60;
+            long seconds = remainingSecs % 60;
+            String timeFormatted = String.format("%02d:%02d", minutes, seconds);
+            return ResponseEntity.ok(Map.of(
+                    "isLocked", true,
+                    "lockoutSeconds", remainingSecs,
+                    "remainingAttempts", 0,
+                    "maxAttempts", AccountLockoutService.MAX_ATTEMPTS,
+                    "failedAttempts", failedAttempts,
+                    "message", "Your account is temporarily locked. Please try again in " + timeFormatted + "."
+            ));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "isLocked", false,
+                "lockoutSeconds", 0,
+                "remainingAttempts", remainingAttempts,
+                "maxAttempts", AccountLockoutService.MAX_ATTEMPTS,
+                "failedAttempts", failedAttempts
+        ));
     }
 
     @PostMapping("/auth/forgot-password")

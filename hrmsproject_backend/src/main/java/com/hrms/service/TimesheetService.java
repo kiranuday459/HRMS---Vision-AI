@@ -62,6 +62,9 @@ public class TimesheetService {
     @Autowired
     private LeaveRepository leaveRepository;
 
+    @Autowired(required = false)
+    private com.hrms.repository.HolidayRepository holidayRepository;
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -98,6 +101,7 @@ public class TimesheetService {
         }
 
         return timesheets.stream()
+                .filter(t -> employeeId != null || t.getStatus() != TimesheetStatus.DRAFT)
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -120,13 +124,10 @@ public class TimesheetService {
 
         List<Leave> approvedLeaves = leaveRepository.findByEmployeeIdAndStatus(employeeId, LeaveStatus.APPROVED);
         if (approvedLeaves != null && !approvedLeaves.isEmpty()) {
-            for (Leave leave : approvedLeaves) {
-                if (leave.getStartDate() != null && leave.getEndDate() != null) {
-                    if (!date.isBefore(leave.getStartDate()) && !date.isAfter(leave.getEndDate())) {
-                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                "Timesheet entry is not allowed on approved leave days.");
-                    }
-                }
+            String leaveType = getApprovedLeaveTypeForDate(approvedLeaves, date);
+            if ("FULL".equals(leaveType)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Timesheet entry is not allowed on approved leave days.");
             }
         }
     }
@@ -444,12 +445,201 @@ public class TimesheetService {
         return convertToDTO(rejected);
     }
 
+    public LocalDate getLastWorkingDayOfWeek(LocalDate weekStart) {
+        Set<LocalDate> holidayDates = java.util.Collections.emptySet();
+        if (holidayRepository != null) {
+            try {
+                List<com.hrms.model.Holiday> holidays = holidayRepository.findAll();
+                if (holidays != null) {
+                    holidayDates = holidays.stream()
+                            .map(h -> {
+                                try {
+                                    return h.getHolidayDate() != null ? LocalDate.parse(h.getHolidayDate().split("T")[0]) : null;
+                                } catch (Exception e) {
+                                    return null;
+                                }
+                            })
+                            .filter(d -> d != null)
+                            .collect(Collectors.toSet());
+                }
+            } catch (Exception e) {
+                System.err.println("[TimesheetService] Error fetching holidays: " + e.getMessage());
+            }
+        }
+        return getLastWorkingDayOfWeek(weekStart, holidayDates);
+    }
+
+    public LocalDate getLastWorkingDayOfWeek(LocalDate weekStart, Set<LocalDate> holidayDates) {
+        if (weekStart == null) return null;
+        for (int i = 6; i >= 0; i--) {
+            LocalDate d = weekStart.plusDays(i);
+            java.time.DayOfWeek dow = d.getDayOfWeek();
+            if (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY) {
+                continue;
+            }
+            if (holidayDates != null && holidayDates.contains(d)) {
+                continue;
+            }
+            return d;
+        }
+        return weekStart.plusDays(6);
+    }
+
+    public void saveDraftWeeklyTimesheet(Long employeeId, LocalDate weekStart, List<TimesheetDTO> entries) {
+        saveDraftWeeklyTimesheet(employeeId, weekStart, entries, Role.EMPLOYEE);
+    }
+
+    public void saveDraftWeeklyTimesheet(Long employeeId, LocalDate weekStart, List<TimesheetDTO> entries, Role callerRole) {
+        LocalDate weekEnd = weekStart.plusDays(6);
+
+        List<Timesheet> existingTimesheets = timesheetRepository.findWithFilters(employeeId, null, weekStart, weekEnd, null);
+
+        // Guard: do not auto-save / overwrite when status is Submitted or Approved
+        if (existingTimesheets != null && !existingTimesheets.isEmpty()) {
+            boolean isSubmittedOrApproved = existingTimesheets.stream().anyMatch(t ->
+                    t.getStatus() == TimesheetStatus.APPROVED ||
+                    t.getStatus() == TimesheetStatus.PENDING_RM_APPROVAL ||
+                    t.getStatus() == TimesheetStatus.PENDING_HR_APPROVAL ||
+                    t.getStatus() == TimesheetStatus.PENDING_RM_AS_HR_APPROVAL ||
+                    t.getStatus() == TimesheetStatus.PENDING_ADMIN_APPROVAL
+            );
+            if (isSubmittedOrApproved) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Cannot save draft for an already submitted or approved timesheet.");
+            }
+        }
+
+        if (entries != null) {
+            LocalDate today = LocalDate.now();
+            LocalDate joiningDate = companyDetailRepository.findByEmployee_Id(employeeId)
+                    .map(CompanyDetail::getJoiningDate)
+                    .orElse(null);
+
+            Set<String> seenProjectEntries = new HashSet<>();
+
+            for (TimesheetDTO dto : entries) {
+                if (dto.getDate() != null) {
+                    if (dto.getDate().isBefore(weekStart) || dto.getDate().isAfter(weekEnd)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Entry date " + dto.getDate() + " is outside of the selected week.");
+                    }
+                    if (dto.getDate().isAfter(today)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Cannot enter hours for future date: " + dto.getDate());
+                    }
+                    if (joiningDate != null && dto.getDate().isBefore(joiningDate)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Timesheet entries cannot be created for dates before the employee's joining date.");
+                    }
+                    validateDateAgainstApprovedLeaves(employeeId, dto.getDate(), dto.getCategory());
+                }
+
+                if (dto.getTotalHours() != null) {
+                    if (dto.getTotalHours() < 0.0 || dto.getTotalHours() > 24.0) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Working hours cannot exceed 24 hours per day.");
+                    }
+                }
+
+                boolean isProject = "PROJECT".equalsIgnoreCase(dto.getCategory()) || dto.getCategory() == null || dto.getCategory().isBlank();
+                if (isProject && dto.getTotalHours() != null && dto.getTotalHours() > 0) {
+                    if (dto.getProject() == null || dto.getProject().trim().isEmpty() ||
+                        dto.getProjectName() == null || dto.getProjectName().trim().isEmpty()) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Project ID and Project Name are required for project entries.");
+                    }
+                    String key = dto.getDate() + "|" + dto.getProject().trim() + "|" + (dto.getTask() == null ? "" : dto.getTask().trim());
+                    if (!seenProjectEntries.add(key)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Duplicate project and task entry for date: " + dto.getDate());
+                    }
+                }
+            }
+
+            // Check daily totals max 24
+            Map<LocalDate, Double> dailyTotalHours = entries.stream()
+                    .filter(e -> e.getDate() != null && e.getTotalHours() != null)
+                    .collect(Collectors.groupingBy(TimesheetDTO::getDate, Collectors.summingDouble(TimesheetDTO::getTotalHours)));
+
+            for (Map.Entry<LocalDate, Double> entry : dailyTotalHours.entrySet()) {
+                double totalForDay = entry.getValue();
+                if (totalForDay < 0.0 || totalForDay > 24.0) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Working hours cannot exceed 24 hours per day.");
+                }
+            }
+
+            // Check approved leave work hours limits
+            List<Leave> approvedLeaves = leaveRepository.findByEmployeeIdAndStatus(employeeId, LeaveStatus.APPROVED);
+            if (approvedLeaves != null && !approvedLeaves.isEmpty()) {
+                Map<LocalDate, Double> dailyProjectHours = entries.stream()
+                        .filter(e -> "PROJECT".equalsIgnoreCase(e.getCategory()) || e.getCategory() == null || e.getCategory().isBlank())
+                        .filter(e -> e.getDate() != null && e.getTotalHours() != null)
+                        .collect(Collectors.groupingBy(TimesheetDTO::getDate, Collectors.summingDouble(TimesheetDTO::getTotalHours)));
+
+                for (Map.Entry<LocalDate, Double> entry : dailyProjectHours.entrySet()) {
+                    LocalDate date = entry.getKey();
+                    double hours = entry.getValue();
+                    String leaveType = getApprovedLeaveTypeForDate(approvedLeaves, date);
+                    if ("HALF".equals(leaveType) && hours > 4.0) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Maximum allowed work hours for a Half-Day Leave is 4 hours.");
+                    } else if ("FULL".equals(leaveType) && hours > 0.0) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Work hours are not allowed on a Full-Day Leave date.");
+                    }
+                }
+            }
+        }
+
+        // Delete previous entries for the week (e.g. previous draft or rejected entries being revised)
+        timesheetRepository.deleteByEmployeeIdAndDateBetween(employeeId, weekStart, weekEnd);
+
+        if (entries != null && !entries.isEmpty()) {
+            Employee employee = employeeRepository.findById(employeeId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
+
+            for (TimesheetDTO dto : entries) {
+                if (dto.getTotalHours() == null || dto.getTotalHours() <= 0) {
+                    if (dto.getCategory() == null || (!"HOLIDAY".equalsIgnoreCase(dto.getCategory()) && !"LEAVE".equalsIgnoreCase(dto.getCategory()) && (dto.getTotalHours() == null || dto.getTotalHours() == 0))) {
+                        continue;
+                    }
+                }
+                Timesheet timesheet = new Timesheet();
+                timesheet.setEmployee(employee);
+                timesheet.setDate(dto.getDate());
+                timesheet.setStartTime(dto.getStartTime());
+                timesheet.setEndTime(dto.getEndTime());
+                timesheet.setProject(dto.getProject());
+                timesheet.setTask(dto.getTask());
+                timesheet.setNotes(dto.getNotes());
+                timesheet.setStatus(TimesheetStatus.DRAFT);
+                timesheet.setOnsiteOffshore(dto.getOnsiteOffshore());
+                timesheet.setBillingLocation(dto.getBillingLocation());
+                timesheet.setBillable(dto.getBillable());
+                timesheet.setProjectName(dto.getProjectName());
+                timesheet.setTaskDescription(dto.getTaskDescription());
+                timesheet.setCategory(dto.getCategory());
+                timesheet.setLeaveType(dto.getLeaveType());
+                timesheet.setTotalHours(dto.getTotalHours());
+                timesheetRepository.save(timesheet);
+            }
+        }
+    }
+
     public void saveWeeklyTimesheet(Long employeeId, LocalDate weekStart, List<TimesheetDTO> entries) {
         saveWeeklyTimesheet(employeeId, weekStart, entries, Role.EMPLOYEE);
     }
 
     public void saveWeeklyTimesheet(Long employeeId, LocalDate weekStart, List<TimesheetDTO> entries, Role callerRole) {
         LocalDate weekEnd = weekStart.plusDays(6);
+
+        // Server-side guard: reject submitting weekly timesheet before the last working day of that week
+        LocalDate today = LocalDate.now();
+        LocalDate lastWorkingDay = getLastWorkingDayOfWeek(weekStart);
+        if (lastWorkingDay != null && today.isBefore(lastWorkingDay)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Weekly timesheet cannot be submitted before the last working day of the week (" + lastWorkingDay + ").");
+        }
 
         List<Timesheet> existingTimesheets = timesheetRepository.findWithFilters(employeeId, null, weekStart, weekEnd, null);
         boolean wasApproved = existingTimesheets != null && existingTimesheets.stream().anyMatch(t -> t.getStatus() == TimesheetStatus.APPROVED);
@@ -461,7 +651,6 @@ public class TimesheetService {
 
         // Server-side guard: reject any entry dated after today or before employee joining date.
         if (entries != null) {
-            LocalDate today = LocalDate.now();
             LocalDate joiningDate = companyDetailRepository.findByEmployee_Id(employeeId)
                     .map(CompanyDetail::getJoiningDate)
                     .orElse(null);
@@ -646,6 +835,7 @@ public class TimesheetService {
     public List<TimesheetDTO> getTeamTimesheets(Long managerId) {
         List<Timesheet> timesheets = timesheetRepository.findByManagerId(managerId);
         return timesheets.stream()
+                .filter(t -> t.getStatus() != TimesheetStatus.DRAFT)
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }

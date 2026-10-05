@@ -1,6 +1,7 @@
 package com.hrms.model;
 
 public enum TimesheetStatus {
+    DRAFT,                      // Saved as draft, not yet submitted
     PENDING_RM_APPROVAL,        // Waiting for Reporting Manager approval
     PENDING_HR_APPROVAL,        // Waiting for HR approval
     PENDING_RM_AS_HR_APPROVAL,  // HR account disabled — RM handles the HR stage as well

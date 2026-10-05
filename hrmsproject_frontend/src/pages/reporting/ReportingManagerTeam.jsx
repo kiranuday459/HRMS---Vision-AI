@@ -160,7 +160,7 @@ export default function ReportingManagerTeam() {
             const res = await api(`/api/timesheets/manager/${managerId}/team-timesheets`);
             if (res.ok) {
                 const api = await res.json();
-                const allEntries = api.data || [];
+                const allEntries = (api.data || []).filter(e => e.status !== 'DRAFT');
                 setTeamTimesheets(allEntries);
                 const grouped = groupTeamIntoWeeks(allEntries);
                 setGroupedWeeks(grouped);

@@ -89,7 +89,7 @@ export default function AdminTimesheets() {
 
             if (tsRes.ok) {
                 const tsJson = await tsRes.json();
-                const allTs = tsJson.data || tsJson || [];
+                const allTs = (tsJson.data || tsJson || []).filter(e => e.status !== 'DRAFT');
 
                 if (Array.isArray(allTs)) {
                     setTimesheets(allTs);
@@ -475,6 +475,7 @@ export default function AdminTimesheets() {
                                             <option value="ALL">All</option>
                                             <option value="EMPLOYEES">Employees</option>
                                             <option value="REPORTING_MANAGERS">Reporting Managers</option>
+                                            <option value="HR">HR</option>
                                         </select>
                                     </div>
 
