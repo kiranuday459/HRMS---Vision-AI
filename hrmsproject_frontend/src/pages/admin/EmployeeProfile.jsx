@@ -6,6 +6,7 @@ import Sidebar from "../../components/Sidebar";
 import { getHrNavItems } from "../../utils/hrNav";
 import { getRmNavItems } from "../../utils/rmNav";
 import api from "../../utils/api";
+import { enforceFourDigitYear } from "../../utils/dateUtils";
 import NotificationComponent from "../../components/NotificationComponent";
 import DocumentPreviewModal from "../../components/DocumentPreviewModal";
 import { generateEmployeeProfilePDF } from "../../utils/employeePdfGenerator";
@@ -1206,11 +1207,11 @@ export default function EmployeeProfile() {
                               </div>
                               <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest">Start Date</label>
-                                <input type="month" value={exp.startDate || ''} onChange={(e) => handleEmploymentChange(idx, 'startDate', e.target.value)} disabled={!editing} className="w-full bg-white border-none rounded-lg px-3 py-2 text-sm font-bold text-brand-text" />
+                                <input type="month" value={exp.startDate || ''} onChange={(e) => handleEmploymentChange(idx, 'startDate', enforceFourDigitYear(e.target.value))} disabled={!editing} className="w-full bg-white border-none rounded-lg px-3 py-2 text-sm font-bold text-brand-text" />
                               </div>
                               <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest">End Date</label>
-                                <input type="month" value={exp.endDate || ''} onChange={(e) => handleEmploymentChange(idx, 'endDate', e.target.value)} disabled={!editing} className="w-full bg-white border-none rounded-lg px-3 py-2 text-sm font-bold text-brand-text" />
+                                <input type="month" value={exp.endDate || ''} onChange={(e) => handleEmploymentChange(idx, 'endDate', enforceFourDigitYear(e.target.value))} disabled={!editing} className="w-full bg-white border-none rounded-lg px-3 py-2 text-sm font-bold text-brand-text" />
                               </div>
                               <div className="md:col-span-2 space-y-1">
                                 <label className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest">Employer Address</label>

@@ -4,18 +4,26 @@ import com.hrms.dto.EmployeeDTO;
 import com.hrms.dto.EmployeeDocumentDTO;
 import com.hrms.dto.EmployeeEducationDTO;
 import com.hrms.dto.EmployeeExperienceDTO;
+import com.hrms.model.DeletedEmployee;
 import com.hrms.model.Employee;
 import com.hrms.model.EmployeeDocument;
 import com.hrms.model.EmployeeEducation;
 import com.hrms.model.EmployeeExperience;
 // import com.hrms.model.Department;            // PHASE 2
 // import com.hrms.repository.DepartmentRepository; // PHASE 2
+import com.hrms.repository.DeletedEmployeeRepository;
 import com.hrms.repository.EmployeeRepository;
 import com.hrms.repository.EmployeeDocumentRepository;
 import com.hrms.repository.EmployeeEducationRepository;
 import com.hrms.repository.EmployeeExperienceRepository;
 import com.hrms.repository.UserRepository;
 import com.hrms.repository.CompanyDetailRepository;
+import com.hrms.repository.ClientProjectAssignmentRepository;
+import com.hrms.repository.ClientTimesheetRepository;
+import com.hrms.repository.ClientTimesheetWeekRepository;
+import com.hrms.model.ClientProjectAssignment;
+import com.hrms.model.ClientTimesheet;
+import com.hrms.model.ClientTimesheetWeek;
 import com.hrms.model.CompanyDetail;
 import java.util.Optional;
 import com.hrms.model.Leave;
@@ -85,6 +93,18 @@ public class EmployeeService {
 
     @Autowired
     private TimesheetRepository timesheetRepository;
+
+    @Autowired
+    private DeletedEmployeeRepository deletedEmployeeRepository;
+
+    @Autowired
+    private ClientProjectAssignmentRepository clientProjectAssignmentRepository;
+
+    @Autowired
+    private ClientTimesheetRepository clientTimesheetRepository;
+
+    @Autowired
+    private ClientTimesheetWeekRepository clientTimesheetWeekRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -552,6 +572,32 @@ public class EmployeeService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
 
         try {
+            // 0. Capture a read-only archive snapshot BEFORE any rows are removed.
+            //    Uses denormalised strings so the record remains readable even after
+            //    the referenced department / reporting-manager rows are gone.
+            Optional<CompanyDetail> cd = companyDetailRepository.findByEmployee_Id(id);
+            DeletedEmployee snapshot = DeletedEmployee.builder()
+                    .originalEmployeeId(id)
+                    .firstName(employee.getFirstName())
+                    .middleName(employee.getMiddleName())
+                    .lastName(employee.getLastName())
+                    .email(employee.getEmail())
+                    .phoneNumber(employee.getPhoneNumber())
+                    .corporateId(cd.map(CompanyDetail::getOryfolksId).orElse(null))
+                    .corporateEmail(cd.map(CompanyDetail::getOryfolksMailId).orElse(null))
+                    .visionaiId(cd.map(CompanyDetail::getVisionaiId).orElse(null))
+                    .visionaiEmail(cd.map(CompanyDetail::getVisionaiMailId).orElse(null))
+                    .designation(cd.map(CompanyDetail::getDesignation).orElse(employee.getDesignation()))
+                    .joiningDate(cd.map(CompanyDetail::getJoiningDate).orElse(null))
+                    .hireDate(employee.getHireDate())
+                    .endDate(employee.getEndDate())
+                    .role(employee.getUser() != null && employee.getUser().getRole() != null
+                            ? employee.getUser().getRole().name() : null)
+                    .department(employee.getDepartment() != null ? employee.getDepartment().getName() : null)
+                    .clientProject(employee.getClientProject())
+                    .clientProjectId(employee.getClientProjectId())
+                    .build();
+            deletedEmployeeRepository.save(snapshot);
             // 1. Handle EmployeeReporting references (where id is manager/hr)
             // Subordinates' reporting manager set to null
             List<EmployeeReporting> subordinates = reportingRepository.findAllByReportingManager(employee);
@@ -643,6 +689,22 @@ public class EmployeeService {
             List<Leave> leaves = leaveRepository.findByEmployeeId(id);
             if (leaves != null && !leaves.isEmpty()) {
                 leaveRepository.deleteAll(leaves);
+            }
+
+            // 10.5  Delete client-project assignments and client timesheets
+            //        (both have non-nullable employee_id FKs — must be removed before
+            //         the employee row is deleted or the DB will throw a constraint violation).
+            List<ClientTimesheetWeek> clientWeeks = clientTimesheetWeekRepository.findByEmployeeIdOrderByWeekStartDateDesc(id);
+            if (clientWeeks != null && !clientWeeks.isEmpty()) {
+                clientTimesheetWeekRepository.deleteAll(clientWeeks);
+            }
+            List<ClientTimesheet> clientTimesheets = clientTimesheetRepository.findByEmployeeIdOrderByDateDesc(id);
+            if (clientTimesheets != null && !clientTimesheets.isEmpty()) {
+                clientTimesheetRepository.deleteAll(clientTimesheets);
+            }
+            List<ClientProjectAssignment> clientAssignments = clientProjectAssignmentRepository.findByEmployeeId(id);
+            if (clientAssignments != null && !clientAssignments.isEmpty()) {
+                clientProjectAssignmentRepository.deleteAll(clientAssignments);
             }
 
             // 11. Delete linked user LAST (to avoid violating FK in other approvals before we cleared them)

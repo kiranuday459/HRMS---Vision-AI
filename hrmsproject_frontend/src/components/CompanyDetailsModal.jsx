@@ -233,7 +233,7 @@ export default function CompanyDetailsModal({ open, onClose, onSave }) {
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-bold text-brand-text/40 uppercase tracking-widest ml-1">Joining Date</label>
                                             <input
-                                                type="date"
+                                                type="date" max="9999-12-31"
                                                 value={formData.joiningDate}
                                                 onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
                                                 className="w-full bg-gray-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-yellow/50 transition-all outline-none"

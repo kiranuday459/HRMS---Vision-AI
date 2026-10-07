@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import api from "../utils/api";
+import { enforceFourDigitYear } from "../utils/dateUtils";
 import {
     validateName,
     validateEmail,
@@ -465,11 +466,12 @@ export default function AddEmployeeModal({ open, onClose, onEmployeeCreated }) {
                                     <div>
                                         <label className="block text-xs font-bold text-gray-600 mb-2">Date of Birth *</label>
                                         <input
-                                            type="date"
+                                            type="date" max="9999-12-31"
                                             value={formData.dateOfBirth}
                                             onChange={(e) => {
-                                                setFormData({ ...formData, dateOfBirth: e.target.value });
-                                                const validation = validateDateOfBirth(e.target.value);
+                                                const val = enforceFourDigitYear(e.target.value);
+                                                setFormData({ ...formData, dateOfBirth: val });
+                                                const validation = validateDateOfBirth(val);
                                                 const dobErr = validation.error === "You must be at least 18 years old"
                                                     ? "Employee must be at least 18 years old"
                                                     : validation.error;
@@ -586,11 +588,12 @@ export default function AddEmployeeModal({ open, onClose, onEmployeeCreated }) {
                                     <div>
                                         <label className="block text-xs font-bold text-gray-600 mb-2">Joining Date *</label>
                                         <input
-                                            type="date"
+                                            type="date" max="9999-12-31"
                                             value={formData.joiningDate}
                                             onChange={(e) => {
-                                                setFormData({ ...formData, joiningDate: e.target.value });
-                                                setFieldErrors({ ...fieldErrors, joiningDate: e.target.value ? null : "Joining Date is required" });
+                                                const val = enforceFourDigitYear(e.target.value);
+                                                setFormData({ ...formData, joiningDate: val });
+                                                setFieldErrors({ ...fieldErrors, joiningDate: val ? null : "Joining Date is required" });
                                             }}
                                             className={`w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-medium text-brand-text focus:ring-2 focus:ring-brand-blue-dark/10 focus:border-brand-blue-dark transition-all outline-none ${fieldErrors.joiningDate ? 'ring-2 ring-red-500 bg-red-50' : ''}`}
                                         />
@@ -601,9 +604,9 @@ export default function AddEmployeeModal({ open, onClose, onEmployeeCreated }) {
                                     <div>
                                         <label className="block text-xs font-bold text-gray-600 mb-2">End Date <span className="text-gray-400 font-normal">(optional)</span></label>
                                         <input
-                                            type="date"
+                                            type="date" max="9999-12-31"
                                             value={formData.endDate}
-                                            onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                                            onChange={(e) => setFormData({ ...formData, endDate: enforceFourDigitYear(e.target.value) })}
                                             className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-medium text-brand-text focus:ring-2 focus:ring-brand-blue-dark/10 focus:border-brand-blue-dark transition-all outline-none"
                                         />
                                         <p className="text-[10px] text-gray-400 mt-1">Leave blank for active employees. Login will be blocked after this date.</p>
