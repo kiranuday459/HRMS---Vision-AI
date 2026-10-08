@@ -64,6 +64,7 @@ public class Timesheet {
 
     private LocalDateTime adminApprovedAt;
 
+    @Column(columnDefinition = "TEXT")
     private String rejectionReason;
     private String rejectedByRole; // RM, HR, ADMIN
     private LocalDateTime rejectedAt;

@@ -467,9 +467,11 @@ export default function ReportingManagerTeam() {
                 if (res.ok) {
                     toast.success("Leave rejected successfully");
                     if (managerId) fetchLeaves(managerId);
+                    setRejectModalOpen(false);
+                    setRejectTarget(null);
                 } else {
                     const json = await res.json().catch(() => ({}));
-                    toast.error(json.message || "Failed to reject leave");
+                    return json.message || "Failed to reject leave";
                 }
             } else if (rejectTarget.type === 'timesheet') {
                 const res = await api(`/api/timesheets/${rejectTarget.id}/reject`, {
@@ -479,28 +481,34 @@ export default function ReportingManagerTeam() {
                 if (res.ok) {
                     toast.success("Timesheet rejected successfully");
                     if (managerId) fetchTeamTimesheets(managerId);
+                    setRejectModalOpen(false);
+                    setRejectTarget(null);
                 } else {
                     const json = await res.json().catch(() => ({}));
-                    toast.error(json.message || "Failed to reject timesheet");
+                    return json.message || "Failed to reject timesheet";
                 }
             } else if (rejectTarget.type === 'week') {
                 const week = rejectTarget.week;
                 const pendingEntries = week.entries.filter(e => e.status === APPROVAL_STATUS.PENDING_RM_APPROVAL || e.status === APPROVAL_STATUS.PENDING_RM_AS_HR_APPROVAL);
                 for (const entry of pendingEntries) {
-                    await api(`/api/timesheets/${entry.id}/reject`, {
+                    const res = await api(`/api/timesheets/${entry.id}/reject`, {
                         method: 'POST',
                         body: JSON.stringify({ reviewerId: managerId, reason })
                     });
+                    if (!res.ok) {
+                        const json = await res.json().catch(() => ({}));
+                        return json.message || "Failed to reject timesheet";
+                    }
                 }
                 toast.success(`Week rejected for ${week.employeeName}`);
                 if (managerId) await fetchTeamTimesheets(managerId);
                 setTsSubView('summary');
+                setRejectModalOpen(false);
+                setRejectTarget(null);
             }
-            setRejectModalOpen(false);
-            setRejectTarget(null);
         } catch (err) {
             console.error(err);
-            toast.error("Error performing rejection");
+            return err?.message || "Error performing rejection";
         } finally {
             setSubmittingReject(false);
         }
@@ -920,6 +928,8 @@ export default function ReportingManagerTeam() {
                 onClose={() => { setRejectModalOpen(false); setRejectTarget(null); }}
                 onConfirm={handleConfirmReject}
                 submitting={submittingReject}
+                title="Rejection Reason"
+                label="Rejection Reason"
             />
 
             <DownloadTimesheetModal

@@ -157,11 +157,11 @@ export default function HrManagerLeaves() {
                 fetchData();
             } else {
                 const json = await res.json().catch(() => ({}));
-                alert(json.message || "Failed to reject leave");
+                return json.message || "Failed to reject leave";
             }
         } catch (e) {
             console.error(e);
-            alert("Error rejecting leave");
+            return e?.message || "Error rejecting leave";
         } finally {
             setSubmittingReject(false);
         }

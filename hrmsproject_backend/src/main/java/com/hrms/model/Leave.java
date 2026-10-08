@@ -29,13 +29,13 @@ public class Leave {
     @Enumerated(EnumType.STRING)
     private LeaveType leaveType;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "TEXT")
     private String reason;
     
     @Enumerated(EnumType.STRING)
     private LeaveStatus status = LeaveStatus.PENDING;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "TEXT")
     private String rejectionReason;
     
     @ManyToOne

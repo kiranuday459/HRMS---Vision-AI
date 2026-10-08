@@ -437,9 +437,12 @@ export default function AdminDashboard() {
         fetchLeaveRequests();
       } else {
         const json = await response.json().catch(() => ({}));
-        toast.error(json.message || 'Failed to reject leave');
+        return json.message || 'Failed to reject leave';
       }
-    } catch (error) { console.error(error); }
+    } catch (error) {
+      console.error(error);
+      return error?.message || 'Failed to reject leave';
+    }
   };
 
   return (
