@@ -54,9 +54,24 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success("All notifications marked as read", null));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     public ResponseEntity<ApiResponse<Void>> deleteNotification(@PathVariable Long id) {
         notificationService.deleteNotification(id);
         return ResponseEntity.ok(ApiResponse.success("Notification deleted", null));
+    }
+
+    @DeleteMapping("/clear-all")
+    public ResponseEntity<ApiResponse<Void>> clearAllNotifications(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Not authenticated"));
+        }
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        notificationService.clearAllNotifications(principal.getUser().getId());
+        return ResponseEntity.ok(ApiResponse.success("All notifications cleared", null));
+    }
+
+    @DeleteMapping
+    public ResponseEntity<ApiResponse<Void>> clearAllNotificationsBase(Authentication authentication) {
+        return clearAllNotifications(authentication);
     }
 }

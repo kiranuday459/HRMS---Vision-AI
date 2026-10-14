@@ -80,6 +80,11 @@ public class NotificationService {
         notificationRepository.deleteById(notificationId);
     }
 
+    public void clearAllNotifications(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        notificationRepository.deleteByUser(user);
+    }
+
     private NotificationDTO convertToDTO(Notification notification) {
         return NotificationDTO.builder()
                 .id(notification.getId())

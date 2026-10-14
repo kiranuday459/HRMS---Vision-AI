@@ -15,7 +15,7 @@ export default function RejectRequestModal({
   onClose,
   onConfirm,
   submitting = false,
-  title = "Reject Request",
+  title = "Rejection Reason",
   label = "Rejection Reason",
   errorMessage = "",
 }) {
@@ -37,19 +37,26 @@ export default function RejectRequestModal({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     const trimmed = reason ? reason.trim() : "";
     if (!trimmed) {
       setError("Rejection reason is required.");
       return;
     }
-    if (trimmed.length > 500 || reason.length > 500) {
+    if (trimmed.length > 500) {
       setError("Exceeded maximum characters limit");
       return;
     }
     setError("");
-    onConfirm(trimmed);
+    try {
+      const result = await onConfirm(trimmed);
+      if (typeof result === "string" && result) {
+        setError(result);
+      }
+    } catch (err) {
+      setError(err?.message || "Failed to reject request");
+    }
   };
 
   const handleReasonChange = (e) => {
@@ -60,7 +67,7 @@ export default function RejectRequestModal({
       if (error && error !== "Exceeded maximum characters limit") {
         setError("");
       }
-    } else if (trimmed.length > 500 || val.length > 500) {
+    } else if (trimmed.length > 500) {
       setError("Exceeded maximum characters limit");
     } else {
       setError("");
@@ -107,7 +114,7 @@ export default function RejectRequestModal({
               }`}
             />
             {error && (
-              <p className="mt-1.5 text-xs font-bold text-red-500 flex items-center justify-center gap-1 text-center">
+              <p className="mt-2 text-xs font-bold text-red-500 flex items-center justify-center gap-1.5 text-center w-full">
                 <span>⚠</span> {error}
               </p>
             )}

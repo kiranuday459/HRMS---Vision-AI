@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
+import { enforceFourDigitYear } from '../../utils/dateUtils';
 
 import { toast } from 'react-toastify';
 import { Eye } from 'lucide-react';
@@ -133,7 +134,11 @@ const LeaveRequestPage = ({ employeeId, leaveBalance, onLeaveRequestSuccess }) =
   }, [employeeId]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+    
+    if (name === 'startDate' || name === 'endDate') {
+        value = enforceFourDigitYear(value);
+    }
 
     // Live re-validate the field once it has been touched
     setErrors((prev) => (touched[name] ? { ...prev, [name]: validateField(name, value) } : prev));
@@ -619,7 +624,7 @@ const LeaveRequestPage = ({ employeeId, leaveBalance, onLeaveRequestSuccess }) =
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest block ml-1">Start Date</label>
                     <input
-                      type="date"
+                      type="date" max="9999-12-31"
                       name="startDate"
                       value={formData.startDate}
                       onChange={handleInputChange}
@@ -646,7 +651,7 @@ const LeaveRequestPage = ({ employeeId, leaveBalance, onLeaveRequestSuccess }) =
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-brand-text/40 uppercase tracking-widest block ml-1">End Date</label>
                     <input
-                      type="date"
+                      type="date" max="9999-12-31"
                       name="endDate"
                       value={formData.endDate}
                       onChange={handleInputChange}

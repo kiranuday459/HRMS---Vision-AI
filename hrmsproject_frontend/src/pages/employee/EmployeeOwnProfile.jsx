@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "../../utils/api";
+import { enforceFourDigitYear } from "../../utils/dateUtils";
 import {
   validateName,
   validateEmail,
@@ -1505,11 +1506,11 @@ export default function EmployeeOwnProfile({ hideSidebar = false }) {
                                 </div>
                                 <div className="space-y-1">
                                   <label className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest">Start Date</label>
-                                  <input type="month" value={exp.startDate || ''} onChange={(e) => handleEmploymentChange(idx, 'startDate', e.target.value)} disabled={!editing} className="w-full bg-white border-none rounded-lg px-3 py-2 text-sm font-bold text-brand-text" />
+                                  <input type="month" value={exp.startDate || ''} onChange={(e) => handleEmploymentChange(idx, 'startDate', enforceFourDigitYear(e.target.value))} disabled={!editing} className="w-full bg-white border-none rounded-lg px-3 py-2 text-sm font-bold text-brand-text" />
                                 </div>
                                 <div className="space-y-1">
                                   <label className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest">End Date</label>
-                                  <input type="month" value={exp.endDate || ''} onChange={(e) => handleEmploymentChange(idx, 'endDate', e.target.value)} disabled={!editing} className={`w-full bg-white border-none rounded-lg px-3 py-2 text-sm font-bold text-brand-text ${fieldErrors[`exp_endDate_${idx}`] ? 'ring-2 ring-red-500 bg-red-50' : ''}`} />
+                                  <input type="month" value={exp.endDate || ''} onChange={(e) => handleEmploymentChange(idx, 'endDate', enforceFourDigitYear(e.target.value))} disabled={!editing} className={`w-full bg-white border-none rounded-lg px-3 py-2 text-sm font-bold text-brand-text ${fieldErrors[`exp_endDate_${idx}`] ? 'ring-2 ring-red-500 bg-red-50' : ''}`} />
                                   {fieldErrors[`exp_endDate_${idx}`] && <p className="text-red-500 text-[10px] font-bold mt-1">{fieldErrors[`exp_endDate_${idx}`]}</p>}
                                 </div>
                               </div>

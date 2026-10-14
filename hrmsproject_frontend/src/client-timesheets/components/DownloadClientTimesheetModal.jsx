@@ -149,7 +149,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
     /**
      * Today, as the admin's own local calendar date.
      *
-     * Deliberately the browser clock rather than the server's: `<input type="date">` holds a
+     * Deliberately the browser clock rather than the server's: `<input type="date" max="9999-12-31">` holds a
      * plain calendar date with no timezone attached, and every other date in this panel — the
      * quick-range presets included — is already computed off the same local clock. Judging
      * those against a server UTC instant is what would introduce a timezone bug rather than
@@ -915,7 +915,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                             <div className="relative">
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/30 w-4 h-4" />
                                 <input
-                                    type="date"
+                                    type="date" max="9999-12-31"
                                     value={fromDate}
                                     max={today}
                                     onChange={(e) => applyDates(e.target.value, toDate)}
@@ -930,7 +930,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                             <div className="relative">
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/30 w-4 h-4" />
                                 <input
-                                    type="date"
+                                    type="date" max="9999-12-31"
                                     value={toDate}
                                     max={today}
                                     onChange={(e) => applyDates(fromDate, e.target.value)}

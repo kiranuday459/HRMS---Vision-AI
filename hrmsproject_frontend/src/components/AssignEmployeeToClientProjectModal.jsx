@@ -337,7 +337,7 @@ export default function AssignEmployeeToClientProjectModal({ open, onClose, onSa
                   calendar cannot produce an invalid date at all. Typing goes around the
                   calendar, which is what the message below catches. */}
               <input
-                type="date"
+                type="date" max="9999-12-31"
                 value={assignmentStartDate}
                 min={joiningFloor || undefined}
                 onChange={(e) => setAssignmentStartDate(e.target.value)}

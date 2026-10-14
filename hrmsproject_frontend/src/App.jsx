@@ -18,6 +18,7 @@ import EmployeeProfile from "./pages/admin/EmployeeProfile";
 import SelectedEmployees from "./pages/admin/SelectedEmployees";
 import ReportingManagers from "./pages/admin/ReportingManagers";
 import AdminTimesheets from "./pages/admin/AdminTimesheets";
+import DeletedEmployeesPage from "./pages/admin/DeletedEmployeesPage";
 import ClientTimesheets from "./client-timesheets/pages/AdminPage";
 import ReportingManagerDashboard from "./pages/reporting/ReportingManagerDashboard";
 import ReportingManagerTeam from "./pages/reporting/ReportingManagerTeam";
@@ -174,6 +175,10 @@ function App() {
           element={authLoading ? null : (user && user.role === "ADMIN" ? <SelectedEmployees /> : <Navigate to="/login" />)}
         />
         <Route
+          path="/admin/deleted-employees"
+          element={authLoading ? null : (user && (user.role === "ADMIN" || user.role === "HR") ? <DeletedEmployeesPage /> : <Navigate to="/login" />)}
+        />
+        <Route
           path="/admin/employee/:id"
           element={authLoading ? null : (user && (user.role === "ADMIN" || user.role === "REPORTING_MANAGER" || user.role === "HR") ? <EmployeeProfile /> : <Navigate to="/login" />)}
         />
@@ -220,6 +225,10 @@ function App() {
           element={authLoading ? null : (user && user.role === "HR" ? <HrManagerTimesheets /> : <Navigate to="/login" />)}
         />
         <Route path="/hr/timesheets" element={<Navigate to="/hr/actions/timesheet" replace />} />
+        <Route
+          path="/hr/deleted-employees"
+          element={authLoading ? null : (user && (user.role === "HR" || user.role === "ADMIN") ? <DeletedEmployeesPage /> : <Navigate to="/login" />)}
+        />
 
         {/* Reporting Manager Routes */}
         <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
