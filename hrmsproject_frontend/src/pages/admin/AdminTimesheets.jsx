@@ -416,39 +416,39 @@ export default function AdminTimesheets() {
                 onLogout={handleLogout}
             />
 
-            <main className="flex-1 flex flex-col min-w-0">
-                {/* Standardized Header */}
-                <header className="sticky top-0 z-30 bg-white px-4 md:px-8 py-4 flex flex-wrap items-center justify-between shadow-sm border-b border-[#E3E8EF]">
-                    <div className="flex items-center gap-6">
-                        <div className="w-11 h-11 bg-[#F1EFE8] rounded-xl flex items-center justify-center border border-[#E3E8EF] shadow-sm overflow-hidden text-sm font-black text-[#2C2C2A]">
-                            {user.photoPath ? (
-                                <img src={user.photoPath} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                (user.firstName?.[0] || user.fullName?.[0]) || "A"
-                            )}
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-black text-[#2C2C2A] tracking-tight">Enterprise Timesheets</h1>
-                            <p className="text-[10px] text-[#888780] uppercase font-black tracking-[0.2em] mt-0.5">
-                                Personnel Resource Audit
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <div className="flex bg-bg-slate/50 p-1 rounded-xl border border-brand-blue/5">
-                            <div className="px-4 py-1.5 flex items-center gap-2">
-                                <Clock size={14} className="text-brand-text/40" />
-                                <span className="text-[10px] font-black text-brand-text uppercase tracking-widest">{groupedWeeks.length} {groupedWeeks.length === 1 ? 'Week Recorded' : 'Weeks Recorded'}</span>
+            <main className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
+                {/* Standardized Header + Filter Bar (Fixed Top Section) */}
+                <div className="sticky top-0 z-30 bg-white border-b border-[#E3E8EF] shadow-sm shrink-0">
+                    <header className="px-4 md:px-8 py-4 flex flex-wrap items-center justify-between">
+                        <div className="flex items-center gap-6">
+                            <div className="w-11 h-11 bg-[#F1EFE8] rounded-xl flex items-center justify-center border border-[#E3E8EF] shadow-sm overflow-hidden text-sm font-black text-[#2C2C2A]">
+                                {user.photoPath ? (
+                                    <img src={user.photoPath} alt="Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                    (user.firstName?.[0] || user.fullName?.[0]) || "A"
+                                )}
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-black text-[#2C2C2A] tracking-tight">Enterprise Timesheets</h1>
+                                <p className="text-[10px] text-[#888780] uppercase font-black tracking-[0.2em] mt-0.5">
+                                    Personnel Resource Audit
+                                </p>
                             </div>
                         </div>
-                    </div>
-                </header>
+                        <div className="flex items-center gap-3">
+                            <div className="flex bg-bg-slate/50 p-1 rounded-xl border border-brand-blue/5">
+                                <div className="px-4 py-1.5 flex items-center gap-2">
+                                    <Clock size={14} className="text-brand-text/40" />
+                                    <span className="text-[10px] font-black text-brand-text uppercase tracking-widest">{groupedWeeks.length} {groupedWeeks.length === 1 ? 'Week Recorded' : 'Weeks Recorded'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
 
-                <div className="flex-1 p-4 md:py-4 md:px-10 overflow-y-auto">
-                    <div className="max-w-[1200px] mx-auto animate-in fade-in duration-500">
-                        {tsSubView === 'summary' ? (
-                            <>
-                                <div className="sticky top-0 z-20 bg-white rounded-[24px] p-3 shadow-xl border border-brand-blue/5 flex flex-nowrap items-center gap-2.5 overflow-hidden mb-6">
+                    {tsSubView === 'summary' && (
+                        <div className="px-4 md:px-8 pb-3 pt-1 border-t border-brand-blue/5 bg-bg-slate/30">
+                            <div className="max-w-[1200px] mx-auto">
+                                <div className="bg-white rounded-[24px] p-2.5 shadow-md border border-brand-blue/5 flex flex-nowrap items-center gap-2.5 overflow-x-auto custom-scrollbar">
                                     <div className="relative w-44 sm:w-52 md:w-56 shrink-0">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text/20" size={14} />
                                         <input
@@ -506,8 +506,15 @@ export default function AdminTimesheets() {
                                         DOWNLOAD TIMESHEET
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
-                                <div className="space-y-4">
+                <div className="flex-1 p-4 md:py-6 md:px-10 overflow-y-auto">
+                    <div className="max-w-[1200px] mx-auto animate-in fade-in duration-500">
+                        {tsSubView === 'summary' ? (
+                            <div className="space-y-4">
                                     {loading ? (
                                         <div className="py-20 flex flex-col items-center justify-center space-y-4 bg-white rounded-[32px] border border-brand-blue/5 shadow-sm">
                                             <div className="w-12 h-12 border-4 border-brand-blue border-t-transparent rounded-full animate-spin" />
@@ -608,7 +615,6 @@ export default function AdminTimesheets() {
                                         ))
                                     )}
                                 </div>
-                            </>
                         ) : (
                             <div className="flex flex-col gap-6">
                                 <WeeklyTimesheetGrid
