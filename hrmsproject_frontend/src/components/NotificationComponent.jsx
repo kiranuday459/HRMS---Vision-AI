@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCircle, Clock, X, CalendarDays } from 'lucide-react';
 import YearlyHolidayCalendar from '../pages/common/YearlyHolidayCalendar';
 import api from '../utils/api';
+import { toast } from 'react-toastify';
 
 const parseUTCDate = (value) => {
     if (!value) return null;
@@ -35,6 +36,7 @@ const getFormattedTimeHover = (dateString) => {
 const NotificationComponent = () => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [isClearing, setIsClearing] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [calendarOpen, setCalendarOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -149,6 +151,39 @@ const NotificationComponent = () => {
         }
     };
 
+    const clearAllNotifications = async () => {
+        if (notifications.length === 0 || isClearing) return;
+
+        const previousNotifications = notifications;
+        const previousUnreadCount = unreadCount;
+
+        // Optimistically clear notifications and reset unread badge
+        setNotifications([]);
+        setUnreadCount(0);
+        setIsClearing(true);
+
+        try {
+            const response = await api('/api/notifications/clear-all', {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                // Revert state on error
+                setNotifications(previousNotifications);
+                setUnreadCount(previousUnreadCount);
+                toast.error('Failed to clear notifications');
+            }
+        } catch (error) {
+            console.error('Error clearing notifications:', error);
+            // Revert state on error
+            setNotifications(previousNotifications);
+            setUnreadCount(previousUnreadCount);
+            toast.error('Failed to clear notifications');
+        } finally {
+            setIsClearing(false);
+        }
+    };
+
     const toggleDropdown = () => {
         if (!isOpen) fetchNotifications();
         setIsOpen(!isOpen);
@@ -185,13 +220,28 @@ const NotificationComponent = () => {
                     <div className="fixed sm:absolute right-4 sm:right-0 top-16 sm:top-full mt-2 w-[calc(100vw-32px)] sm:w-80 bg-white rounded-2xl shadow-2xl border border-brand-blue/5 overflow-hidden z-[100] animate-in fade-in zoom-in duration-200 origin-top-right overscroll-contain">
                         <div className="p-4 border-b border-brand-blue/5 flex justify-between items-center bg-brand-blue-dark text-white">
                             <h3 className="font-bold text-xs uppercase tracking-widest">Notifications</h3>
-                            <button
-                                onClick={() => { if (unreadCount > 0) markAllAsRead(); }}
-                                style={{ color: '#000000', opacity: 1 }}
-                                className={`text-xs font-bold tracking-wide transition-colors underline underline-offset-2 !text-black ${unreadCount > 0 ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
-                            >
-                                Mark all as read
-                            </button>
+                            <div className="flex items-center gap-3">
+                                {unreadCount > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => markAllAsRead()}
+                                        style={{ color: '#000000', opacity: 1 }}
+                                        className="text-xs font-bold tracking-wide transition-colors underline underline-offset-2 !text-black hover:opacity-80 cursor-pointer"
+                                    >
+                                        Mark all as read
+                                    </button>
+                                )}
+                                {notifications.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={clearAllNotifications}
+                                        disabled={isClearing}
+                                        className="text-xs font-bold tracking-wide transition-colors underline underline-offset-2 text-white hover:text-red-300 cursor-pointer disabled:opacity-50"
+                                    >
+                                        {isClearing ? 'Clearing...' : 'Clear All'}
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         <div ref={scrollListRef} className="max-h-[400px] overflow-y-auto overscroll-contain custom-scrollbar bg-slate-50/30">
@@ -245,7 +295,7 @@ const NotificationComponent = () => {
                                 ))
                             ) : (
                                 <div className="p-10 text-center">
-                                    <p className="text-[10px] font-bold text-brand-text/20 uppercase tracking-widest">No notifications yet</p>
+                                    <p className="text-[10px] font-bold text-brand-text/20 uppercase tracking-widest">No notifications</p>
                                 </div>
                             )}
                         </div>
