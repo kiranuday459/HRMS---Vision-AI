@@ -915,7 +915,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                             <div className="relative">
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/30 w-4 h-4" />
                                 <input
-                                    type="date" max="9999-12-31"
+                                    type="date"
                                     value={fromDate}
                                     max={today}
                                     onChange={(e) => applyDates(e.target.value, toDate)}
@@ -930,7 +930,7 @@ export default function DownloadClientTimesheetModal({ isOpen, onClose, employee
                             <div className="relative">
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/30 w-4 h-4" />
                                 <input
-                                    type="date" max="9999-12-31"
+                                    type="date"
                                     value={toDate}
                                     max={today}
                                     onChange={(e) => applyDates(fromDate, e.target.value)}

@@ -393,7 +393,7 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                             <div className="relative">
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/30 w-4 h-4" />
                                 <input
-                                    type="date" max="9999-12-31"
+                                    type="date"
                                     min={minFromDate}
                                     max={MAX_DATE}
                                     value={fromDate}
@@ -408,7 +408,7 @@ export default function DownloadTimesheetModal({ isOpen, onClose, employees: raw
                             <div className="relative">
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/30 w-4 h-4" />
                                 <input
-                                    type="date" max="9999-12-31"
+                                    type="date"
                                     min={MIN_DATE}
                                     max={MAX_DATE}
                                     value={toDate}
